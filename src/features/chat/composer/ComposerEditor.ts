@@ -184,9 +184,9 @@ export class ComposerEditor {
         ]),
         EditorView.lineWrapping,
         this.placeholderConfig.of(placeholder(this.placeholderText)),
-        // CodeMirror turns off native spellcheck and autocorrect, which also disables macOS text replacements.
+        // Keep macOS text replacements available without enabling spellcheck.
         EditorView.contentAttributes.of({
-          'aria-label': t('chat.composer.message'), 'aria-multiline': 'true', role: 'textbox', spellcheck: 'true', autocorrect: 'on',
+          'aria-label': t('chat.composer.message'), 'aria-multiline': 'true', role: 'textbox', spellcheck: 'false', autocorrect: 'on',
         }),
         EditorView.contentAttributes.of(view => {
           const description = this.ghostDescription(view.state.doc.length);

@@ -135,7 +135,18 @@ describe('LinkedContentController', () => {
       .toThrow('Invalid Linked content path');
   });
 
-  it('defaults only eligible Markdown Notes and respects excluded tags', () => {
+  it('uses an active PDF as linked content for the first submission', () => {
+    const pdf = createFile('Assets/Reference.pdf');
+    const harness = createHarness([pdf]);
+
+    harness.setActiveFile(pdf);
+    harness.controller.resetAutoDraft();
+
+    expect(harness.controller.getSnapshot()).toEqual({ mode: 'auto-draft', path: pdf.path });
+    expect(harness.controller.beginSubmission()).toEqual({ path: pdf.path });
+  });
+
+  it('respects excluded tags when choosing automatic Linked content', () => {
     const markdown = createFile('Notes/Private.md');
     const image = createFile('Images/Diagram.png');
     const harness = createHarness([markdown, image]);

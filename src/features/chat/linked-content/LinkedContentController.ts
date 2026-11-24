@@ -119,7 +119,7 @@ export class LinkedContentController {
     this.publish();
   }
 
-  /** New returning to a draft drops any explicit choice and links the active Note again. */
+  /** New returning to a draft drops any explicit choice and links the active file again. */
   reopenAutoDraft(): void {
     if (this.destroyed || (this.mode !== 'auto-draft' && this.mode !== 'explicit-draft')) return;
     this.resetAutoDraft();
@@ -330,7 +330,6 @@ export class LinkedContentController {
   #eligibleActiveFilePath(file: TFile | null): string | null {
     if (
       !file
-      || file.extension.toLocaleLowerCase() !== 'md'
       || this.#getExcludedTagState(file) !== 'not-excluded'
     ) {
       return null;

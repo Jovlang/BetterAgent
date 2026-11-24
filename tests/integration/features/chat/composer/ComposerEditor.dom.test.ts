@@ -353,12 +353,12 @@ it('allows input listeners to update composer modes', async () => {
   parent.remove();
 });
 
-it('leaves native spellcheck and text replacement enabled in the focused textbox', () => {
+it('disables native spellcheck without disabling text replacement in the focused textbox', () => {
   const parent = document.body.createDiv();
   const editor = createEditor(parent);
   editor.element.focus();
   const content = within(parent).getByRole('textbox', { name: 'Message' });
-  expect(content.getAttribute('spellcheck')).toBe('true');
+  expect(content.getAttribute('spellcheck')).toBe('false');
   expect(content.getAttribute('autocorrect')).toBe('on');
   editor.destroy();
   parent.remove();

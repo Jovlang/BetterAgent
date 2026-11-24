@@ -3,7 +3,7 @@ import { renameSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { until } from './cdp.mjs';
 
-const PLUGINS = ['realclaudian', 'claudian-smoke-probe'];
+const PLUGINS = ['betteragent', 'claudian-smoke-probe'];
 const TRUST_BUTTON = 'Trust author and enable plugins';
 
 // Obsidian 1.13.7 initializes plugins only after checking localStorage enable-plugin-<appId>.
@@ -18,7 +18,7 @@ export function stagePluginBootstrap(vault, tempRoot) {
 
 async function readState(cdp, page) {
   try {
-    return await cdp.evaluate(page, `window.app?.vault?.adapter?.basePath ? ({vault:app.vault.adapter.basePath,id:app.appId,enabled:app.plugins?.isEnabled(),loaded:!!app.plugins?.plugins.realclaudian && !!app.plugins?.plugins['claudian-smoke-probe']}) : null`);
+    return await cdp.evaluate(page, `window.app?.vault?.adapter?.basePath ? ({vault:app.vault.adapter.basePath,id:app.appId,enabled:app.plugins?.isEnabled(),loaded:!!app.plugins?.plugins.betteragent && !!app.plugins?.plugins['claudian-smoke-probe']}) : null`);
   } catch (error) {
     if (/context.*(destroyed|not found)|Cannot find context/i.test(error.message)) return null;
     throw error;

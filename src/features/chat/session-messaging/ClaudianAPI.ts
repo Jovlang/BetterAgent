@@ -32,7 +32,7 @@ export interface ClaudianInteractionEvent {
 export type ClaudianPendingInteraction = PendingInteractionSnapshot;
 
 /**
- * Experimental API for other plugins, reached as `app.plugins.getPlugin('realclaudian').api`.
+ * Experimental API for other plugins, reached as `app.plugins.getPlugin('betteragent').api`.
  * Its shape may change in minor releases while `version` is 1.
  */
 export interface ClaudianAPI {

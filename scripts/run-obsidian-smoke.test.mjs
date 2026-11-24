@@ -60,12 +60,12 @@ test('bootstrap keeps manifests out of the scan until origin trust can be seeded
   try {
     const vault = path.join(root, 'vault');
     const plugins = path.join(vault, '.obsidian/plugins');
-    mkdirSync(path.join(plugins, 'claudian'), { recursive: true });
-    writeFileSync(path.join(plugins, 'claudian/manifest.json'), '{"id":"realclaudian"}');
+    mkdirSync(path.join(plugins, 'betteragent'), { recursive: true });
+    writeFileSync(path.join(plugins, 'betteragent/manifest.json'), '{"id":"betteragent"}');
     const staged = stagePluginBootstrap(vault, root);
     assert.equal(existsSync(plugins), false, 'Host must see no manifests before its localStorage key is set');
-    assert.equal(existsSync(path.join(staged, 'claudian/manifest.json')), true);
-    assert.deepEqual(JSON.parse(readFileSync(path.join(vault, '.obsidian/community-plugins.json'), 'utf8')), ['realclaudian', 'claudian-smoke-probe']);
+    assert.equal(existsSync(path.join(staged, 'betteragent/manifest.json')), true);
+    assert.deepEqual(JSON.parse(readFileSync(path.join(vault, '.obsidian/community-plugins.json'), 'utf8')), ['betteragent', 'claudian-smoke-probe']);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 

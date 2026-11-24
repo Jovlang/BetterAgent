@@ -160,11 +160,11 @@ export async function checkHost(cdp, { vault, artifactDir, signal, check }) {
   await check('plugin-load', async () => {
     // Bootstrap already seeded restricted-mode trust before enabling either plugin.
     assert.equal(await evaluate('app.plugins.isEnabled()'), true);
-    await until(() => evaluate('!!app.plugins.plugins.realclaudian && !!window.__claudianSmokeProbe'), 'plugins enabled', signal);
-    return evaluate('({hostVersion:__claudianSmokeProbe.hostVersion,pluginVersion:app.plugins.plugins.realclaudian.manifest.version})');
+    await until(() => evaluate('!!app.plugins.plugins.betteragent && !!window.__claudianSmokeProbe'), 'plugins enabled', signal);
+    return evaluate('({hostVersion:__claudianSmokeProbe.hostVersion,pluginVersion:app.plugins.plugins.betteragent.manifest.version})');
   });
   await check('claudian-view', async () => {
-    await evaluate(`app.commands.executeCommandById('realclaudian:open-view')`);
+    await evaluate(`app.commands.executeCommandById('betteragent:open-view')`);
     await cdp.waitFor('textbox', 'Message');
     assert.equal(await evaluate('app.workspace.getLeavesOfType("claudian-view").length'), 1);
   });
@@ -193,7 +193,7 @@ export async function checkHost(cdp, { vault, artifactDir, signal, check }) {
   await modal('confirm-delete-project', () => cdp.click('menuitem', 'Delete project'), 'Confirm', { menu: 'Delete project' });
 
   await check('settings-accessibility', async () => {
-    await evaluate(`app.setting.open();app.setting.openTabById('realclaudian');true`);
+    await evaluate(`app.setting.open();app.setting.openTabById('betteragent');true`);
     const toggle = await cdp.waitFor('switch', 'Enable zen mode');
     const nodes = await cdp.tree(toggle.page);
     const switches = nodes.filter(node => !node.ignored && node.role?.value === 'switch');
@@ -244,20 +244,20 @@ export async function checkHost(cdp, { vault, artifactDir, signal, check }) {
     await evaluate(`window.__claudianSmokeOldView=app.workspace.getLeavesOfType('claudian-view')[0].view;app.workspace.getLeavesOfType('claudian-view')[0].detach();`);
     await until(async () => !await cdp.locate('textbox', 'Message', false), 'view closes', signal);
     assert.equal(await evaluate('app.workspace.getLeavesOfType("claudian-view").length'), 0);
-    await evaluate(`app.commands.executeCommandById('realclaudian:open-view')`);
+    await evaluate(`app.commands.executeCommandById('betteragent:open-view')`);
     await cdp.waitFor('textbox', 'Message');
     assert.equal(await evaluate('app.workspace.getLeavesOfType("claudian-view").length'), 1);
     assert.equal(await evaluate('app.workspace.getLeavesOfType("claudian-view")[0].view !== __claudianSmokeOldView'), true);
   });
   await check('inline-editor', async () => {
-    await evaluate(`(async()=>{const leaf=app.workspace.getLeaf('tab');await leaf.openFile(app.vault.getAbstractFileByPath('Smoke.md'));app.workspace.setActiveLeaf(leaf,{focus:true});app.commands.executeCommandById('realclaudian:inline-edit');})()`);
+    await evaluate(`(async()=>{const leaf=app.workspace.getLeaf('tab');await leaf.openFile(app.vault.getAbstractFileByPath('Smoke.md'));app.workspace.setActiveLeaf(leaf,{focus:true});app.commands.executeCommandById('betteragent:inline-edit');})()`);
     const input = await cdp.waitFor('textbox', 'Insert instructions');
     await cdp.escape(input.page);
     await until(async () => !await cdp.locate('textbox', 'Insert instructions', false), 'inline editor closes', signal);
   });
   await check('plugin-unload', async () => {
-    await evaluate(`(async()=>{await app.plugins.disablePlugin('claudian-smoke-probe');await app.plugins.disablePlugin('realclaudian');for(const [method,original] of Object.entries(__claudianSmokeScopes.original))app.keymap[method]=original;})()`);
-    assert.equal(await evaluate('!!app.plugins.plugins.realclaudian'), false);
+    await evaluate(`(async()=>{await app.plugins.disablePlugin('claudian-smoke-probe');await app.plugins.disablePlugin('betteragent');for(const [method,original] of Object.entries(__claudianSmokeScopes.original))app.keymap[method]=original;})()`);
+    assert.equal(await evaluate('!!app.plugins.plugins.betteragent'), false);
   });
   await check('renderer-errors', () => {
     writeFileSync(path.join(artifactDir, 'renderer-errors.json'), JSON.stringify(cdp.errors, null, 2));

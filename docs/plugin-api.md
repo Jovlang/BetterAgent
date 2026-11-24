@@ -18,7 +18,7 @@ import type { App } from 'obsidian';
 const app = this.app as App & {
   plugins: { getPlugin(id: string): { api?: ClaudianAPI } | null };
 };
-const claudian = app.plugins.getPlugin('realclaudian');
+const claudian = app.plugins.getPlugin('betteragent');
 const api = claudian?.api;
 if (api?.version !== 1) return; // Claudian is missing, disabled, still loading, or incompatible
 ```

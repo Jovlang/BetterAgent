@@ -50,21 +50,20 @@ Open Claudian interface from the ribbon icon or command palette. Everything work
 
 ## Installation
 
-### From a GitHub release
+### With BRAT
 
-1. Download `main.js`, `manifest.json`, and `styles.css` from the [latest BetterAgent release](https://github.com/Jovlang/BetterAgent/releases/latest).
-2. Close Obsidian. If Claudian is already installed, back up its plugin files, then copy the downloaded files into your vault's `.obsidian/plugins/realclaudian/` folder.
-3. Reopen Obsidian and enable BetterAgent under **Settings → Community plugins** if it is not already enabled.
-
-BetterAgent keeps Claudian's plugin ID so it can replace an existing installation without migrating settings or conversations. It is not a separate Community Plugins listing and cannot run alongside Claudian in the same vault.
+1. Install and enable [Obsidian42 - BRAT](https://github.com/TfTHacker/obsidian42-brat) in Obsidian.
+2. If Claudian or the earlier BetterAgent build is enabled, disable it in **Settings → Community plugins**. BetterAgent now has its own plugin ID (`betteragent`), but still uses Claudian's vault data and chat view, so don't enable both in the same vault.
+3. Run **BRAT: Add a beta plugin for testing**, enter `Jovlang/BetterAgent`, and choose **Latest Version** or version `2.3.48` or newer.
+4. If BRAT did not enable BetterAgent, enable it under **Settings → Community plugins**.
 
 ### From source (development)
 
 1. Clone this repository into your vault's plugins folder:
    ```bash
    cd /path/to/vault/.obsidian/plugins
-   git clone https://github.com/Jovlang/BetterAgent.git realclaudian
-   cd realclaudian
+   git clone https://github.com/Jovlang/BetterAgent.git betteragent
+   cd betteragent
    ```
 
 2. Install dependencies and build:

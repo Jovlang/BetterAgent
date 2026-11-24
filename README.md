@@ -1,17 +1,8 @@
-# Claudian
+# BetterAgent
 
-<p>
-  <a href="https://trendshift.io/repositories/21115?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-21115">
-    <img align="right" src="https://trendshift.io/api/badge/repositories/21115" alt="Claudian on Trendshift" width="180">
-  </a>
-  <img src="https://img.shields.io/github/stars/YishenTu/claudian" alt="GitHub stars" vspace="10">
-  <a href="https://community.obsidian.md/plugins/realclaudian">
-    <img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fobsidianmd%2Fobsidian-releases%2Fmaster%2Fcommunity-plugin-stats.json&amp;query=%24%5B%22realclaudian%22%5D.downloads&amp;label=downloads&amp;logo=obsidian&amp;color=7C3AED" alt="Obsidian downloads" vspace="10">
-  </a>
-  <img src="https://img.shields.io/github/v/release/YishenTu/claudian" alt="GitHub release" vspace="10">
-  <img src="https://img.shields.io/github/license/YishenTu/claudian" alt="License" vspace="10">
-  <br clear="both">
-</p>
+BetterAgent is a fork of [Claudian](https://github.com/YishenTu/claudian) by Yishen Tu. It disables spellcheck in the chat composer and lets new chats automatically link active non-Markdown files, such as PDFs and Canvas files. Existing tag exclusions still apply.
+
+The upstream documentation and screenshots below may still use the Claudian name.
 
 ![Preview](assets/Preview.png)
 
@@ -59,20 +50,20 @@ Open Claudian interface from the ribbon icon or command palette. Everything work
 
 ## Installation
 
-### From Obsidian Community Plugins (recommended)
+### From a GitHub release
 
-1. Open Obsidian → Settings → Community plugins → Browse
-2. Search for "Claudian" and click Install
-3. Enable the plugin
+1. Download `main.js`, `manifest.json`, and `styles.css` from the [latest BetterAgent release](https://github.com/Jovlang/BetterAgent/releases/latest).
+2. Close Obsidian. If Claudian is already installed, back up its plugin files, then copy the downloaded files into your vault's `.obsidian/plugins/realclaudian/` folder.
+3. Reopen Obsidian and enable BetterAgent under **Settings → Community plugins** if it is not already enabled.
 
-Or install directly from the [community plugin page](https://community.obsidian.md/plugins/realclaudian).
+BetterAgent keeps Claudian's plugin ID so it can replace an existing installation without migrating settings or conversations. It is not a separate Community Plugins listing and cannot run alongside Claudian in the same vault.
 
 ### From source (development)
 
 1. Clone this repository into your vault's plugins folder:
    ```bash
    cd /path/to/vault/.obsidian/plugins
-   git clone https://github.com/YishenTu/claudian.git realclaudian
+   git clone https://github.com/Jovlang/BetterAgent.git realclaudian
    cd realclaudian
    ```
 

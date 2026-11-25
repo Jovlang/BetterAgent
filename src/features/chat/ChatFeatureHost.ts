@@ -122,7 +122,7 @@ export interface ChatFeatureHost extends FeatureHost {
   readonly projects: ChatProjects;
 
   /** Offers a view's presentation to the single zen workspace owner; returns its unregistration. */
-  registerZenModeSource(source: ZenModeSource): () => void;
+  registerZenModeSource?(source: ZenModeSource): () => void;
 
   getView(): ChatViewHost | null;
   getAllViews(): ChatViewHost[];

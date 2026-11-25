@@ -25,8 +25,6 @@ import type { ConversationLifecycle } from '@/features/chat/conversation/Convers
 import type { SessionToolBinding } from '@/features/chat/execution/ChatExecutionCoordinator';
 import type { SessionMessagingService } from '@/features/chat/session-messaging/SessionMessagingService';
 import type { SessionRuntimePool } from '@/features/chat/sessions/SessionRuntimePool';
-import type { ZenModeSource } from '@/features/chat/zen/types';
-import type { ZenModeController } from '@/features/chat/zen/ZenModeController';
 import type { FeatureHost } from '@/features/FeatureHost';
 
 import type { AgentSkillResources } from './AgentSkillResources';
@@ -51,7 +49,6 @@ export interface ChatFeatureHostDomains extends FeatureHostDomains {
   readonly executionPersistence: ConversationRepository;
   readonly chatModelSelection: ChatModelSelectionCoordinator;
   readonly conversationLifecycle: ConversationLifecycle;
-  readonly zenMode: Pick<ZenModeController, 'register'>;
   readonly projects: ProjectService;
 }
 
@@ -202,10 +199,6 @@ export class ClaudianChatFeatureHost extends ClaudianFeatureHost implements Chat
 
   ensureConversationMetadataLoaded(conversationIds: readonly string[]): Promise<void> {
     return this.domains.conversations.ensureConversationMetadataLoaded(conversationIds);
-  }
-
-  registerZenModeSource(source: ZenModeSource): () => void {
-    return this.domains.zenMode.register(source);
   }
 
   getView(): ClaudianView | null {

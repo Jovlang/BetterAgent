@@ -780,7 +780,7 @@ export class ClaudianView extends ItemView implements ZenModeSource {
 
   private startZenModeSource(): void {
     if (this.zenSourceRegistration) return;
-    this.zenSourceRegistration = this.plugin.registerZenModeSource(this);
+    this.zenSourceRegistration = this.plugin.registerZenModeSource?.(this) ?? null;
   }
 
   private stopZenModeSource(): void {

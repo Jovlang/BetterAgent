@@ -87,6 +87,7 @@ it('renders the declarative settings surface and loads real skills only on first
     expect(within(h.container).getByRole('button', { name: t(`settings.tabs.${name}`) })).toBeDefined();
   }
   expect(within(h.container).queryByRole('button', { name: 'Projects' })).toBeNull();
+  expect(within(h.container).queryByRole('switch', { name: t('settings.enableZenMode.name') })).toBeNull();
   expect(h.getAdapter).not.toHaveBeenCalled();
   await h.vault.write('.agents/skills/local/SKILL.md', '---\nname: local\ndescription: Local skill\n---\nInstructions\n');
   fireEvent.click(within(h.container).getByRole('button', { name: t('settings.tabs.skills') }));
@@ -115,7 +116,6 @@ it('persists dual-pane changes before rerendering the available display controls
 
 it.each([
   ['restoreTabsOnStartup', 'settings.restoreTabsOnStartup.name'],
-  ['enableZenMode', 'settings.enableZenMode.name'],
 ] as const)('persists the %s toggle through the settings owner', async (key, label) => {
   const h = await createSettings();
   expect(h.settings[key]).toBe(true);

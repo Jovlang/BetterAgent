@@ -18,7 +18,6 @@ afterEach(() => document.body.replaceChildren());
 const cases = [
   ['chatViewPlacement', 'settings.chatViewPlacement.name', 'right-sidebar', 'main-tab'],
   ['chatFontScale', 'settings.chatFontScale.name', 100, 90],
-  ['enableZenMode', 'settings.enableZenMode.name', true, false],
   ['enableDualPane', 'settings.enableDualPane.name', true, false],
   ['dualPaneSide', 'settings.dualPaneSide.name', 'right', 'left'],
   ['restoreTabsOnStartup', 'settings.restoreTabsOnStartup.name', true, false],

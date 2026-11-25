@@ -31,7 +31,6 @@ it('scales chat text in every window from the committed slider value until unloa
   });
   const publisher = new ChatViewPublisher({
     views: { getAllViews: () => [] },
-    zenMode: { reconcile() {} },
     fontScale: { reconcile: () => fontScale.reconcile() },
     inactiveSessions: { request() {} },
     hasLoadedAllSessionMetadata: () => true,

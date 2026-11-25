@@ -51,7 +51,6 @@ import { createChatTabCommands } from './features/chat/workspace/ChatTabCommands
 import { ChatViewPublisher } from './features/chat/workspace/ChatViewPublisher';
 import { registerFileMenu } from './features/chat/workspace/fileMenu';
 import { VaultContentEvents } from './features/chat/workspace/VaultContentEvents';
-import { ZenModeController } from './features/chat/zen/ZenModeController';
 import { createInlineEditCommand } from './features/inline-edit/inlineEditCommand';
 import { InlineEditSessionOwner } from './features/inline-edit/InlineEditSessionOwner';
 import { ClaudianSettingTab } from './features/settings/ClaudianSettings';
@@ -86,22 +85,12 @@ export default class ClaudianPlugin extends Plugin {
   private readonly agentSkills = new AgentSkillResources(() => this.views.getAllViews());
   private readonly sessionToolEndpoint = new LoopbackSessionToolServer();
   private readonly inlineEditSessions = new InlineEditSessionOwner();
-  private readonly zenMode = new ZenModeController({
-    app: this.app,
-    isEnabled: () => this.settings.enableZenMode,
-    getPosition: () => this.settings.zenModePosition,
-    savePosition: (position) => {
-      // A failed write restores the committed position; the panel stays where it was dropped.
-      void this.settingsCoordinator.mutate((draft) => { draft.zenModePosition = position; }).catch(() => undefined);
-    },
-  });
   private readonly fontScale = new ChatFontScale({
     workspace: this.app.workspace,
     getPercent: () => this.settings.chatFontScale,
   });
   private readonly chatViews = new ChatViewPublisher({
     views: this.views,
-    zenMode: this.zenMode,
     fontScale: this.fontScale,
     inactiveSessions: { request: () => this.inactiveSessionArchiver.request() },
     hasLoadedAllSessionMetadata: () => this.sessionMetadata.hasLoadedAll,
@@ -126,7 +115,6 @@ export default class ClaudianPlugin extends Plugin {
       }
       // Unloaded while loading: shutdown owns the domains just built, and nothing may register after cleanup ran.
       if (this.isUnloading) return;
-      this.zenMode.start();
       this.fontScale.start();
       // Provider workspace services are initialized lazily on first use.
 
@@ -150,7 +138,7 @@ export default class ClaudianPlugin extends Plugin {
         id: 'open-view',
         name: 'Toggle chat view',
         callback: () => {
-          void this.views.toggleView(this.zenMode);
+          void this.views.toggleView();
         },
       });
 
@@ -164,11 +152,10 @@ export default class ClaudianPlugin extends Plugin {
         this.addCommand(command);
       }
       this.addCommand(createChatFocusCommand({
-        getComposer: () => this.views.getInputFocusView(this.zenMode.getActiveLeaf())?.getActiveTab()?.composer ?? null,
+        getComposer: () => this.views.getInputFocusView()?.getActiveTab()?.composer ?? null,
         getBackgroundChat: () => this.views.getBackgroundSidebarLeaf(),
         revealChat: (leaf, focus) => this.views.activateView(leaf, focus),
       }));
-      this.addCommand(this.zenMode.createToggleHistoryCommand());
 
       this.addCommand({
         id: 'copy-startup-diagnostics',
@@ -211,7 +198,6 @@ export default class ClaudianPlugin extends Plugin {
     this.lifetime.abort();
     this.fenceLoadedDomains();
     // Return any zen presentation to its view before asynchronous shutdown.
-    this.zenMode.dispose();
     this.fontScale.dispose();
     if (this.sessionInputCleanupTimer !== null) {
       window.clearTimeout(this.sessionInputCleanupTimer);
@@ -314,7 +300,7 @@ export default class ClaudianPlugin extends Plugin {
     });
     this.sessionMessaging = new SessionMessagingService({
       getHost: () => this.chatHost,
-      getActiveConversationId: () => this.views.getInputFocusView(this.zenMode.getActiveLeaf())?.getActiveTab()?.conversationId ?? null,
+      getActiveConversationId: () => this.views.getInputFocusView()?.getActiveTab()?.conversationId ?? null,
       refreshModelControls: providerId => this.chatViews.refreshModelSelector(providerId),
     });
     this.api = createClaudianAPI(this.sessionMessaging, { openSession: (id, options) => this.views.openSession(id, options) });
@@ -337,7 +323,6 @@ export default class ClaudianPlugin extends Plugin {
       conversationLifecycle: this.conversationLifecycle,
       executionPersistence: domains.conversationRepository,
       chatModelSelection: domains.chatModelSelection,
-      zenMode: this.zenMode,
       projects: domains.projects,
     });
     this.inactiveSessionArchiver = new InactiveSessionArchiver(this.chatHost);

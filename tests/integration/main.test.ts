@@ -30,7 +30,6 @@ import { resolveSessionMentions } from '@/features/chat/composer/resolveSessionM
 import { ConversationTitleGeneration } from '@/features/chat/conversation/ConversationTitleGeneration';
 import { SessionMessagingService } from '@/features/chat/session-messaging/SessionMessagingService';
 import { SessionRuntimePool } from '@/features/chat/sessions/SessionRuntimePool';
-import { ZenModeController } from '@/features/chat/zen/ZenModeController';
 import * as sdkSession from '@/providers/claude/history/ClaudeHistoryStore';
 import { createCodexModelCatalogCommit } from '@/providers/codex/app/CodexWorkspaceServices';
 import { CodexModelCatalogCoordinator } from '@/providers/codex/runtime/CodexModelCatalogCoordinator';
@@ -284,7 +283,6 @@ describe('ClaudianPlugin', () => {
     await plugin.onload();
     const views = createPublishedViews();
     const viewsSpy = vi.spyOn(viewsOf(plugin), 'getAllViews').mockReturnValue(views as never);
-    const zenReconcile = vi.spyOn(ZenModeController.prototype, 'reconcile');
     let finish!: () => void;
     let started!: () => void;
     const writing = new Promise<void>(resolve => { started = resolve; });
@@ -296,13 +294,11 @@ describe('ClaudianPlugin', () => {
       const change = chatHostOf(plugin).mutateSettings(settings => {
         settings.enableDualPane = !settings.enableDualPane;
         settings.hiddenCommands = ['test-command'];
-        settings.enableZenMode = !settings.enableZenMode;
       });
       await writing;
       for (const view of views) {
         for (const refresh of Object.values(view)) expect(refresh).not.toHaveBeenCalled();
       }
-      expect(zenReconcile).not.toHaveBeenCalled();
       finish();
       await change;
       for (const view of views) {
@@ -310,7 +306,6 @@ describe('ClaudianPlugin', () => {
         for (const refresh of Object.values(presentationRefreshes)) expect(refresh).toHaveBeenCalledTimes(1);
         expect(notifyConversationListChanged).not.toHaveBeenCalled();
       }
-      expect(zenReconcile).toHaveBeenCalledTimes(1);
       persist.mockRejectedValueOnce(new Error('disk unavailable'));
       await expect(chatHostOf(plugin).mutateSettings(settings => {
         settings.enableDualPane = !settings.enableDualPane;
@@ -324,7 +319,6 @@ describe('ClaudianPlugin', () => {
       expect(chatHostOf(plugin).getCommittedSettings().hiddenCommands).toEqual(['other-command']);
     } finally {
       viewsSpy.mockRestore();
-      zenReconcile.mockRestore();
       persist.mockRestore();
     }
   });
@@ -2242,13 +2236,16 @@ describe('ClaudianPlugin', () => {
     });
   });
 
-  it.each([
-    ['focus-zen-mode-input', 'Toggle chat input focus'],
-    ['toggle-zen-mode-history', 'Toggle zen mode history'],
-  ])('registers %s for hotkey assignment', async (id, name) => {
+  it('does not register a floating chat history command', async () => {
     await plugin.onload();
-    const command = getRegisteredCommand(id);
-    expect(command.name).toBe(name);
+    expect((plugin.addCommand as Mock).mock.calls.map(([command]) => command.id))
+      .not.toContain('toggle-zen-mode-history');
+  });
+
+  it('keeps the normal composer focus hotkey assignment', async () => {
+    await plugin.onload();
+    const command = getRegisteredCommand('focus-zen-mode-input');
+    expect(command.name).toBe('Toggle chat input focus');
     expect(command.checkCallback(true)).toBe(false);
   });
 

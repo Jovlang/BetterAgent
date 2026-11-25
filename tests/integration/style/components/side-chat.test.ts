@@ -23,7 +23,6 @@ describe('Side chat full height styles', () => {
     'src/style/components/messages.css',
     'src/style/components/input.css',
     'src/style/components/side-chat.css',
-    'src/style/components/zen-mode.css',
     'src/style/base/visibility.css',
   ]
     .map(file => readFileSync(path.resolve(file), 'utf8'))
@@ -35,7 +34,7 @@ describe('Side chat full height styles', () => {
   });
 
   /** Mounts a real panel in the view footer's composer slot, as the presentation placement does. */
-  function renderView(composerParentSelector = '.claudian-active-input-slot') {
+  function renderView() {
     const style = document.createElement('style');
     style.textContent = css;
     document.head.appendChild(style);
@@ -51,17 +50,13 @@ describe('Side chat full height styles', () => {
             <div class="claudian-active-input-slot"></div>
           </div>
         </div>
-        <div class="claudian-zen"><div class="claudian-zen-composer"></div></div>
       </div>
     `;
-    const composerEl = document.querySelector(composerParentSelector)!
+    const composerEl = document.querySelector('.claudian-active-input-slot')!
       .appendChild(document.createElement('div'));
     composerEl.className = 'claudian-input-composer claudian-side-chat-expanded';
     const panel = new SideChatPanel(composerEl, { onCollapse: () => {}, onDiscard: () => {}, onExpand: () => {} });
-    // The view lends its chat panel only while the composer sits in its footer slot.
-    if (composerParentSelector === '.claudian-active-input-slot') {
-      panel.setFullHeightHost(document.querySelector<HTMLElement>('.claudian-chat-panel'));
-    }
+    panel.setFullHeightHost(document.querySelector<HTMLElement>('.claudian-chat-panel'));
     return {
       panel,
       panelEl: panel.rootEl.querySelector<HTMLElement>('.claudian-side-chat-panel')!,
@@ -103,13 +98,5 @@ describe('Side chat full height styles', () => {
     panel.setExpanded(true);
     expect(window.getComputedStyle(transcriptEl).display).toBe('none');
     expect(window.getComputedStyle(panelEl).maxHeight).toBe('none');
-  });
-
-  it('offers no full height control in the floating zen composer', () => {
-    const { panel } = renderView('.claudian-zen-composer');
-    const button = within(panel.rootEl).getByLabelText('Full height');
-    expect(window.getComputedStyle(button).display).toBe('none');
-    expect(window.getComputedStyle(within(panel.rootEl).getByRole('button', { name: 'Collapse' })).display)
-      .not.toBe('none');
   });
 });

@@ -314,15 +314,6 @@ export class ClaudianSettingTab extends PluginSettingTab {
       });
 
     new AccessibleSetting(container)
-      .setName(t('settings.enableZenMode.name'))
-      .setDesc(t('settings.enableZenMode.desc'))
-      .addToggle((toggle) => {
-        bindCommittedControl(toggle, () => this.host.settings.enableZenMode, async value => {
-          await this.host.mutateSettings(settings => { settings.enableZenMode = value; });
-        });
-      });
-
-    new AccessibleSetting(container)
       .setName(t('settings.enableDualPane.name'))
       .setDesc(t('settings.enableDualPane.desc'))
       .addToggle((toggle) => {

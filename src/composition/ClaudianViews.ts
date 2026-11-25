@@ -45,7 +45,7 @@ export class ClaudianViews {
   }
 
   /** Chooses a visible composer without opening or revealing a chat. */
-  getInputFocusView(zenLeaf: WorkspaceLeaf | null): ClaudianView | null {
+  getInputFocusView(zenLeaf?: WorkspaceLeaf | null): ClaudianView | null {
     const views = this.getAllViews().filter(view => view.getActiveTab()?.composer.isVisible());
     const preferred = this.getView();
     return views.find(view => view.getActiveTab()?.composer.isFocused())
@@ -99,8 +99,8 @@ export class ClaudianViews {
    * Hides a chat the user can see, else shows one. A shown zen panel hides itself; a
    * sidebar chat yields to a sibling tab so the sidebar stays open.
    */
-  async toggleView(zen: Pick<ZenModeController, 'toggleVisibility' | 'hide' | 'getActiveLeaf'>): Promise<void> {
-    if (zen.toggleVisibility()) {
+  async toggleView(zen?: Pick<ZenModeController, 'toggleVisibility' | 'hide' | 'getActiveLeaf'>): Promise<void> {
+    if (zen?.toggleVisibility()) {
       const leaf = zen.getActiveLeaf();
       if (leaf && isClaudianView(leaf.view)) leaf.view.focusActiveInput();
       return;
@@ -127,7 +127,7 @@ export class ClaudianViews {
     }
     // A chat-only tab group can only hide with its sidebar; zen must not replace it.
     sidebar.collapse();
-    zen.hide(leaf);
+    zen?.hide(leaf);
   }
 
   /**

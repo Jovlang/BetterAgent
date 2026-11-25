@@ -92,6 +92,8 @@ export interface TabPlacementPort {
   /** Moves the composer into `slotEl`, restoring focus when the composer already held it. */
   placeComposer(slotEl: HTMLElement): void;
   isComposerPlacedIn(slotEl: HTMLElement): boolean;
+  /** Places view-owned action buttons next to Linked content in the existing info row. */
+  placeComposerActions(actions: readonly HTMLButtonElement[]): void;
   /** Returns the composer to the tab's own content. */
   restoreComposer(): void;
   /** Moves the transcript into `hostEl`, leaving an anchor that the returned handle restores. */

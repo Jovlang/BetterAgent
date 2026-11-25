@@ -1,4 +1,8 @@
+// @test-ci {"inputs":["src/style/components/history.css"]}
 /** @vitest-environment jsdom */
+
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 
 import { createHarness as createExecutionHarness, deferred } from '@test/helpers/ChatExecutionHarness';
 import { holdResponse } from '@test/helpers/ConversationPorts';
@@ -36,10 +40,11 @@ const openedViews: Awaited<ReturnType<typeof createClaudianView>>[] = [];
 async function createView(options: {
   width?: number;
   singleViewer?: boolean;
+  records?: ReturnType<typeof conversationRecord>[];
   fixture?: Awaited<ReturnType<typeof createFeatureHostFixture>>;
   host?: Omit<NonNullable<NonNullable<Parameters<typeof createSessionBrowserHost>[0]>['host']>, 'fixture' | 'app'>;
 } = {}) {
-  const records = ['one', 'two'].map(id => conversationRecord(id));
+  const records = options.records ?? ['one', 'two'].map(id => conversationRecord(id));
   const { settings, ...overrides } = options.host ?? {};
   const fixture = options.fixture ?? await createFeatureHostFixture({ settings: { restoreTabsOnStartup: true, enableAutoTitleGeneration: false, ...settings } });
   const { plugin, pool } = await createSessionBrowserHost({ conversations: records.map(record => ({ ...record, messageCount: 0, preview: '' })), host: {
@@ -322,33 +327,99 @@ describe('ClaudianView provider and presentation wiring', () => {
     expect(contentEl.querySelector('.claudian-active-input-slot')?.contains(active.dom.inputComposerEl)).toBe(true);
   });
 
-  it('keeps one viewer and its composer when a narrow pane grows and shrinks', async () => {
-    const { view, manager, contentEl, resize } = await openView({
+  it('hides and restores history without replacing the active composer when a pane resizes', async () => {
+    const style = document.head.createEl('style', {
+      text: readFileSync(path.resolve('src/style/components/history.css'), 'utf8'),
+    });
+    onTestFinished(() => style.remove());
+    const { view, manager, plugin, contentEl, resize } = await openView({
       width: 400,
       singleViewer: true,
-      host: { settings: { enableDualPane: false, dualPaneSide: 'left' } },
+      host: { settings: { enableDualPane: false, dualPaneSide: 'left', sessionManagerOrganization: 'linked-content' } },
+      records: [
+        conversationRecord('one', { linkedContentPath: 'notes/brief.pdf' }),
+        conversationRecord('two', { linkedContentPath: 'notes/brief.pdf' }),
+        conversationRecord('archived', { isArchived: true }),
+      ],
     });
+    const brief = Object.assign(new TFile(), {
+      path: 'notes/brief.pdf', extension: 'pdf', name: 'brief.pdf', basename: 'brief',
+    });
+    vi.spyOn(plugin.app.vault, 'getAllLoadedFiles').mockReturnValue([brief]);
     await view.openSession('one');
     const tab = manager.getActiveTab()!;
     const composer = tab.dom.inputComposerEl;
-    const history = contentEl.querySelector('.claudian-session-sidebar');
+    const history = contentEl.querySelector<HTMLElement>('.claudian-session-sidebar')!;
     expect(history?.querySelector('.claudian-session-surface')).not.toBeNull();
-    expect(contentEl.classList.contains('claudian-session-viewer-stacked')).toBe(true);
     expect(contentEl.classList.contains('claudian-session-sidebar-left')).toBe(false);
     expect(view.getCompactTabManager()).toBeNull();
     expect(contentEl.querySelector('.claudian-active-input-slot')?.contains(composer)).toBe(true);
 
+    tab.dom.inputEl.value = 'Unsent draft';
+    const chat = contentEl.querySelector<HTMLElement>('.claudian-chat-panel')!;
+    tab.dom.messagesEl.scrollTop = 120;
+    const historyToggle = within(contentEl).getByRole('button', { name: 'Conversation history' });
+    expect(historyToggle.getAttribute('aria-controls')).toBe(history.id);
+    expect(historyToggle.getAttribute('aria-expanded')).toBe('false');
+    expect(getComputedStyle(history).display).toBe('none');
+    const footer = within(tab.dom.infoRowEl);
+    expect(footer.getByText('brief.pdf')).toBeTruthy();
+    const actionNames = ['New chat', 'Conversation history', 'Search sessions', 'More chat actions'];
+    for (const name of actionNames) {
+      const button = footer.getByRole('button', { name });
+      expect(button.parentElement).toBe(tab.dom.infoRowEl);
+      expect(button.textContent).toBe('');
+      expect(within(contentEl).getAllByRole('button', { name })).toEqual([button]);
+    }
+
+    fireEvent.click(historyToggle);
+    expect(historyToggle.getAttribute('aria-expanded')).toBe('true');
+    expect(getComputedStyle(history).display).toBe('flex');
+    expect(chat.hasAttribute('inert')).toBe(true);
+    expect(getComputedStyle(chat).visibility).toBe('hidden');
+    expect(within(history).getAllByText('brief.pdf')).toHaveLength(2);
+    expect(within(history).getByRole('button', { name: 'two brief.pdf' })).toBeTruthy();
+    expect(within(history).getByRole('button', { name: 'Actions for two' })).toBeTruthy();
+    expect(within(history).queryByRole('button', { name: 'Archive' })).toBeNull();
+
     resize(800);
-    expect(contentEl.classList.contains('claudian-session-viewer-stacked')).toBe(false);
+    expect(history.hidden).toBe(false);
+    expect(chat.hasAttribute('inert')).toBe(false);
+    expect(getComputedStyle(chat).visibility).toBe('visible');
     resize(350);
-    expect(contentEl.classList.contains('claudian-session-viewer-stacked')).toBe(true);
+    expect(chat.hasAttribute('inert')).toBe(true);
+    fireEvent.click(within(contentEl).getByRole('button', { name: 'Back to conversation' }));
+    expect(historyToggle.getAttribute('aria-expanded')).toBe('false');
+    expect(getComputedStyle(history).display).toBe('none');
+    expect(chat.hasAttribute('inert')).toBe(false);
     expect(view.getActiveTab()).toBe(tab);
     expect(contentEl.querySelector('.claudian-active-input-slot')?.contains(composer)).toBe(true);
-    expect(contentEl.querySelector('.claudian-session-sidebar')).toBe(history);
+    expect(tab.dom.inputEl.value).toBe('Unsent draft');
+    expect(tab.dom.messagesEl.scrollTop).toBe(120);
 
-    await view.openSession('two');
+    fireEvent.click(footer.getByRole('button', { name: 'Search sessions' }));
+    const search = within(history).getByRole('searchbox', { name: 'Search sessions' });
+    expect(document.activeElement).toBe(search);
+    fireEvent.input(search, { target: { value: 'two' } });
+    expect(within(history).queryByText('one')).toBeNull();
+    fireEvent.click(within(history).getByRole('button', { name: 'two brief.pdf' }));
+    await waitFor(() => expect(history.hidden).toBe(true));
     expect(view.getActiveTab()?.conversationId).toBe('two');
     expect(view.getCompactTabManager()).toBeNull();
+
+    const nextFooter = within(manager.getActiveTab()!.dom.infoRowEl);
+    expect(nextFooter.getByRole('button', { name: 'Conversation history' })).toBe(historyToggle);
+    fireEvent.click(nextFooter.getByRole('button', { name: 'More chat actions' }));
+    const menu = (Menu as typeof Menu & {
+      instances: Array<{ items: Array<{ title: string; clickHandler?: () => void }>; hide(): void }>;
+    }).instances.at(-1)!;
+    menu.items.find(item => item.title === 'Archive')?.clickHandler?.();
+    menu.hide();
+    expect(within(history).getByText('archived')).toBeTruthy();
+    expect(within(history).queryByText('two')).toBeNull();
+    fireEvent.click(within(history).getByRole('button', { name: 'Back to conversation' }));
+    fireEvent.click(nextFooter.getByRole('button', { name: 'New chat' }));
+    await waitFor(() => expect(view.getActiveTab()?.conversationId).toBeNull());
   });
 
   it('routes picked sessions and /new through the real viewer only while wide', async () => {

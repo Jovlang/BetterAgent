@@ -1,3 +1,5 @@
+import type { Menu } from 'obsidian';
+
 import { StartupProfiler } from '@/core/performance/StartupProfiler';
 import type { ChatFeatureHost } from '@/features/chat/ChatFeatureHost';
 import { HistoryDropdown } from '@/features/chat/session-manager/HistoryDropdown';
@@ -12,7 +14,8 @@ export interface SessionManagerSurfaceDeps {
   plugin: ChatFeatureHost;
   navigation: SessionSurfaceNavigation;
   getActiveTab(): ChatTab | null;
-  isWide(): boolean;
+  isSidebarVisible(): boolean;
+  flatHistory?: boolean;
   /** Whether another tab fits; null while the view has no tabs. */
   canCreateTab(): boolean | null;
   requestNew(): void;
@@ -62,9 +65,10 @@ export class SessionManagerSurface {
       plugin: deps.plugin,
       navigation: deps.navigation,
       shared,
-      isWide: () => deps.isWide(),
+      isVisible: () => deps.isSidebarVisible(),
       canCreateTab: () => deps.canCreateTab(),
       requestNew: () => deps.requestNew(),
+      flatHistory: deps.flatHistory,
       notifyOtherViews: () => deps.notifyOtherViews(),
     });
   }
@@ -75,8 +79,8 @@ export class SessionManagerSurface {
   }
 
   /** Builds the dual-pane sidebar surface inside `sidebarEl`. */
-  mountSidebar(sidebarEl: HTMLElement): void {
-    this.sidebar.mount(sidebarEl);
+  mountSidebar(sidebarEl: HTMLElement, headerControls?: readonly [HTMLElement, HTMLElement]): void {
+    this.sidebar.mount(sidebarEl, headerControls);
   }
 
   /** Builds the single-pane history button and its drop-up menu inside `parentEl`. */
@@ -89,7 +93,7 @@ export class SessionManagerSurface {
     this.dropdown.markDirty();
     this.sidebar.markDirty();
     this.dropdown.renderIfVisible();
-    if (this.deps.isWide()) this.sidebar.render();
+    if (this.deps.isSidebarVisible()) this.sidebar.render();
   }
 
   /** Hides the dropdown when a document click lands outside it, keeping its rendered list. */
@@ -102,9 +106,18 @@ export class SessionManagerSurface {
     this.dropdown.close();
   }
 
-  /** Leaving the wide layout ends sidebar search and rendering. */
+  /** A hidden sidebar ends search; the toolbar always reopens the active history list. */
   leaveWide(): void {
     this.sidebar.leave();
+    if (this.deps.flatHistory) this.setArchiveView(false);
+  }
+
+  addHistoryMenuItems(menu: Menu, showHistory: () => void): void {
+    this.sidebar.addHistoryMenuItems(menu, showHistory);
+  }
+
+  focusSearch(): void {
+    this.sidebar.activateSearch();
   }
 
   renderSidebar(): void {
@@ -136,7 +149,7 @@ export class SessionManagerSurface {
     this.isArchiveView = isArchiveView;
     this.dropdown.markDirty();
     this.sidebar.markDirty();
-    if (this.deps.isWide()) {
+    if (this.deps.isSidebarVisible()) {
       this.sidebar.render();
     } else {
       this.dropdown.renderIfVisible();

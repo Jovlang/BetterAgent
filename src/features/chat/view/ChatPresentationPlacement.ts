@@ -17,6 +17,7 @@ export class ChatPresentationPlacement {
   private sideChatChipHostEl: HTMLElement | null = null;
   private inputNavRowHostEl: HTMLElement | null = null;
   private activeInputSlotEl: HTMLElement | null = null;
+  private composerActions: readonly HTMLButtonElement[] = [];
   private navRowContentEl: HTMLElement | null = null;
   /**
    * The runtime whose composer sits in the active input slot. Held by reference, not by id: a
@@ -31,13 +32,14 @@ export class ChatPresentationPlacement {
   constructor(private readonly context: ChatPresentationContext) {}
 
   /** Builds the view-owned footer: chip slot, navigation row host, and composer slot. */
-  mount(chatPanelEl: HTMLElement): void {
+  mount(chatPanelEl: HTMLElement, composerActions: readonly HTMLButtonElement[] = []): void {
+    this.composerActions = composerActions;
     this.chatPanelEl = chatPanelEl;
     this.inputFooterEl = chatPanelEl.createDiv({ cls: 'claudian-input-footer' });
     this.sideChatChipHostEl = this.inputFooterEl.createDiv({ cls: 'claudian-side-chat-chip-slot' });
-    this.inputNavRowHostEl = this.inputFooterEl.createDiv({
+    this.inputNavRowHostEl = composerActions.length === 0 ? this.inputFooterEl.createDiv({
       cls: 'claudian-input-nav-row claudian-view-input-nav-row',
-    });
+    }) : null;
     this.activeInputSlotEl = this.inputFooterEl.createDiv({ cls: 'claudian-active-input-slot' });
     this.navRowContentEl = null;
   }
@@ -50,7 +52,7 @@ export class ChatPresentationPlacement {
 
   /** View controls that keep the active tab's selection context while focused. */
   getSharedFocusScopeEls(): HTMLElement[] {
-    return this.inputNavRowHostEl ? [this.inputNavRowHostEl] : [];
+    return this.inputNavRowHostEl ? [this.inputNavRowHostEl] : [...this.composerActions];
   }
 
   /** Places the active composer in the footer slot, or the zen slot while zen owns presentation. */
@@ -60,6 +62,8 @@ export class ChatPresentationPlacement {
     if (!activeInputSlotEl) return;
     this.updateChip();
     this.updateZenTranscript(activeTab);
+    if (activeTab && !this.zenSlots) activeTab.placement.placeComposerActions(this.composerActions);
+    else this.removeComposerActions();
     const zenComposerSlotEl = this.zenSlots?.composerEl ?? null;
     const inputSlotEl = zenComposerSlotEl ?? activeInputSlotEl;
 
@@ -84,6 +88,10 @@ export class ChatPresentationPlacement {
     inputSlotEl.empty();
     activeTab.placement.placeComposer(inputSlotEl);
     this.activeInputTab = activeTab;
+  }
+
+  private removeComposerActions(): void {
+    for (const action of this.composerActions) action.remove();
   }
 
   /** Lends the side-chat chip and full height hosts to the active tab for the current layout. */
@@ -125,6 +133,7 @@ export class ChatPresentationPlacement {
 
   /** Returns the chip and the active composer to their tab-owned locations. */
   restoreAll(): void {
+    this.removeComposerActions();
     this.sideChatChipTab?.placement.setSideChatChipHost(null);
     this.sideChatChipTab?.placement.setSideChatFullHeightHost(null);
     this.sideChatChipTab = null;

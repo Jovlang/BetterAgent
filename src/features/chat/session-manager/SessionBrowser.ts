@@ -23,6 +23,8 @@ import {
 } from '@/features/chat/session-manager/SessionLineage';
 import {
   deriveSessionListModel,
+  getLinkedContentTitle,
+  isLegacyProvisionalLinkedContent,
   type ProjectListSection,
   type SessionListSection,
   sessionManagerSectionKey,
@@ -48,7 +50,7 @@ import {
   type SessionStatusIndicatorKind,
   sessionStatusText,
 } from '@/features/chat/session-manager/SessionStatusPresentation';
-import { bindMenuToggle, showMenuAt } from '@/features/chat/session-manager/SessionSurfaceShared';
+import { bindMenuToggle, createSessionHeaderMenuAction, showMenuAt } from '@/features/chat/session-manager/SessionSurfaceShared';
 import { runSessionAction } from '@/features/chat/utils/runSessionAction';
 import { t } from '@/i18n/i18n';
 import { LiveListSorter } from '@/shared/components/LiveListSorter';
@@ -73,6 +75,7 @@ type HistoryRenderOptions = SessionActionOptions & SessionStatusDisplay & Sessio
   pageSize?: number;
   visibleCount?: number;
   showMetadataPopover?: boolean;
+  flatHistory?: boolean;
   organization?: SessionManagerOrganization;
   /** Divides an unpinned flat list into recency groups. */
   groupByRecency?: boolean;
@@ -98,6 +101,7 @@ type HistoryRenderOptions = SessionActionOptions & SessionStatusDisplay & Sessio
   showPinnedSection?: boolean;
   showArchivedSection?: boolean;
   historyHeaderLabel?: string;
+  historyHeaderControls?: readonly [HTMLElement, HTMLElement];
   allowConversationSelection?: boolean;
   searchQuery?: string;
   onRequestInlineRename?: (request: {
@@ -226,7 +230,7 @@ export class SessionBrowser {
       searchQuery: options.searchQuery,
       showPinnedSection: options.showPinnedSection,
       pinnedLinkedContentPaths: options.pinnedLinkedContentPaths,
-      projects: plugin.projects,
+      projects: options.flatHistory ? undefined : plugin.projects,
       projectOrder: savedProjectOrder(plugin.settings),
       isGroupCollapsed: options.isGroupCollapsed,
       contentExists: options.contentExists,
@@ -318,7 +322,10 @@ export class SessionBrowser {
       );
     } else {
       const dropdownHeader = container.createDiv({ cls: 'claudian-history-header' });
+      const controls = options.historyHeaderControls;
+      if (controls) dropdownHeader.append(controls[0]);
       dropdownHeader.createSpan({ text: options.historyHeaderLabel ?? 'Sessions' });
+      if (controls) dropdownHeader.append(controls[1]);
       list = container.createDiv({ cls: 'claudian-history-list' });
       sessionList = list;
     }
@@ -389,9 +396,12 @@ export class SessionBrowser {
       const remainingVisibleCount = visibleCount - renderedConversationCount;
       const isCollapsed = isGrouped
         && (options.isGroupCollapsed?.(section.key) ?? false);
+      const conversations = options.flatHistory && options.sessionScope === 'active'
+        ? section.conversations.slice().sort((a, b) => Number(!!b.isPinned) - Number(!!a.isPinned))
+        : section.conversations;
       const visibleConversations = isCollapsed || remainingVisibleCount <= 0
         ? []
-        : section.conversations.slice(0, remainingVisibleCount);
+        : conversations.slice(0, remainingVisibleCount);
       if (!isGrouped && visibleConversations.length === 0) break;
 
       if (isGrouped) {
@@ -835,6 +845,14 @@ export class SessionBrowser {
       setIcon(lineageEl, lineageIcon(conversation.origin.kind));
       titleEl.prepend(lineageEl);
     }
+    const linkedPath = conversation.linkedContentPath;
+    if (options.flatHistory && linkedPath && !isLegacyProvisionalLinkedContent(linkedPath, { ...options, language: options.language ?? 'en' })) {
+      content.createDiv({
+        cls: 'claudian-history-item-filename',
+        text: getLinkedContentTitle(linkedPath),
+        attr: { title: linkedPath },
+      });
+    }
     if (options.showMetadataPopover) {
       const focusTarget = isSelectable ? content : item;
       focusTarget.setAttribute('tabindex', '0');
@@ -893,12 +911,22 @@ export class SessionBrowser {
       this.selection.clear();
       // The menu reflects the session's status when it opens, not when the row rendered.
       const menuStatus = this.#lookUpStatus(conversation.id, isCurrent ? 'current' : 'closed', options);
-      this.actions.rowMenu(row(menuStatus), options, item).showAtMouseEvent(event);
+      this.#createConversationMenu(row(menuStatus), options, item).showAtMouseEvent(event);
     });
 
     const actionsEl = item.createDiv({ cls: 'claudian-history-item-actions' });
-    this.#renderTitleGenerationAction(actionsEl, conversation);
-    this.actions.renderRowButtons(actionsEl, row(conversationStatus), options);
+    if (options.flatHistory) {
+      createSessionHeaderMenuAction(actionsEl, 'ellipsis', t('chat.tabNavigation.sessionActions', { title: conversation.title }),
+        (anchor, event) => {
+          const status = this.#lookUpStatus(conversation.id, isCurrent ? 'current' : 'closed', options);
+          const menu = this.#createConversationMenu(row(status), options, anchor);
+          showMenuAt(menu, anchor, event);
+          return menu;
+        });
+    } else {
+      this.#renderTitleGenerationAction(actionsEl, conversation);
+      this.actions.renderRowButtons(actionsEl, row(conversationStatus), options);
+    }
 
     if (sessionStatusKind) {
       this.#createSessionStatusIndicator(item, sessionStatusKind);
@@ -1040,6 +1068,37 @@ export class SessionBrowser {
     }
   }
 
+  #createConversationMenu(row: SessionRow, options: HistoryRenderOptions, anchor: HTMLElement): Menu {
+    const menu = this.actions.rowMenu(row, options, anchor, options.flatHistory ? 'overflow' : 'menu');
+    if (options.flatHistory && options.sessionActionMode === 'active') {
+      const label = this.#getTitleGenerationLabel(row.conversation);
+      if (label) {
+        menu.addItem(item => item.setTitle(label).setIcon('refresh-cw')
+          .onClick(() => this.#regenerateTitle(row.conversation.id)));
+      }
+    }
+    return menu;
+  }
+
+  #getTitleGenerationLabel(conversation: ConversationMeta): string | null {
+    if (
+      !this.deps.plugin.settings.enableAutoTitleGeneration
+      || (conversation.titleGenerationStatus && conversation.titleGenerationStatus !== 'failed')
+    ) {
+      return null;
+    }
+    return t(conversation.titleGenerationStatus === 'failed'
+      ? 'chat.tabNavigation.regenerateTitle'
+      : 'chat.tabNavigation.generateTitle');
+  }
+
+  #regenerateTitle(conversationId: string): void {
+    runSessionAction(
+      () => this.titles.regenerate(conversationId),
+      t('chat.tabNavigation.generateTitleFailed'),
+    );
+  }
+
   #renderTitleGenerationAction(actionsEl: HTMLElement, conversation: ConversationMeta): void {
     if (conversation.titleGenerationStatus === 'pending') {
       const loadingEl = actionsEl.createSpan({
@@ -1049,25 +1108,17 @@ export class SessionBrowser {
       loadingEl.setAttribute('aria-label', 'Generating title...');
       return;
     }
-    if (
-      !this.deps.plugin.settings.enableAutoTitleGeneration
-      || (conversation.titleGenerationStatus && conversation.titleGenerationStatus !== 'failed')
-    ) {
-      return;
-    }
+    const label = this.#getTitleGenerationLabel(conversation);
+    if (!label) return;
     const regenerateBtn = actionsEl.createEl('button', {
       cls: 'claudian-action-btn',
       attr: { type: 'button' },
     });
     setIcon(regenerateBtn, 'refresh-cw');
-    regenerateBtn.setAttribute('aria-label', conversation.titleGenerationStatus === 'failed'
-      ? 'Regenerate title' : 'Generate title');
+    regenerateBtn.setAttribute('aria-label', label);
     regenerateBtn.addEventListener('click', (event) => {
       event.stopPropagation();
-      runSessionAction(
-        () => this.titles.regenerate(conversation.id),
-        'Failed to generate title',
-      );
+      this.#regenerateTitle(conversation.id);
     });
   }
 

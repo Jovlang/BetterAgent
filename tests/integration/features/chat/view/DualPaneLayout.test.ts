@@ -38,7 +38,7 @@ function createLayoutHarness(options: {
     onWideChanged: vi.fn(() => { calls.push('wide-changed'); }),
     onEnterWide: vi.fn(() => { calls.push('enter-wide'); }),
     renderSidebar: vi.fn(() => { calls.push('render-sidebar'); }),
-    onLeaveWideRequested: vi.fn(() => { calls.push('leave-wide'); }),
+    onHideSidebar: vi.fn(() => { calls.push('leave-wide'); }),
     releaseViewerSlot: vi.fn(() => {
       calls.push('discard');
       return options.releaseViewerSlot?.();

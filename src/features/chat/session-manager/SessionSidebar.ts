@@ -17,6 +17,7 @@ import {
   setControlAvailability,
   showMenuAt,
 } from '@/features/chat/session-manager/SessionSurfaceShared';
+import { t } from '@/i18n/i18n';
 
 type SessionSearchScrollState = {
   pinnedScrollTop: number;
@@ -27,7 +28,8 @@ export interface SessionSidebarDeps {
   plugin: ChatFeatureHost;
   navigation: Omit<SessionSurfaceNavigation, 'openConversation'>;
   shared: SessionSurfaceShared;
-  isWide(): boolean;
+  isVisible(): boolean;
+  flatHistory?: boolean;
   /** Whether another tab fits; null while the view has no tabs. */
   canCreateTab(): boolean | null;
   requestNew(): void;
@@ -56,6 +58,7 @@ interface SearchSession {
 export class SessionSidebar {
   private sidebarEl: HTMLElement | null = null;
   private surfaceEl: HTMLElement | null = null;
+  private headerControls?: readonly [HTMLElement, HTMLElement];
   private newButtonEl: HTMLElement | null = null;
   private groupToggleButtonEl: HTMLElement | null = null;
   private themeEvent: EventRef | null = null;
@@ -79,8 +82,9 @@ export class SessionSidebar {
   }
 
   /** Builds the sidebar surface inside `sidebarEl`. */
-  mount(sidebarEl: HTMLElement): void {
+  mount(sidebarEl: HTMLElement, headerControls?: readonly [HTMLElement, HTMLElement]): void {
     this.sidebarEl = sidebarEl;
+    this.headerControls = headerControls;
     const trackEl = sidebarEl.createDiv({ cls: 'claudian-sidebar-surface-track' });
     this.surfaceEl = trackEl.createDiv({ cls: 'claudian-session-surface' });
     this.syncThemeBackground();
@@ -93,11 +97,14 @@ export class SessionSidebar {
 
   render(): void {
     const surfaceEl = this.surfaceEl ?? this.sidebarEl;
-    if (!surfaceEl || !this.dirty || !this.deps.isWide()) return;
+    if (!surfaceEl || !this.dirty || !this.deps.isVisible()) return;
     if (this.#search?.composing) return;
     // The whole surface waits, since its list render clears the controls built around it.
     if (this.deps.shared.browser.deferWhileSortingProjects(() => this.render())) return;
 
+    const focusedHeaderControl = this.headerControls?.find(
+      control => control === control.ownerDocument.activeElement,
+    );
     const previousSearchInput = this.#search?.inputEl ?? null;
     const shouldRestoreSearchFocus = previousSearchInput?.ownerDocument.activeElement
       === previousSearchInput;
@@ -122,6 +129,8 @@ export class SessionSidebar {
       this.buildHeaderActions(surfaceEl);
       if (shouldRestoreSearchFocus) {
         this.focusSearchInput(searchSelection);
+      } else {
+        focusedHeaderControl?.focus({ preventScroll: true });
       }
       this.dirty = false;
     });
@@ -131,6 +140,7 @@ export class SessionSidebar {
   leave(): void {
     this.closeSearch();
     this.cancelRendering();
+    this.dirty = true;
   }
 
   /** Closes an active search for Escape; returns whether there was one. */
@@ -174,7 +184,8 @@ export class SessionSidebar {
   private renderList(container: HTMLElement, signal: AbortSignal): void {
     const { navigation, plugin, shared } = this.deps;
     const isArchiveView = shared.isArchiveView();
-    const organization = this.getOrganization();
+    const flat = this.deps.flatHistory;
+    const organization = flat ? 'list' : this.getOrganization();
     shared.browser.renderHistoryDropdown(container, {
       onSelectConversation: (id) => navigation.openSessionConversation(id),
       getConversationStatus: (id) => navigation.getConversationStatus(id),
@@ -182,9 +193,11 @@ export class SessionSidebar {
       showOpenStateLabels: false,
       showOpenStateActions: false,
       preserveListState: true,
-      // The sidebar stylesheet scrolls Pinned, Projects, and Sessions separately.
-      scrollLayout: 'sections',
+      // Flat history scrolls as a whole; the legacy sidebar scrolls sections independently.
+      scrollLayout: flat ? 'list' : 'sections',
       showInlinePinAction: true,
+      flatHistory: flat,
+      historyHeaderControls: this.headerControls,
       onRequestInlineRename: (request) => {
         if (this.#search) {
           this.closeSearch();
@@ -196,18 +209,19 @@ export class SessionSidebar {
         await plugin.assignConversationToCurrentDevice(id);
       },
       organization,
-      groupByRecency: organization === 'list',
+      groupByRecency: !flat && organization === 'list',
       sort: this.getSort(),
       language: getObsidianLanguage(plugin.settings.locale),
       contentExists: (contentPath: string) => navigation.contentExists(contentPath),
       contentIsNote: (contentPath: string) => this.contentIsNote(contentPath),
       searchQuery: this.#search?.query,
       showMetadataPopover: true,
-      showLineageFolds: true,
+      showLineageFolds: !flat,
       showAttentionState: !isArchiveView,
-      showPinnedSection: !isArchiveView,
-      pinnedLinkedContentPaths: new Set(plugin.settings.pinnedLinkedContentPaths ?? []),
-      showArchivedSection: isArchiveView,
+      showPinnedSection: !flat && !isArchiveView,
+      pinnedLinkedContentPaths: flat ? undefined : new Set(plugin.settings.pinnedLinkedContentPaths ?? []),
+      showArchivedSection: !flat && isArchiveView,
+      ...(flat ? { historyHeaderLabel: t(isArchiveView ? 'chat.tabNavigation.archive' : 'chat.tabNavigation.history') } : {}),
       isGroupCollapsed: (groupKey: string, defaultCollapsed?: boolean) => (
         this.getDisplayedCollapse().isCollapsed(groupKey, defaultCollapsed)
       ),
@@ -246,7 +260,12 @@ export class SessionSidebar {
   private buildHeaderActions(container: HTMLElement): void {
     const header = container.querySelector<HTMLElement>('.claudian-session-list-header');
     const list = container.querySelector<HTMLElement>('.claudian-history-list');
-    if (!header || !list) return;
+    if (!list) return;
+    if (this.deps.flatHistory) {
+      if (this.#search) this.buildSearchField(container, list, this.#search);
+      return;
+    }
+    if (!header) return;
 
     const { shared } = this.deps;
     const isArchiveView = shared.isArchiveView();
@@ -331,7 +350,9 @@ export class SessionSidebar {
     const searchField = container.createDiv({ cls: 'claudian-session-search-field' });
     const searchIcon = searchField.createSpan({ cls: 'claudian-session-nav-icon' });
     setIcon(searchIcon, 'search');
-    const label = this.deps.shared.isArchiveView() ? 'Search archived sessions' : 'Search sessions';
+    const label = t(this.deps.shared.isArchiveView()
+      ? 'chat.tabNavigation.searchArchived'
+      : 'chat.tabNavigation.searchSessions');
     const searchInput = searchField.createEl('input', {
       cls: 'claudian-session-search-input',
       attr: {
@@ -357,7 +378,7 @@ export class SessionSidebar {
     search.inputEl = searchInput;
   }
 
-  private activateSearch(): void {
+  activateSearch(): void {
     if (this.#search) {
       this.focusSearchInput();
       return;
@@ -374,7 +395,7 @@ export class SessionSidebar {
     this.dirty = true;
     this.render();
     this.focusSearchInput();
-    this.scheduleSearchDismissHandlers();
+    if (!this.deps.flatHistory) this.scheduleSearchDismissHandlers();
   }
 
   private updateSearchQuery(query: string): void {
@@ -565,6 +586,27 @@ export class SessionSidebar {
       collapse.setCollapsed(groupKey, !shouldExpand);
     }
     this.refreshPresentation();
+  }
+
+  addHistoryMenuItems(menu: Menu, showHistory: () => void): void {
+    const { shared } = this.deps;
+    const archive = shared.isArchiveView();
+    menu.addItem(item => item
+      .setTitle(t(archive ? 'chat.tabNavigation.history' : 'chat.tabNavigation.archive'))
+      .setIcon(archive ? 'history' : 'archive')
+      .onClick(() => {
+        shared.setArchiveView(!archive);
+        showHistory();
+      }));
+    menu.addSeparator();
+    menu.addItem(item => item
+      .setTitle(t('chat.tabNavigation.sortByActivity'))
+      .setChecked(this.getSort() === 'last-updated')
+      .onClick(() => this.setSort('last-updated')));
+    menu.addItem(item => item
+      .setTitle(t('chat.tabNavigation.sortByCreated'))
+      .setChecked(this.getSort() === 'created')
+      .onClick(() => this.setSort('created')));
   }
 
   private showOptionsMenu(anchor: HTMLElement, event?: MouseEvent): Menu {

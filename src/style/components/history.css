@@ -57,21 +57,83 @@
   user-select: none;
 }
 
-.claudian-wide-session-layout .claudian-session-sidebar {
+.claudian-wide-session-layout .claudian-session-sidebar:not([hidden]) {
   display: flex;
 }
 
-.claudian-wide-session-layout .claudian-session-resizer {
+.claudian-wide-session-layout .claudian-session-resizer:not([hidden]) {
   display: block;
 }
 
-.claudian-wide-session-layout.claudian-session-viewer-stacked .claudian-session-sidebar {
-  flex: 0 0 36%;
-  border-block-start: 1px solid var(--background-modifier-border);
+.claudian-chat-body {
+  display: grid;
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr) auto;
+  container-type: inline-size;
+  min-width: 0;
+  min-height: 0;
 }
 
-.claudian-wide-session-layout.claudian-session-viewer-stacked .claudian-session-resizer {
+.claudian-chat-body > .claudian-session-sidebar {
+  width: clamp(200px, 30cqw, 280px);
+  border-inline-start: 1px solid var(--background-modifier-border);
+}
+
+.claudian-chat-body--compact > .claudian-chat-panel,
+.claudian-chat-body--compact > .claudian-session-sidebar {
+  grid-area: 1 / 1;
+}
+
+.claudian-chat-body--compact > .claudian-session-sidebar {
+  width: auto;
+  border-inline-start: 0;
+}
+
+.claudian-chat-body--compact > .claudian-chat-panel[inert] {
+  visibility: hidden;
+}
+
+.claudian-chat-body .claudian-session-sidebar {
+  --claudian-session-inline-inset: var(--size-4-2, 8px);
+}
+
+.claudian-chat-body .claudian-session-sidebar .claudian-history-list {
+  overflow-y: auto;
+}
+
+.claudian-chat-body .claudian-session-surface > .claudian-history-header {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-1, 4px);
+}
+
+.claudian-chat-body .claudian-history-header > button[hidden] {
   display: none;
+}
+
+.claudian-chat-body .claudian-history-header > button:last-child {
+  margin-inline-start: auto;
+}
+
+.claudian-chat-body .claudian-history-header > button:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: -2px;
+}
+
+.claudian-chat-body .claudian-session-sidebar .claudian-history-item-title {
+  color: var(--text-normal);
+}
+
+.claudian-chat-body .claudian-history-item-filename {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: calc(12 * var(--claudian-font-px));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.claudian-chat-body .claudian-session-sidebar .claudian-history-item-actions {
+  display: flex;
+  opacity: 1;
 }
 
 .claudian-wide-session-layout .claudian-view-input-nav-row {

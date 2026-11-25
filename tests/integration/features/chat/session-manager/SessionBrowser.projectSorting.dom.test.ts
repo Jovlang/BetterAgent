@@ -97,7 +97,7 @@ async function setup(options: {
       startProjectConversation: vi.fn().mockResolvedValue(undefined),
     },
     getActiveTab: () => null,
-    isWide: () => true,
+    isSidebarVisible: () => true,
     canCreateTab: () => true,
     requestNew: vi.fn(),
     notifyOtherViews: vi.fn(),

@@ -30,14 +30,6 @@
   flex-direction: row-reverse;
 }
 
-.claudian-container.claudian-session-viewer-stacked {
-  flex-direction: column;
-}
-
-.claudian-session-viewer-stacked > .claudian-chat-panel {
-  flex: 1 1 0;
-}
-
 .claudian-provider-icon-variant--dark {
   display: none;
 }

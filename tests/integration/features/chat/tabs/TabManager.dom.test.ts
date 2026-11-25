@@ -362,7 +362,7 @@ it.each(['running', 'idle'] as const)('uses the target session runtime to guard 
       startLinkedContentConversation: path => manager.viewerSlot.startDraft({ linkedContentPath: path }),
       startProjectConversation: id => manager.viewerSlot.startDraft({ projectId: id }),
     },
-    getActiveTab: () => manager.getActiveTab(), isWide: () => wide,
+    getActiveTab: () => manager.getActiveTab(), isSidebarVisible: () => wide,
     canCreateTab: () => manager.canCreateTab(), requestNew: () => { void manager.createTab(); },
     notifyOtherViews: () => undefined,
   });

@@ -1,5 +1,5 @@
 import type { TFile, ViewStateResult, WorkspaceLeaf } from 'obsidian';
-import { ItemView, Notice, Scope, setIcon } from 'obsidian';
+import { ItemView, Menu, Notice, Scope, setIcon } from 'obsidian';
 
 import { StartupProfiler } from '@/core/performance/StartupProfiler';
 import { getHiddenCommandSet } from '@/core/providers/commands/hiddenCommands';
@@ -8,6 +8,7 @@ import { VIEW_TYPE_CLAUDIAN } from '@/core/types';
 import type { ChatFeatureHost, TabId } from '@/features/chat/ChatFeatureHost';
 import { SessionManagerSurface, setControlAvailability } from '@/features/chat/session-manager/SessionManagerSurface';
 import { SessionNavigation } from '@/features/chat/session-manager/SessionNavigation';
+import { bindMenuToggle, showMenuAt } from '@/features/chat/session-manager/SessionSurfaceShared';
 import { getSessionProviderId } from '@/features/chat/sessions/sessionProvider';
 import type { ChatTab } from '@/features/chat/tabs/ChatTab';
 import { inheritedDraftSeed } from '@/features/chat/tabs/draftSeed';
@@ -61,7 +62,11 @@ export class ClaudianView extends ItemView implements ZenModeSource {
   private readonly layout: DualPaneLayout;
   private readonly presentation: ChatPresentationPlacement;
 
-  constructor(leaf: WorkspaceLeaf, plugin: ChatFeatureHost, options?: { singleViewer?: boolean }) {
+  constructor(
+    leaf: WorkspaceLeaf,
+    plugin: ChatFeatureHost,
+    private readonly options?: { singleViewer?: boolean },
+  ) {
     super(leaf);
     this.plugin = plugin;
     this.mentionDataProvider = new VaultMentionDataProvider(plugin.app);
@@ -80,6 +85,7 @@ export class ClaudianView extends ItemView implements ZenModeSource {
         },
         openSessionConversation: async (id) => {
           await this.tabManager?.viewerSlot.show(id);
+          this.layout.closeHistory(true);
         },
         startLinkedContentConversation: async (contentPath) => {
           if (!this.tabManager) throw new Error('Chat tabs are unavailable');
@@ -98,7 +104,8 @@ export class ClaudianView extends ItemView implements ZenModeSource {
         contentExists: contentPath => this.sessionNavigation.contentExists(contentPath),
       },
       getActiveTab: () => this.getActiveTab(),
-      isWide: () => this.layout.isWide,
+      isSidebarVisible: () => this.layout.isWide && (!options?.singleViewer || this.layout.historyVisible),
+      flatHistory: options?.singleViewer,
       canCreateTab: () => this.tabManager?.canCreateTab() ?? null,
       requestNew: () => this.requestDualNew(),
       notifyOtherViews: () => this.notifyOtherViews(),
@@ -117,7 +124,7 @@ export class ClaudianView extends ItemView implements ZenModeSource {
           .catch(() => new Notice(t('chat.tabNavigation.showWideFailed')));
       },
       renderSidebar: () => this.sessions.renderSidebar(),
-      onLeaveWideRequested: () => this.sessions.leaveWide(),
+      onHideSidebar: () => this.sessions.leaveWide(),
       releaseViewerSlot: () => this.tabManager?.viewerSlot.release(),
     }, options);
     this.presentation = new ChatPresentationPlacement({
@@ -255,7 +262,7 @@ export class ClaudianView extends ItemView implements ZenModeSource {
     if (!this.tabContentEl) return;
     // Measure before restoration so restored tabs and the nav row see the final layout.
     this.layout.initialize(layoutElements);
-    this.attachNavRowContentToInputFooter(this.buildNavRowContent());
+    if (!this.options?.singleViewer) this.attachNavRowContentToInputFooter(this.buildNavRowContent());
 
     const tabStatePersistence = await this.tabWorkspace.preparePersistence(opening);
     if (!tabStatePersistence) return;
@@ -415,14 +422,68 @@ export class ClaudianView extends ItemView implements ZenModeSource {
   // ============================================
 
   private buildViewLayout(containerEl: HTMLElement): DualPaneLayoutElements {
+    const singleViewer = this.options?.singleViewer === true;
+    containerEl.toggleClass('claudian-chat-body', singleViewer);
     const chatPanelEl = containerEl.createDiv({ cls: 'claudian-chat-panel' });
     this.tabContentEl = chatPanelEl.createDiv({ cls: 'claudian-tab-content-container' });
-    this.presentation.mount(chatPanelEl);
+    const controls = singleViewer ? this.buildComposerActions() : undefined;
+    this.presentation.mount(chatPanelEl, controls?.actions);
 
-    const resizerEl = containerEl.createDiv({ cls: 'claudian-session-resizer' });
+    const resizerEl = singleViewer ? undefined : containerEl.createDiv({ cls: 'claudian-session-resizer' });
     const sidebarEl = containerEl.createDiv({ cls: 'claudian-session-sidebar' });
-    this.sessions.mountSidebar(sidebarEl);
-    return { containerEl, resizerEl, sidebarEl };
+    this.sessions.mountSidebar(sidebarEl, controls?.historyHeader);
+    const history = controls
+      ? {
+          chatPanelEl,
+          toggleEl: controls.toggleEl,
+          backEl: controls.historyHeader[0],
+          searchEl: controls.historyHeader[1],
+        }
+      : undefined;
+    return { containerEl, resizerEl, sidebarEl, history };
+  }
+
+  private buildComposerActions(): {
+    actions: HTMLButtonElement[];
+    historyHeader: readonly [HTMLButtonElement, HTMLButtonElement];
+    toggleEl: HTMLButtonElement;
+  } {
+    const button = (icon: string, label: string): HTMLButtonElement => {
+      const el = createEl('button', {
+        cls: 'claudian-input-nav-btn',
+        attr: { type: 'button', 'aria-label': label },
+      });
+      const glyph = el.createSpan({ attr: { 'aria-hidden': 'true' } });
+      setIcon(glyph, icon);
+      return el;
+    };
+
+    const newChat = button('square-pen', t('chat.tabNavigation.newChat'));
+    newChat.addEventListener('click', () => {
+      void this.startNewConversation()
+        .catch(() => new Notice(t('chat.tabNavigation.startConversationFailed')));
+    });
+    const toggleEl = button('history', t('chat.tabNavigation.historyToggle'));
+    const search = button('search', t('chat.tabNavigation.searchSessions'));
+    search.addEventListener('click', () => {
+      this.layout.setHistoryVisible(true);
+      this.sessions.focusSearch();
+    });
+    const more = button('ellipsis', t('chat.tabNavigation.moreActions'));
+    more.setAttribute('aria-haspopup', 'menu');
+    bindMenuToggle(more, event => {
+      const menu = new Menu().setUseNativeMenu(false);
+      this.sessions.addHistoryMenuItems(menu, () => this.layout.setHistoryVisible(true));
+      showMenuAt(menu, more, event);
+      return menu;
+    });
+
+    const actions = [newChat, toggleEl, search, more];
+    for (const action of actions) action.addClass('claudian-composer-action');
+    const backEl = button('arrow-left', t('chat.tabNavigation.backToConversation'));
+    const historySearch = button('search', t('chat.tabNavigation.searchSessions'));
+    historySearch.addEventListener('click', () => this.sessions.focusSearch());
+    return { actions, historyHeader: [backEl, historySearch], toggleEl };
   }
 
   /**
@@ -652,7 +713,7 @@ export class ClaudianView extends ItemView implements ZenModeSource {
     this.scope.register([], 'Escape', (e: KeyboardEvent) => {
       if (e.isComposing || this.sessions.isComposing) return;
       const activeTab = this.tabManager?.getActiveTab();
-      if (this.sessions.handleEscape()) return false;
+      if (this.sessions.handleEscape() || this.layout.closeHistory()) return false;
       if (this.tabBar?.handleEscape()) return false;
       if (activeTab?.ui.navigationSidebar.handleEscape()) return false;
       // Menus also consume Escape in the capture phase; this covers a keymap that sees it first.

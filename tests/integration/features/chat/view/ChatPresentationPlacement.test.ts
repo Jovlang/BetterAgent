@@ -17,6 +17,7 @@ function createPlacedTab(id: string) {
     inputComposerEl,
     messagesWrapperEl,
     inputEl: inputComposerEl.createEl('textarea'),
+    infoRowEl: inputComposerEl.createDiv(),
   };
   const tab = { id, dom, placement: createTabPlacementPort(dom, setSideChatChipHost, setSideChatFullHeightHost) };
   return { dom, setSideChatChipHost, setSideChatFullHeightHost, tab: tab as unknown as ChatTab };

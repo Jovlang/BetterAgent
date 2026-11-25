@@ -8,6 +8,9 @@ const MIN_SESSION_SIDEBAR_WIDTH = 180;
 const SESSION_RESIZER_WIDTH = 5;
 const SESSION_RESIZE_KEYBOARD_STEP = 16;
 
+// Each Obsidian leaf owns a history panel and disclosure button.
+let nextHistoryPanelId = 0;
+
 export interface DualPaneLayoutSettings {
   enableDualPane?: boolean;
   dualPaneSide?: 'left' | 'right';
@@ -15,8 +18,14 @@ export interface DualPaneLayoutSettings {
 
 export interface DualPaneLayoutElements {
   containerEl: HTMLElement;
-  resizerEl: HTMLElement;
   sidebarEl: HTMLElement;
+  resizerEl?: HTMLElement;
+  history?: {
+    chatPanelEl: HTMLElement;
+    toggleEl: HTMLButtonElement;
+    backEl: HTMLButtonElement;
+    searchEl: HTMLButtonElement;
+  };
 }
 
 export interface DualPaneLayoutHooks {
@@ -27,8 +36,8 @@ export interface DualPaneLayoutHooks {
   onEnterWide(): void;
   /** The session sidebar should render its current state. */
   renderSidebar(): void;
-  /** A compact layout was requested; sidebar interactions must stop before preview cleanup. */
-  onLeaveWideRequested(): void;
+  /** End transient sidebar interactions when it is hidden. */
+  onHideSidebar(): void;
   /** Releases the viewer slot (retaining what must survive) before compact controls return. */
   releaseViewerSlot(): Promise<void> | void;
 }
@@ -61,19 +70,72 @@ export class DualPaneLayout {
   /** Adopts this open's DOM and measures it without rendering the sidebar. */
   initialize(elements: DualPaneLayoutElements): void {
     this.elements = elements;
-    const { containerEl, resizerEl } = elements;
-    resizerEl.setAttribute('role', 'separator');
-    resizerEl.setAttribute('aria-label', t('chat.tabNavigation.resize'));
-    resizerEl.setAttribute('aria-orientation', 'vertical');
-    resizerEl.setAttribute('tabindex', '0');
-    resizerEl.addEventListener('pointerdown', (event) => this.startResize(event));
-    resizerEl.addEventListener('keydown', (event) => this.handleResizeKeydown(event));
+    const { containerEl, resizerEl, sidebarEl, history } = elements;
+    if (resizerEl) {
+      resizerEl.setAttribute('role', 'separator');
+      resizerEl.setAttribute('aria-label', t('chat.tabNavigation.resize'));
+      resizerEl.setAttribute('aria-orientation', 'vertical');
+      resizerEl.setAttribute('tabindex', '0');
+      resizerEl.addEventListener('pointerdown', (event) => this.startResize(event));
+      resizerEl.addEventListener('keydown', (event) => this.handleResizeKeydown(event));
+    }
+    if (history) {
+      sidebarEl.id = `claudian-history-panel-${++nextHistoryPanelId}`;
+      sidebarEl.hidden = true;
+      history.toggleEl.setAttribute('aria-controls', sidebarEl.id);
+      history.toggleEl.setAttribute('aria-expanded', 'false');
+      history.toggleEl.addEventListener('click', () => this.setHistoryVisible(sidebarEl.hasAttribute('hidden')));
+      history.backEl.addEventListener('click', () => this.closeHistory());
+    }
 
     this.requestedWide = false;
     this.wide = false;
     containerEl.removeClass('claudian-wide-session-layout');
-    containerEl.toggleClass('claudian-session-viewer-stacked', this.options?.singleViewer === true);
     this.update(containerEl.getBoundingClientRect().width, { renderSidebar: false });
+  }
+
+  get historyVisible(): boolean {
+    return !!this.elements?.history && !this.elements.sidebarEl.hidden;
+  }
+
+  closeHistory(narrowOnly = false): boolean {
+    const history = this.elements?.history;
+    if (!history || !this.historyVisible) return false;
+    if (narrowOnly && !history.chatPanelEl.hasAttribute('inert')) return false;
+    this.setHistoryVisible(false);
+    history.toggleEl.focus();
+    return true;
+  }
+
+  setHistoryVisible(visible: boolean): void {
+    const elements = this.elements;
+    if (!elements?.history || visible === this.historyVisible) return;
+    elements.sidebarEl.hidden = !visible;
+    elements.history.toggleEl.setAttribute('aria-expanded', String(visible));
+    this.updateHistoryPresentation();
+    if (visible) {
+      this.hooks.renderSidebar();
+      if (!elements.history.backEl.hidden) elements.history.backEl.focus();
+    } else {
+      this.hooks.onHideSidebar();
+    }
+  }
+
+  private updateHistoryPresentation(): void {
+    const elements = this.elements;
+    const history = elements?.history;
+    if (!history) return;
+    const replacesChat = this.historyVisible
+      && elements.containerEl.classList.contains('claudian-chat-body--compact');
+    const focused = elements.containerEl.ownerDocument.activeElement;
+    history.chatPanelEl.toggleAttribute('inert', replacesChat);
+    history.backEl.hidden = !replacesChat;
+    history.searchEl.hidden = !replacesChat;
+    if (replacesChat && (focused === history.toggleEl || history.chatPanelEl.contains(focused))) {
+      history.backEl.focus();
+    } else if (!replacesChat && (focused === history.backEl || focused === history.searchEl)) {
+      history.toggleEl.focus();
+    }
   }
 
   /** Follows the container width once the tab workspace is initialized. */
@@ -115,8 +177,10 @@ export class DualPaneLayout {
     // A hidden view reports zero width. Select the viewer on first mount, but don't
     // rearrange its history when the host hides the already-mounted chat.
     if (width <= 0 && (!singleViewer || this.requestedWide)) return;
-    if (singleViewer && width > 0) {
-      containerEl.toggleClass('claudian-session-viewer-stacked', width < WIDE_SESSION_LAYOUT_MIN_WIDTH);
+    const history = this.elements?.history;
+    if (history) {
+      containerEl.toggleClass('claudian-chat-body--compact', width < WIDE_SESSION_LAYOUT_MIN_WIDTH);
+      this.updateHistoryPresentation();
     }
     const renderSidebar = options.renderSidebar ?? true;
     const settings = this.hooks.getSettings();
@@ -130,7 +194,7 @@ export class DualPaneLayout {
         if (this.sidebarWidth !== null && width >= WIDE_SESSION_LAYOUT_MIN_WIDTH) {
           this.setSidebarWidth(this.sidebarWidth);
         }
-        if (renderSidebar) this.hooks.renderSidebar();
+        if (renderSidebar && !this.elements?.sidebarEl.hidden) this.hooks.renderSidebar();
       }
       return;
     }
@@ -151,7 +215,7 @@ export class DualPaneLayout {
 
     if (!this.wide) return;
 
-    this.hooks.onLeaveWideRequested();
+    this.hooks.onHideSidebar();
     this.stopResize();
     this.compactRequestRevision = requestRevision;
     void this.completeCompactTransition(requestRevision);
@@ -246,8 +310,8 @@ export class DualPaneLayout {
 
     this.sidebarWidth = width;
     elements.containerEl.style.setProperty('--claudian-session-sidebar-width', `${width}px`);
-    elements.resizerEl.setAttribute('aria-valuenow', String(width));
-    elements.resizerEl.setAttribute('aria-valuemin', String(MIN_SESSION_SIDEBAR_WIDTH));
-    elements.resizerEl.setAttribute('aria-valuemax', String(Math.round(maxWidth)));
+    elements.resizerEl?.setAttribute('aria-valuenow', String(width));
+    elements.resizerEl?.setAttribute('aria-valuemin', String(MIN_SESSION_SIDEBAR_WIDTH));
+    elements.resizerEl?.setAttribute('aria-valuemax', String(Math.round(maxWidth)));
   }
 }

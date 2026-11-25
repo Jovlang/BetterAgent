@@ -78,7 +78,7 @@ async function createHarness(options: HarnessOptions = {}) {
     plugin,
     navigation,
     getActiveTab: () => null,
-    isWide: () => state.wide,
+    isSidebarVisible: () => state.wide,
     canCreateTab: () => state.canCreateTab,
     requestNew,
     notifyOtherViews,

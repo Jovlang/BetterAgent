@@ -69,7 +69,7 @@ export interface SessionRowAction {
 }
 
 /** Inline buttons sit on the row; the menu is its context menu. */
-export type SessionRowActionSurface = 'inline' | 'menu';
+export type SessionRowActionSurface = 'inline' | 'menu' | 'overflow';
 
 export interface SessionRowActionInput {
   conversation: ConversationMeta;
@@ -235,6 +235,9 @@ export function resolveRowActions(
     }
   }
   if (input.parentId && mode === 'active') actions.push(action('open-parent'));
+  if (surface === 'overflow' && conversation.isLegacySession && options.onAssignConversationToDevice) {
+    actions.push(action('assign-device'));
+  }
   if (mode === 'archived') {
     actions.push(action('restore'), action('delete'));
     return actions;
@@ -313,7 +316,12 @@ export class SessionActions {
   }
 
   /** `anchorEl` is the row the menu opened on; follow-up menus open beside it. */
-  rowMenu(row: SessionRow, options: SessionActionOptions & SessionStatusDisplay, anchorEl: HTMLElement): Menu {
+  rowMenu(
+    row: SessionRow,
+    options: SessionActionOptions & SessionStatusDisplay,
+    anchorEl: HTMLElement,
+    surface: 'menu' | 'overflow' = 'menu',
+  ): Menu {
     const menu = new Menu().setUseNativeMenu(false);
     const tracksAttention = canShowAttention(options);
     const project = this.deps.plugin.projects?.get(row.conversation.projectId);
@@ -322,7 +330,7 @@ export class SessionActions {
     const parent = parentId
       ? this.deps.plugin.getConversationList().find(candidate => candidate.id === parentId && !candidate.isArchived)
       : undefined;
-    for (const rowAction of resolveRowActions('menu', { ...row, tracksAttention, project, parentId: parent?.id }, options)) {
+    for (const rowAction of resolveRowActions(surface, { ...row, tracksAttention, project, parentId: parent?.id }, options)) {
       menu.addItem((menuItem) => {
         menuItem
           .setTitle(rowActionTitle(rowAction.kind, row))

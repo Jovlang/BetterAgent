@@ -93,7 +93,7 @@ export function createTabComposerPort(
 
 /** Placement over a tab's own composer and transcript nodes; nothing is rebuilt or cloned. */
 export function createTabPlacementPort(
-  dom: Pick<TabDOMElements, 'contentEl' | 'inputComposerEl' | 'messagesWrapperEl' | 'inputEl'>,
+  dom: Pick<TabDOMElements, 'contentEl' | 'inputComposerEl' | 'messagesWrapperEl' | 'inputEl' | 'infoRowEl'>,
   setSideChatChipHost: (hostEl: HTMLElement | null) => void,
   setSideChatFullHeightHost: (hostEl: HTMLElement | null) => void,
 ): TabPlacementPort {
@@ -107,6 +107,11 @@ export function createTabPlacementPort(
       if (hadFocus && !composerEl.contains(ownerDocument.activeElement)) dom.inputEl.focus();
     },
     isComposerPlacedIn: slotEl => composerEl.parentElement === slotEl,
+    placeComposerActions: (actions) => {
+      if (actions[0] && actions[0].parentElement !== dom.infoRowEl) {
+        dom.infoRowEl.append(...actions);
+      }
+    },
     restoreComposer: () => {
       contentEl.appendChild(composerEl);
     },

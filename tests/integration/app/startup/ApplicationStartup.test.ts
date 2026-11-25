@@ -2,6 +2,7 @@ import { TEST_CODEX_CATALOG, TEST_CODEX_MODEL } from '@test/helpers/codexModels'
 import { DesktopVault } from '@test/helpers/core/DesktopVault';
 import { DEFAULT_CLAUDIAN_SETTINGS } from '@test/helpers/defaultSettings';
 import { createObsidianPlugin } from '@test/helpers/ObsidianSettingsHost';
+import { testDate } from '@test/helpers/testClock';
 import { App } from 'obsidian';
 
 import { SettingsCoordinator } from '@/app/settings/SettingsCoordinator';
@@ -225,6 +226,36 @@ describe('startApplication', () => {
   });
 
   describe('session metadata', () => {
+    it('leaves retired-provider conversation files untouched during a Codex-only metadata scan', async () => {
+      vi.spyOn(ProviderRegistry, 'getRegisteredProviderIds').mockReturnValue(['codex']);
+      const adapter = mockApp.vault.adapter;
+      const files = new Map(['codex', 'claude', 'opencode', 'pi'].map(providerId => [
+        `.claudian/sessions/${providerId}-history.meta.json`,
+        JSON.stringify({
+          id: `${providerId}-history`, providerId, title: providerId,
+          createdAt: testDate().getTime(), lastActivityAt: testDate().getTime(),
+          sessionId: `native-${providerId}`,
+        }),
+      ]));
+      adapter.exists.mockImplementation(async path => path === '.claudian/sessions' || files.has(path));
+      adapter.list.mockImplementation(async path => ({
+        files: path === '.claudian/sessions' ? [...files.keys()] : [],
+        folders: [],
+      }));
+      adapter.read.mockImplementation(async path => files.get(path) ?? '');
+
+      const domains = await loadApplicationWithMetadata();
+
+      expect(domains.conversations.getCachedConversation('codex-history')?.sessionId).toBe('native-codex');
+      for (const providerId of ['claude', 'opencode', 'pi']) {
+        const path = `.claudian/sessions/${providerId}-history.meta.json`;
+        expect(domains.conversations.getCachedConversation(`${providerId}-history`)).toBeFalsy();
+        expect(adapter.write).not.toHaveBeenCalledWith(path, expect.anything());
+        expect(adapter.remove).not.toHaveBeenCalledWith(path);
+        expect(adapter.rename).not.toHaveBeenCalledWith(path, expect.anything());
+      }
+    });
+
     it('keeps persisted Codex sessions when startup records a new runtime fingerprint', async () => {
       const timestamp = Date.now();
       const metadataPath = '.claudian/sessions/conv-codex-legacy.meta.json';

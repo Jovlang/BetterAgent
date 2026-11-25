@@ -12,13 +12,12 @@ import * as fs from 'fs';
 import { getInstallationKey } from '@/core/device/InstallationKey';
 import { ProviderExecutionTransitionError } from '@/core/execution';
 import { registerProviderModules } from '@/core/providers/registerProviderModules';
-import { claudeProviderRegistration } from '@/providers/claude/registration';
 import { CodexExecutionBackend } from '@/providers/codex/execution/CodexExecutionBackend';
 import { codexProviderRegistration } from '@/providers/codex/registration';
 import { getCodexProviderSettings } from '@/providers/codex/settings';
 import { codexChatUIConfig } from '@/providers/codex/ui/CodexChatUIConfig';
 
-registerProviderModules([claudeProviderRegistration, codexProviderRegistration]);
+registerProviderModules([codexProviderRegistration]);
 
 const mockNative = new CodexRuntimeHarness();
 // WSL installation probes reach the shared wsl.exe fake; every other launch is the native Codex peer.
@@ -178,7 +177,7 @@ it('enables Ultra through real model availability and publishes to chat consumer
   expect(h.notify).toHaveBeenCalledWith('codex');
 });
 
-it('commits provider enablement within the runtime transition and publishes without discovery', async () => {
+it('enables Codex within the runtime transition but cannot disable the only enabled provider', async () => {
   const h = await render({ enabled: false });
   const backend = new CodexExecutionBackend(h.plugin.getRuntimeHost('codex'), () => h.services.runtime);
   const config = {
@@ -198,22 +197,22 @@ it('commits provider enablement within the runtime transition and publishes with
   expect(mockNative.processes).toHaveLength(0);
   expect(h.notify).toHaveBeenCalledWith('codex');
   await toggle(h.container, 'Enable Codex', false);
-  expect(getCodexProviderSettings(h.settings).enabled).toBe(false);
-  expect(h.notify).toHaveBeenCalledTimes(2);
+  expect(getCodexProviderSettings(h.settings).enabled).toBe(true);
+  expect(h.notify).toHaveBeenCalledTimes(1);
 });
 
 it.each([false, true])('resynchronizes enablement after a failed transition (committed: %s)', async committed => {
-  const h = await render();
+  const h = await render({ enabled: false });
   const transition = h.plugin.runProviderExecutionTransition.bind(h.plugin);
   vi.spyOn(h.plugin, 'runProviderExecutionTransition').mockImplementation(async (ids, mutate) => {
     if (committed) await transition(ids, mutate);
     throw new Error('enablement transition failed');
   });
   const input = within(h.container).getByRole<HTMLInputElement>('switch', { name: 'Enable Codex' });
-  fireEvent.change(input, { target: { checked: false } });
+  fireEvent.change(input, { target: { checked: true } });
   await expect(controlChangeSettled(input)).rejects.toThrow('enablement transition failed');
-  expect(getCodexProviderSettings(h.settings).enabled).toBe(!committed);
-  expect(input.checked).toBe(!committed);
+  expect(getCodexProviderSettings(h.settings).enabled).toBe(committed);
+  expect(input.checked).toBe(committed);
   expect(h.notify).not.toHaveBeenCalled();
 });
 

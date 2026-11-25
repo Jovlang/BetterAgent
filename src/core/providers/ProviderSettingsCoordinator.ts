@@ -400,7 +400,9 @@ export class ProviderSettingsCoordinator {
     if (!permissionPolicy) return;
     const savedPermissionMode = normalizeSavedPermissionModes(settings.savedProviderPermissionMode);
     // The current mode is reused only when it is this provider's own; another provider's could be YOLO.
-    const ownsCurrentPermissionMode = isSettingsProvider || settings.settingsProvider === providerId;
+    const ownsCurrentPermissionMode = typeof settings.settingsProvider === 'string'
+      ? settings.settingsProvider === providerId
+      : isSettingsProvider;
     settings.permissionMode = normalizeStoredPermissionMode(permissionPolicy, savedPermissionMode[providerId])
       ?? (ownsCurrentPermissionMode
         ? normalizeStoredPermissionMode(permissionPolicy, settings.permissionMode)

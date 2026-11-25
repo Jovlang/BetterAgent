@@ -15,11 +15,10 @@ import { ProviderSettingsCoordinator } from '@/core/providers/ProviderSettingsCo
 import { registerProviderModules } from '@/core/providers/registerProviderModules';
 import type { Conversation } from '@/core/types';
 import { ExecutionSessionSupervisor } from '@/features/chat/execution/ExecutionSessionSupervisor';
-import { claudeProviderRegistration } from '@/providers/claude/registration';
 import { createCodexWorkspaceServices } from '@/providers/codex/app/CodexWorkspaceServices';
 import { codexProviderRegistration } from '@/providers/codex/registration';
 
-registerProviderModules([claudeProviderRegistration, codexProviderRegistration]);
+registerProviderModules([codexProviderRegistration]);
 
 let codexHome: string;
 

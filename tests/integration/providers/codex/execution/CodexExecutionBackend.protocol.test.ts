@@ -59,12 +59,11 @@ vi.mock('cross-spawn', () => ({ default: vi.fn(() => native.createProcess()) }))
 import type { MockInstance } from 'vitest';
 
 import { registerProviderModules } from '@/core/providers/registerProviderModules';
-import { claudeProviderRegistration } from '@/providers/claude/registration';
 import { CodexExecutionBackend } from '@/providers/codex/execution/CodexExecutionBackend';
 import { CodexAppServerRuntime } from '@/providers/codex/runtime/CodexAppServerRuntime';
 import { CodexRPCTransport } from '@/providers/codex/runtime/CodexRPCTransport';
 
-registerProviderModules([claudeProviderRegistration, codexProviderRegistration]);
+registerProviderModules([codexProviderRegistration]);
 
 
 const runtimes: CodexAppServerRuntime[] = [];

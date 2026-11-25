@@ -9,11 +9,10 @@ import { fireEvent, waitFor, within } from '@testing-library/dom';
 
 import { getInstallationKey } from '@/core/device/InstallationKey';
 import { registerProviderModules } from '@/core/providers/registerProviderModules';
-import { claudeProviderRegistration } from '@/providers/claude/registration';
 import { codexProviderRegistration } from '@/providers/codex/registration';
 import { getCodexProviderSettings } from '@/providers/codex/settings';
 
-registerProviderModules([claudeProviderRegistration, codexProviderRegistration]);
+registerProviderModules([codexProviderRegistration]);
 
 const originalPlatform = Object.getOwnPropertyDescriptor(process, 'platform')!;
 const fixtures: Awaited<ReturnType<typeof createCodexWorkspaceHarness>>[] = [];

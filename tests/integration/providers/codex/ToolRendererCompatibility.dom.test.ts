@@ -18,13 +18,12 @@ import { SubagentManager } from '@/features/chat/rendering/subagents/SubagentMan
 import { renderStoredToolCall, renderToolCall, updateToolCallResult } from '@/features/chat/rendering/tools/ToolCallRenderer';
 import { ChatState } from '@/features/chat/state/ChatState';
 import { StreamController } from '@/features/chat/turns/StreamController';
-import { claudeProviderRegistration } from '@/providers/claude/registration';
 import { CODEX_PROVIDER_CAPABILITIES } from '@/providers/codex/capabilities';
 import { formatCodexQuestionReply } from '@/providers/codex/normalization/codexQuestionNormalization';
 import { codexProviderRegistration } from '@/providers/codex/registration';
 import { CodexNotificationRouter } from '@/providers/codex/runtime/CodexNotificationRouter';
 
-registerProviderModules([claudeProviderRegistration, codexProviderRegistration]);
+registerProviderModules([codexProviderRegistration]);
 
 HTMLElement.prototype.empty = function () { this.replaceChildren(); };
 HTMLElement.prototype.addClass = function (...classes) { this.classList.add(...classes); };

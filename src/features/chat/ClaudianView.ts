@@ -605,7 +605,7 @@ export class ClaudianView extends ItemView {
     this.scope.register([], 'Escape', (e: KeyboardEvent) => {
       if (e.isComposing || this.sessions.isComposing) return;
       const activeTab = this.tabManager?.getActiveTab();
-      if (this.sessions.handleEscape() || this.layout.closeHistory()) return false;
+      if (this.sessions.handleEscape()) return false;
       if (activeTab?.ui.navigationSidebar.handleEscape()) return false;
       // Menus also consume Escape in the capture phase; this covers a keymap that sees it first.
       if (activeTab?.composer.closeOpenMenu()) return false;

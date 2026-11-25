@@ -749,9 +749,14 @@ describe('ClaudianView composer and scoped keys', () => {
     expect(view.appendToActiveInput('text')).toBe(false);
   });
 
-  it('handles Escape in the view scope and cancels an active real turn only once', async () => {
-    const { view, manager } = await openView();
+  it.each([400, 800])('cancels an active turn once without closing history at %i px', async width => {
+    const { view, manager, contentEl } = await openView({ width, singleViewer: true });
     const tab = manager.getActiveTab()!;
+    if (width === 400) {
+      fireEvent.click(within(tab.dom.infoRowEl).getByRole('button', { name: 'Conversation history' }));
+    }
+    const history = contentEl.querySelector<HTMLElement>('.claudian-session-sidebar')!;
+    expect(history.hidden).toBe(false);
     const cancel = vi.spyOn(tab.session.turns, 'cancel');
     const release = holdResponse(tab.session.runtime.turns);
     expect(view.scope).toBeInstanceOf(Scope);
@@ -761,13 +766,16 @@ describe('ClaudianView composer and scoped keys', () => {
     expect(scoped(view, 'Escape', { defaultPrevented: true })).toBe(false);
     expect(tab.state.isStreaming).toBe(true);
     expect(tab.session.turns.cancelRequested).toBe(false);
+    expect(history.hidden).toBe(false);
     expect(cancel).not.toHaveBeenCalled();
     expect(scoped(view, 'Escape')).toBe(false);
     expect(tab.session.turns.cancelRequested).toBe(true);
+    expect(history.hidden).toBe(false);
     expect(cancel).toHaveBeenCalledTimes(1);
     await release();
     expect(tab.state.isStreaming).toBe(false);
     expect(scoped(view, 'Escape')).toBe(false);
+    expect(history.hidden).toBe(false);
     expect(cancel).toHaveBeenCalledTimes(1);
   });
 

@@ -1,4 +1,5 @@
 import { createExecutionPersistence } from '@test/helpers/ChatExecutionHarness';
+import { TEST_CODEX_CATALOG, TEST_CODEX_MODEL } from '@test/helpers/codexModels';
 import { createChatFeatureHost } from '@test/helpers/features/chat/ChatFeatureHostFixture';
 import { conversationRecord } from '@test/helpers/features/chat/ConversationFixture';
 import { createSessionRuntimePool } from '@test/helpers/features/chat/SessionRuntimePoolHarness';
@@ -19,7 +20,7 @@ import { getSessionSelectedModel } from '@/features/chat/sessions/sessionSetting
 import { SideChatController } from '@/features/chat/side-chat/SideChatController';
 import { destroyTab } from '@/features/chat/tabs/TabLifecycle';
 import { createTabRuntime } from '@/features/chat/tabs/TabRuntimeFactory';
-import { claudeProviderRegistration } from '@/providers/claude/registration';
+import { codexProviderRegistration } from '@/providers/codex/registration';
 import { VaultMentionDataProvider } from '@/shared/mention/VaultMentionDataProvider';
 
 const cleanups: Array<() => Promise<void>> = [];
@@ -45,18 +46,18 @@ export async function createHarness(options: {
 } = {}) {
   const backend = new FakeSideBackend();
   const forkState = { forkSource: { resumeAt: 'checkpoint-1', sessionId: 'main-session' } };
-  ProviderRegistry.register('claude', {
-    ...claudeProviderRegistration,
+  ProviderRegistry.register('codex', {
+    ...codexProviderRegistration,
     formatQuestionReply: options.formatQuestionReply,
     resolveExecutionWorkingDirectory: options.resolveExecutionWorkingDirectory,
-    capabilities: { ...claudeProviderRegistration.capabilities, providerId: 'claude', supportsFork: options.supportsFork ?? true, supportsEphemeralSessions: true, supportsEphemeralFork: options.supportsEphemeralFork, supportsForkDuringTurn: options.supportsForkDuringTurn },
-    modelPolicy: ProviderRegistry.getModelPolicy('claude'),
-    chatUIConfig: ProviderRegistry.getChatUIConfig('claude'),
+    capabilities: { ...codexProviderRegistration.capabilities, providerId: 'codex', supportsFork: options.supportsFork ?? true, supportsEphemeralSessions: true, supportsEphemeralFork: options.supportsEphemeralFork, supportsForkDuringTurn: options.supportsForkDuringTurn },
+    modelPolicy: ProviderRegistry.getModelPolicy('codex'),
+    chatUIConfig: ProviderRegistry.getChatUIConfig('codex'),
     createExecutionBackend: () => backend,
     subagentAdapter: options.subagentAdapter,
-    taskResultInterpreter: options.taskResultInterpreter ?? claudeProviderRegistration.taskResultInterpreter,
+    taskResultInterpreter: options.taskResultInterpreter ?? codexProviderRegistration.taskResultInterpreter,
     historyService: {
-      ...claudeProviderRegistration.historyService,
+      ...codexProviderRegistration.historyService,
       buildForkProviderState: options.buildForkProviderState ?? (() => forkState),
       hydrateConversationHistory: async () => ({}),
       isPendingForkConversation: () => false,
@@ -82,7 +83,7 @@ export async function createHarness(options: {
       content: 'Noted A', id: 'a1', role: 'assistant', timestamp: testDate({ seconds: 1 }).getTime(),
     },
   ];
-  const conversation = conversationRecord('conversation-1', { sessionId: 'main-session', messages });
+  const conversation = conversationRecord('conversation-1', { providerId: 'codex', selectedModel: TEST_CODEX_MODEL, sessionId: 'main-session', messages });
   const pool = createSessionRuntimePool(() => plugin);
   const plugin = await createChatFeatureHost({
     sessionRuntimes: pool, executionPersistence: createExecutionPersistence(),
@@ -92,7 +93,11 @@ export async function createHarness(options: {
     updateConversation: async () => undefined,
     renameConversation: async () => undefined,
     getConversationSummary: id => plugin.getConversationSync(id),
-    settings: { enableAutoTitleGeneration: false, ...options.settings },
+    settings: {
+      enableAutoTitleGeneration: false,
+      providerConfigs: { codex: { enabled: true, visibleModels: [TEST_CODEX_MODEL], discoveredModels: TEST_CODEX_CATALOG } },
+      ...options.settings,
+    },
 
   });
 
@@ -133,7 +138,7 @@ export async function createHarness(options: {
     await pool.dispose();
     component.unload();
     await lifecycleRegistry.dispose();
-    ProviderRegistry.register('claude', claudeProviderRegistration);
+    ProviderRegistry.register('codex', codexProviderRegistration);
   });
   return {
     backend, composerEl, controller, drafts, destinationChanges, imageContextManager,

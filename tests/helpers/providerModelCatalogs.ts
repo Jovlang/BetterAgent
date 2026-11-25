@@ -1,20 +1,11 @@
 import { TEST_CODEX_CATALOG } from '@test/helpers/codexModels';
 
 import type { ProviderRuntimeHost } from '@/core/providers/ProviderRuntimeHost';
-import { assertClaudeModelAvailable } from '@/providers/claude/runtime/ClaudeModelAvailability';
-import { getClaudeProviderSettings, updateClaudeProviderSettings } from '@/providers/claude/settings';
 import { assertCodexModelAvailable } from '@/providers/codex/runtime/CodexModelAvailability';
 import { getCodexProviderSettings, updateCodexProviderSettings } from '@/providers/codex/settings';
-import { assertOpencodeModelAvailable } from '@/providers/opencode/runtime/OpencodeModelAvailability';
-import { getOpencodeProviderSettings, updateOpencodeProviderSettings } from '@/providers/opencode/settings';
-import { assertPiModelAvailable } from '@/providers/pi/runtime/PiModelAvailability';
-import { getPiProviderSettings, updatePiProviderSettings } from '@/providers/pi/settings';
 
 const availabilityGuards = {
-  claude: assertClaudeModelAvailable,
   codex: assertCodexModelAvailable,
-  opencode: assertOpencodeModelAvailable,
-  pi: assertPiModelAvailable,
 };
 
 /** Runs a provider's execution-time model guard against a settings document. */
@@ -28,16 +19,6 @@ export function assertCatalogModelAvailable(
 
 export const modelCatalogCases = [
   {
-    id: 'claude' as const, selected: 'sonnet',
-    populate(settings: Record<string, unknown>) {
-      updateClaudeProviderSettings(settings, { enabled: true, visibleModels: ['sonnet'], discoveredModels: [
-        { value: 'sonnet', label: 'Selected label', description: 'Selected metadata' },
-        { value: 'unselected-catalog-entry', label: 'Unselected', description: '' },
-      ] });
-    },
-    read: (settings: Record<string, unknown>) => getClaudeProviderSettings(settings).discoveredModels,
-  },
-  {
     id: 'codex' as const, selected: 'gpt-5.5',
     populate(settings: Record<string, unknown>) {
       updateCodexProviderSettings(settings, { enabled: true, visibleModels: ['gpt-5.5'], discoveredModels: [
@@ -45,25 +26,5 @@ export const modelCatalogCases = [
       ] });
     },
     read: (settings: Record<string, unknown>) => getCodexProviderSettings(settings).discoveredModels,
-  },
-  {
-    id: 'opencode' as const, selected: 'opencode:anthropic/selected',
-    populate(settings: Record<string, unknown>) {
-      updateOpencodeProviderSettings(settings, { enabled: true, visibleModels: ['anthropic/selected'], discoveredModels: [
-        { rawId: 'anthropic/selected', label: 'Selected label' },
-        { rawId: 'unselected-catalog-entry', label: 'Unselected' },
-      ] });
-    },
-    read: (settings: Record<string, unknown>) => getOpencodeProviderSettings(settings).discoveredModels,
-  },
-  {
-    id: 'pi' as const, selected: 'pi:anthropic/selected',
-    populate(settings: Record<string, unknown>) {
-      updatePiProviderSettings(settings, { enabled: true, visibleModels: ['pi:anthropic/selected'], discoveredModels: [
-        { encodedId: 'pi:anthropic/selected', id: 'selected', provider: 'anthropic', label: 'Selected label', input: ['text'], reasoning: true, thinkingLevels: ['off', 'high'] },
-        { encodedId: 'pi:anthropic/unselected-catalog-entry', id: 'unselected-catalog-entry', provider: 'anthropic', label: 'Unselected', input: ['text'], reasoning: false, thinkingLevels: ['off'] },
-      ] });
-    },
-    read: (settings: Record<string, unknown>) => getPiProviderSettings(settings).discoveredModels,
   },
 ];

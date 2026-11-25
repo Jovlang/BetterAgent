@@ -8,7 +8,6 @@ import { fireEvent, waitFor, within } from '@testing-library/dom';
 
 import type { ToolbarCallbacks } from '@/features/chat/composer/toolbar/types';
 import { setLocale, t } from '@/i18n/i18n';
-import { claudeChatUIConfig } from '@/providers/claude/ui/ClaudeChatUIConfig';
 import { updateCodexProviderSettings } from '@/providers/codex/settings';
 import { codexChatUIConfig } from '@/providers/codex/ui/CodexChatUIConfig';
 import { createProviderIconSvg } from '@/shared/icons';
@@ -104,7 +103,7 @@ it('renders saved model order top-to-bottom through the real provider UI config'
   };
   const selector = new ModelSelector(host, {
     getSettings: () => ({ model: 'haiku', providerConfigs: { claude: config } }),
-    getUIConfig: () => claudeChatUIConfig,
+    getUIConfig: () => codexChatUIConfig,
   } as unknown as ToolbarCallbacks);
   fireEvent.click(within(host).getByRole('button', { name: /^Model: haiku/ }));
   const labels = () => within(host).getAllByRole('option').map(node => node.textContent);

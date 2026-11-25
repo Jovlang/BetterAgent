@@ -111,7 +111,7 @@ function createWorkspace() {
 }
 
 function createSettings(): ClaudianSettings {
-  const entry = modelCatalogCases.find(candidate => candidate.id === 'claude')!;
+  const entry = modelCatalogCases.find(candidate => candidate.id === 'codex')!;
   const settings = JSON.parse(JSON.stringify(DEFAULT_CLAUDIAN_SETTINGS)) as ClaudianSettings;
   entry.populate(settings);
   return settings;
@@ -119,7 +119,7 @@ function createSettings(): ClaudianSettings {
 
 export async function createChatWorkspaceFixture(options: { ready?: boolean } = {}) {
   const settings = createSettings();
-  ProviderWorkspaceRegistry.setServices('claude', {});
+  ProviderWorkspaceRegistry.setServices('codex', {});
   const { App: HostApp } = await vi.importActual<typeof import('@test/__mocks__/obsidian')>('obsidian');
   const app = new App();
   if (!(app instanceof HostApp)) throw new Error('Expected the shared Obsidian App');
@@ -137,7 +137,7 @@ export async function createChatWorkspaceFixture(options: { ready?: boolean } = 
   const layout = createWorkspace();
   Object.assign(app, { workspace: layout.workspace, scope: app.keymap.getRootScope() });
   const sessions: FakeSideSession[] = [];
-  vi.spyOn(ProviderRegistry, 'createExecutionBackend').mockImplementation((_host, providerId = 'claude') => ({
+  vi.spyOn(ProviderRegistry, 'createExecutionBackend').mockImplementation((_host, providerId = 'codex') => ({
     providerId,
     createSession: config => {
       const session = new FakeSideSession(config);
@@ -197,8 +197,8 @@ export async function createChatWorkspaceFixture(options: { ready?: boolean } = 
     const conversation: Conversation = {
       id: `conversation-${conversations.length + 1}`,
       title: 'Test conversation', createdAt: testDate().getTime(), lastActivityAt: testDate().getTime(),
-      providerId: 'claude',
-      selectedModel: modelCatalogCases.find(candidate => candidate.id === 'claude')!.selected,
+      providerId: 'codex',
+      selectedModel: modelCatalogCases.find(candidate => candidate.id === 'codex')!.selected,
       messages: [],
       sessionId: `session-${conversations.length + 1}`,
     };

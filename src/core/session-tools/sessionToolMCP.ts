@@ -41,8 +41,7 @@ export interface SessionToolMCPDispatcher {
 }
 
 /**
- * The transport shape shared by the MCP SDK `Transport` and the Claude SDK's
- * in-process transport. Method syntax keeps native message-typed callbacks assignable.
+ * The transport shape used by the MCP SDK.
  */
 export interface SessionToolMCPTransport {
   onmessage?(message: unknown): void;

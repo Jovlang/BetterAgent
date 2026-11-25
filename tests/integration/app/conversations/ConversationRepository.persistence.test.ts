@@ -1,11 +1,8 @@
 import '@/providers';
 
-import * as fs from 'node:fs/promises';
-import * as path from 'node:path';
-
 import { DesktopVault } from '@test/helpers/core/DesktopVault';
 import { clearWriteFaults, failWritesUnder } from '@test/helpers/core/fsWriteFaults';
-import { testDate, testTime } from '@test/helpers/testClock';
+import { testDate } from '@test/helpers/testClock';
 
 import { ConversationRepository } from '@/app/conversations/ConversationRepository';
 import { ConversationPersistenceStore } from '@/app/storage/ConversationPersistenceStore';
@@ -13,7 +10,7 @@ import { getDeviceSessionsPath, SESSIONS_PATH } from '@/core/bootstrap/storagePa
 import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
 import { ProviderSettingsCoordinator } from '@/core/providers/ProviderSettingsCoordinator';
 import type { SessionMetadata } from '@/core/types';
-import { encodeVaultPathForSDK, getSDKProjectsPath } from '@/providers/claude/history/ClaudeHistoryStore';
+
 
 vi.mock('node:fs/promises', async () => {
   const { createFsPromisesWithWriteFaults } = await vi.importActual<typeof import('@test/helpers/core/fsWriteFaults')>('@test/helpers/core/fsWriteFaults');
@@ -101,7 +98,7 @@ test('persists pin and archive changes without treating metadata or snapshots as
   await repository.rename(id, 'Renamed');
   repository.registerExecutionBinding(id, 'binding-1', 1);
   await repository.persistExecutionSnapshot(id, 'binding-1', 1, {
-    providerId: 'claude', revision: 1, providerSessionId: 'native-session', status: 'idle',
+    providerId: 'codex', revision: 1, providerSessionId: 'native-session', status: 'idle',
   });
   expect(await readMetadata(id)).toMatchObject({ title: 'Renamed', lastActivityAt });
   expect(repository.getSync(id)!.lastActivityAt).toBe(lastActivityAt);
@@ -143,11 +140,11 @@ test('persists exact and descendant renames, including late metadata, without re
   const folder = await repository.create({ linkedContentPath: 'Projects/Old/Plan.md' });
   const unrelated = await repository.create({ linkedContentPath: 'Notes/Other.md' });
   await store.saveMetadata({
-    id: 'late', providerId: 'claude', title: 'Late', selectedModel: 'sonnet',
+    id: 'late', providerId: 'codex', title: 'Late', selectedModel: 'sonnet',
     linkedContentPath: 'Notes/Old.md', createdAt: testDate().getTime(), lastActivityAt: testDate().getTime(),
   });
   await store.saveMetadata({
-    id: 'late-direct', providerId: 'claude', title: 'Direct adoption', selectedModel: 'sonnet',
+    id: 'late-direct', providerId: 'codex', title: 'Direct adoption', selectedModel: 'sonnet',
     linkedContentPath: 'Notes/Old.md', createdAt: testDate().getTime(), lastActivityAt: testDate().getTime(),
   });
   await repository.rewriteLinkedContentPaths('Notes/Old.md', 'Notes/New.md');
@@ -155,7 +152,7 @@ test('persists exact and descendant renames, including late metadata, without re
   const published = (await store.metadataReader.load('late'))!;
   // SessionMetadataLoader publishes each scan batch before the final durable adoption.
   repository.mergeMetadataConversations([{
-    ...published.metadata, providerId: 'claude', sessionId: null, messages: [],
+    ...published.metadata, providerId: 'codex', sessionId: null, messages: [],
   }]);
   expect(repository.getSync('late')!.linkedContentPath).toBe('Notes/New.md');
   expect((await readMetadata('late')).linkedContentPath).toBe('Notes/Old.md');
@@ -177,7 +174,7 @@ test('persists exact and descendant renames, including late metadata, without re
 
 test('retains unscoped write authority after a failed assignment and switches only after a durable move', async () => {
   const id = 'unscoped';
-  await store.saveMetadata({ id, providerId: 'claude', title: 'Original', selectedModel: 'sonnet',
+  await store.saveMetadata({ id, providerId: 'codex', title: 'Original', selectedModel: 'sonnet',
     createdAt: testDate().getTime(), lastActivityAt: testDate().getTime() }, 'unscoped');
   await adoptStored();
   const rename = vi.spyOn(vault.app.vault.adapter, 'rename').mockRejectedValueOnce(new Error('rename failed'));
@@ -208,7 +205,7 @@ test('migrates timestamps and Linked content without losing unhydrated provider 
   } };
   const lastActivityAt = testDate({ minutes: -1 }).getTime();
   await vault.write(`${devicePath}/legacy.meta.json`, JSON.stringify({
-    id: 'legacy', providerId: 'claude', title: 'Legacy', selectedModel: 'sonnet',
+    id: 'legacy', providerId: 'codex', title: 'Legacy', selectedModel: 'sonnet',
     createdAt: testDate({ minutes: -2 }).getTime(), lastResponseAt: lastActivityAt,
     currentNote: 'Notes\\Architecture.md', providerState,
   }));
@@ -248,88 +245,4 @@ test('keeps a legacy project id when a restored conversation is pinned', async (
 
   expect(reloaded.getSync(id)).toMatchObject({ projectId, isPinned: true });
   expect(await readMetadata(id)).toMatchObject({ projectId, isPinned: true });
-});
-
-test('preserves subagent history through pending-write release veto, eviction, rename and native replay', async () => {
-  const configDir = vault.resolve('claude-home');
-  const sessionDir = path.join(getSDKProjectsPath({ environment: { CLAUDE_CONFIG_DIR: configDir } }), encodeVaultPathForSDK(vault.root));
-  await fs.mkdir(sessionDir, { recursive: true });
-  await fs.writeFile(path.join(sessionDir, 'eviction-session.jsonl'), [
-    { type: 'user', uuid: 'native-user', timestamp: testTime(), message: { content: 'Delegate a task' } },
-    { type: 'assistant', uuid: 'native-assistant', parentUuid: 'native-user', timestamp: testTime({ seconds: 1 }),
-      message: { model: 'claude-sonnet-4-6', content: [
-        { type: 'text', text: 'Native parent answer' },
-        { type: 'tool_use', id: 'task-1', name: 'Agent', input: { description: 'Helper', prompt: 'Investigate' } },
-      ] } },
-  ].map(entry => JSON.stringify(entry)).join('\n'));
-  repository = createRepository({ providerConfigs: { claude: { environmentVariables: `CLAUDE_CONFIG_DIR=${configDir}` } } });
-  const { id } = await repository.create({ sessionId: 'eviction-session', selectedModel: 'sonnet' });
-  await repository.update(id, { messages: [{
-    id: 'live-assistant', role: 'assistant', content: 'Live parent answer', timestamp: testDate().getTime(),
-    toolCalls: [{
-      id: 'task-1', name: 'Agent', input: { description: 'Helper' }, status: 'completed',
-      subagent: {
-        id: 'task-1', description: 'Helper', status: 'completed', result: 'Helper finished',
-        isExpanded: false, toolCalls: [],
-      },
-    }],
-  }] });
-
-  let entered!: () => void;
-  const writeEntered = new Promise<void>(resolve => { entered = resolve; });
-  let release!: () => void;
-  const writeReleased = new Promise<void>(resolve => { release = resolve; });
-  let writeCompleted = false;
-  const writeFile = fs.writeFile;
-  const gatedWrite: typeof fs.writeFile = async (file, data, options) => {
-    const target = String(file);
-    const isMetadataWrite = path.dirname(target) === vault.resolve(devicePath)
-      && /^\.claudian-.*\.tmp$/.test(path.basename(target));
-    if (isMetadataWrite) {
-      entered();
-      await writeReleased;
-    }
-    await writeFile(file, data, options);
-    if (isMetadataWrite) writeCompleted = true;
-  };
-  const write = vi.spyOn(fs, 'writeFile').mockImplementation(gatedWrite);
-  const pending: Promise<unknown>[] = [];
-  try {
-    const saving = repository.rename(id, 'Saved title');
-    pending.push(saving);
-    await writeEntered;
-    let mayRelease = true;
-    const completionAtRelease: boolean[] = [];
-    const evicting = repository.releaseHistory(id, () => {
-      completionAtRelease.push(writeCompleted);
-      return mayRelease;
-    });
-    pending.push(evicting);
-    mayRelease = false;
-    release();
-    await saving;
-    await expect(evicting).resolves.toBe(false);
-    expect(completionAtRelease).toEqual([true]);
-    expect(repository.getCachedConversation(id)?.messages[0].toolCalls?.[0].subagent)
-      .toMatchObject({ id: 'task-1', status: 'completed', result: 'Helper finished' });
-
-    mayRelease = true;
-    await expect(repository.releaseHistory(id, () => mayRelease)).resolves.toBe(true);
-    expect(repository.getCachedConversation(id)?.messages).toEqual([]);
-    await repository.rename(id, 'After eviction');
-    expect(await readMetadata(id)).toMatchObject({
-      id, sessionId: 'eviction-session', title: 'After eviction',
-      providerState: { subagentData: { 'task-1': { id: 'task-1', status: 'completed', result: 'Helper finished' } } },
-    });
-    const replayed = await repository.getById(id);
-    expect(replayed).toMatchObject({ sessionId: 'eviction-session', title: 'After eviction' });
-    const assistant = replayed?.messages.find(message => message.role === 'assistant');
-    expect(assistant?.content).toBe('Native parent answer');
-    expect(assistant?.toolCalls?.find(tool => tool.id === 'task-1')?.subagent)
-      .toMatchObject({ id: 'task-1', status: 'completed', result: 'Helper finished' });
-  } finally {
-    release();
-    await Promise.allSettled(pending);
-    write.mockRestore();
-  }
 });

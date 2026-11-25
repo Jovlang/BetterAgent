@@ -7,6 +7,7 @@ import { fireEvent, within } from '@testing-library/dom';
 import { Component } from 'obsidian';
 
 import type { ProviderExecutionEvent, ProviderRequestedEventScope } from '@/core/execution';
+import { NOOP_TASK_RESULT_INTERPRETER } from '@/core/providers/NoopTaskResultInterpreter';
 import type { ProviderCapabilities } from '@/core/providers/types';
 import { TOOL_SPAWN_AGENT, TOOL_SUBAGENT, TOOL_WAIT_AGENT } from '@/core/tools/toolNames';
 import type { ChatMessage } from '@/core/types';
@@ -19,7 +20,7 @@ import { ResponseStream } from '@/features/chat/turns/ResponseStream';
 import { SessionTranscript } from '@/features/chat/turns/SessionTranscript';
 import { StreamController } from '@/features/chat/turns/StreamController';
 import { TurnCoordinator } from '@/features/chat/turns/TurnCoordinator';
-import { ClaudeTaskResultInterpreter } from '@/providers/claude/runtime/ClaudeTaskResultInterpreter';
+
 
 const cleanups: Array<() => void> = [];
 
@@ -33,7 +34,7 @@ async function createSession(providerId?: ProviderCapabilities['providerId']) {
   const plugin = await createChatFeatureHost({ settings: { mediaFolder: '' } });
   const turns = new TurnCoordinator();
   const state = new ChatState({}, undefined, turns);
-  const subagents = new SubagentManager(info => stream.subagents.onAsyncSubagentStateChange(info), new ClaudeTaskResultInterpreter());
+  const subagents = new SubagentManager(info => stream.subagents.onAsyncSubagentStateChange(info), NOOP_TASK_RESULT_INTERPRETER);
   const stream: StreamController = new StreamController({ plugin, state, subagentManager: subagents,
     get renderer() { return transcript.renderer; }, getMessagesEl: () => transcript.messagesEl,
     getProviderId: () => providerId ?? 'claude', updateQueueIndicator: () => undefined });

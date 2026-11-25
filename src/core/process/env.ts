@@ -97,8 +97,6 @@ function getUnixManagerBinPaths(home: string): Array<string | null> {
   const env = process.env;
   const dataHome = getUnixXdgDataHome() ?? joinIfRoot(home, '.local', 'share') ?? undefined;
   return [
-    // Node.js installed by Pi's managed installer.
-    joinIfRoot(dataHome, 'pi-node', 'current', 'bin'),
     joinIfRoot(env.NODENV_ROOT, 'shims') ?? joinIfRoot(home, '.nodenv', 'shims'),
     ...getProtoBinPaths(home),
     env.PNPM_HOME ?? null,
@@ -204,7 +202,6 @@ function getExtraBinaryPaths(): string[] {
       paths.push(path.join(home, 'bin'));
       paths.push(path.join(home, '.local', 'bin'));
       paths.push(path.join(home, '.bun', 'bin'));
-      paths.push(path.join(home, '.opencode', 'bin'));
     }
   } else {
     // Unix paths
@@ -232,7 +229,6 @@ function getExtraBinaryPaths(): string[] {
       paths.push(path.join(home, 'bin'));
       paths.push(path.join(home, '.local', 'bin'));
       paths.push(path.join(home, '.bun', 'bin'));
-      paths.push(path.join(home, '.opencode', 'bin'));
       paths.push(path.join(home, '.docker', 'bin'));
       paths.push(path.join(home, '.npm-global', 'bin'));
       paths.push(path.join(home, '.volta', 'bin'));

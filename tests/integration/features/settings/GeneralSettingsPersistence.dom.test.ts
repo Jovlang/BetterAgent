@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 
 import { axe } from '@test/helpers/accessibility';
-import { claudeCatalogFixture } from '@test/helpers/claudeModels';
+import { codexCatalogFixture } from '@test/helpers/codexModels';
 import { createFeatureHostFixture } from '@test/helpers/FeatureHostFixture';
 import { controlChangeSettled } from '@test/helpers/ObsidianHost';
 import { createObsidianPlugin, mountSettingTab } from '@test/helpers/ObsidianSettingsHost';
@@ -10,9 +10,9 @@ import { fireEvent, within } from '@testing-library/dom';
 import { registerProviderModules } from '@/core/providers/registerProviderModules';
 import { ClaudianSettingTab } from '@/features/settings/ClaudianSettings';
 import { t } from '@/i18n/i18n';
-import { claudeProviderRegistration } from '@/providers/claude/registration';
+import { codexProviderRegistration } from '@/providers/codex/registration';
 
-registerProviderModules([claudeProviderRegistration]);
+registerProviderModules([codexProviderRegistration]);
 afterEach(() => document.body.replaceChildren());
 
 const cases = [
@@ -33,7 +33,7 @@ describe.each(['persist-failure', 'publish-failure', 'success'] as const)('%s', 
   it.each(cases)('keeps the %s control aligned with committed settings', async (key, label, initial, next) => {
     const persist = vi.fn(async () => { if (phase === 'persist-failure') throw new Error('Storage unavailable'); });
     const fixture = await createFeatureHostFixture({
-      settings: { [key]: initial, providerConfigs: { claude: { ...claudeCatalogFixture(['sonnet']) } } },
+      settings: { [key]: initial, providerConfigs: { codex: { ...codexCatalogFixture(['sonnet']) } } },
       beforePersist: persist,
       afterPublish: () => { if (phase === 'publish-failure') throw new Error('Publication unavailable'); },
     });

@@ -7,16 +7,11 @@ import { createProviderHostFixture } from '@test/helpers/providerRuntimeHost';
 import type { ProviderHost } from '@/core/providers/ProviderHost';
 import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
 import { ProviderWorkspaceRegistry } from '@/core/providers/ProviderWorkspaceRegistry';
-import { updateClaudeProviderSettings } from '@/providers/claude/settings';
+
 
 const titleCases = modelCatalogCases.map(provider => ({
   ...provider,
-  forms: {
-    claude: ['sonnet', 'claude-code/sonnet'],
-    codex: ['gpt-5.5', 'openai-codex/gpt-5.5'],
-    opencode: ['anthropic/selected', 'opencode:anthropic/selected'],
-    pi: ['anthropic/selected', 'pi:anthropic/selected'],
-  }[provider.id],
+  forms: ['gpt-5.5', 'openai-codex/gpt-5.5'],
 }));
 
 beforeEach(() => vi.spyOn(ProviderWorkspaceRegistry, 'ensureInitialized').mockResolvedValue(undefined));
@@ -50,7 +45,7 @@ it.each(titleCases)('$id routes equivalent title IDs without choosing a sibling'
   for (const model of forms) {
     settings.titleGenerationModel = model;
     expect(ProviderRegistry.resolveTitleGenerationSelection(settings)?.providerId).toBe(id);
-    const expectedModel = id === 'claude' ? forms[0] : forms[1];
+    const expectedModel = forms[0];
     expect(await generateTitleModel(host, id)).toBe(expectedModel);
     expect(() => assertCatalogModelAvailable(id, host.getRuntimeHost(id), expectedModel)).not.toThrow();
     settings.titleGenerationModel = `${model}/high`;
@@ -70,19 +65,6 @@ it.each(titleCases)('$id rejects a title model cleared after routing instead of 
   const { requests, callback } = await runTitleGeneration(host, id);
   expect(requests).toHaveLength(0);
   expect(callback).toHaveBeenCalledWith('conversation', expect.objectContaining({ success: false }));
-});
-
-it('routes plain and qualified Claude haiku selections to the same model', async () => {
-  const { host, settings } = await createProviderHostFixture();
-  updateClaudeProviderSettings(settings, {
-    enabled: true, visibleModels: ['haiku'],
-    discoveredModels: [{ value: 'haiku', label: 'Haiku', description: '' }],
-  });
-  for (const model of ['haiku', 'claude-code/haiku']) {
-    settings.titleGenerationModel = model;
-    expect(ProviderRegistry.resolveTitleGenerationSelection(settings)?.providerId).toBe('claude');
-    expect(await generateTitleModel(host, 'claude')).toBe('haiku');
-  }
 });
 
 it.each(titleCases)('$id preserves omitted-model execution fallback without accepting an explicit missing model', async ({ id, populate, selected }) => {

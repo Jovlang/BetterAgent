@@ -171,10 +171,6 @@ export async function checkHost(cdp, { vault, artifactDir, signal, check }) {
   // These use the exported production modules in the actual host. They do not test provider execution.
   await modal('fork-module', () => evaluate('__claudianSmokeProbe.fork();true'), 'Fork conversation');
   assert.equal(await evaluate('__claudianSmokeProbe.pending.then(()=>__claudianSmokeProbe.result)'), null);
-  for (const method of ['select', 'confirm', 'input', 'editor']) {
-    await modal(`pi-${method}-module`, () => evaluate(`__claudianSmokeProbe.pi(${JSON.stringify(method)});true`), `Pi smoke ${method}`);
-    assert.deepEqual(await evaluate('__claudianSmokeProbe.pending.then(()=>__claudianSmokeProbe.result)'), { cancelled: true });
-  }
   await check('host-component-lifecycle', async () => {
     const results = await evaluate('__claudianSmokeProbe.lifecycle()');
     for (const [contract, passed] of Object.entries(results)) assert.equal(passed, true, contract);

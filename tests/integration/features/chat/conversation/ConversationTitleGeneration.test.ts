@@ -1,7 +1,7 @@
 import '@/providers';
 
 import { deferred } from '@test/helpers/ChatInputHarness';
-import { claudeCatalogFixture } from '@test/helpers/claudeModels';
+import { codexCatalogFixture } from '@test/helpers/codexModels';
 import { testDate } from '@test/helpers/testClock';
 
 import { ConversationRepository } from '@/app/conversations/ConversationRepository';
@@ -16,11 +16,11 @@ function createFixture(result: TitleGenerationResult = { success: true, title: '
   const settings = {
     enableAutoTitleGeneration: true,
     titleGenerationModel: 'haiku',
-    providerConfigs: { claude: claudeCatalogFixture(['haiku']) },
+    providerConfigs: { codex: codexCatalogFixture(['haiku']) },
   } as unknown as ClaudianSettings;
   const at = testDate().getTime();
   const conversation: Conversation = {
-    id: 'conversation-1', providerId: 'claude', title: 'Original title', selectedModel: 'haiku',
+    id: 'conversation-1', providerId: 'codex', title: 'Original title', selectedModel: 'haiku',
     createdAt: at, lastActivityAt: at, sessionId: 'native',
     messages: [{ id: 'user', role: 'user', content: 'Explain the note', timestamp: at }],
   };

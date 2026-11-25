@@ -35,7 +35,6 @@ export default defineConfig({
       { find: /^@\//, replacement: `${resolve('src')}/` },
       { find: /^@test\//, replacement: `${resolve('tests')}/` },
       { find: /^obsidian$/, replacement: resolve('tests/__mocks__/obsidian.ts') },
-      { find: /^@anthropic-ai\/claude-agent-sdk(?:\/core)?$/, replacement: resolve('tests/__mocks__/claude-agent-sdk.ts') },
     ],
   },
   test: {

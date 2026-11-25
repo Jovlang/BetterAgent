@@ -16,7 +16,7 @@ import { SessionInteractions } from '@/features/chat/interactions/SessionInterac
 import { ChatState } from '@/features/chat/state/ChatState';
 import { formatCodexQuestionReply } from '@/providers/codex/normalization/codexQuestionNormalization';
 
-const taskResultInterpreter = ProviderRegistry.getTaskResultInterpreter('claude');
+const taskResultInterpreter = ProviderRegistry.getTaskResultInterpreter('codex');
 
 afterEach(async () => {
   try { await releaseSideChatHarnesses(); } finally { vi.useRealTimers(); }

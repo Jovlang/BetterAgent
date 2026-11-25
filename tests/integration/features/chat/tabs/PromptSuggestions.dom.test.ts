@@ -1,8 +1,7 @@
 /** @vitest-environment jsdom */
 import '@/providers';
 
-import * as sdkModule from '@anthropic-ai/claude-agent-sdk';
-import { claudeCatalogFixture } from '@test/helpers/claudeModels';
+import { codexCatalogFixture } from '@test/helpers/codexModels';
 import { createChatFeatureHost } from '@test/helpers/features/chat/ChatFeatureHostFixture';
 import { createSessionRuntimePool } from '@test/helpers/features/chat/SessionRuntimePoolHarness';
 import { FakeSideBackend } from '@test/helpers/features/chat/SideChatSessionHarness';
@@ -16,16 +15,6 @@ import { activateTab, deactivateTab, destroyTab } from '@/features/chat/tabs/Tab
 import { createTabRuntime } from '@/features/chat/tabs/TabRuntimeFactory';
 import { VaultMentionDataProvider } from '@/shared/mention/VaultMentionDataProvider';
 
-const sdkMock = sdkModule as unknown as {
-  resetMockMessages(): void;
-  setMockMessages(messages: unknown[], options?: { appendResult?: boolean }): void;
-  getLastOptions(): sdkModule.Options;
-};
-
-beforeEach(() => {
-  sdkMock.resetMockMessages();
-
-});
 afterEach(() => {
   vi.restoreAllMocks();
   document.body.replaceChildren();
@@ -39,13 +28,13 @@ async function createView(fakeBackend?: FakeSideBackend) {
   const settings: Partial<ClaudianSettings> = {
     model: 'claude-sonnet-4-5', effortLevel: 'high', permissionMode: 'normal',
     enableAutoTitleGeneration: false, excludedTags: [], mediaFolder: '', systemPrompt: '', userName: '',
-    providerConfigs: { claude: {
-      ...claudeCatalogFixture(['claude-sonnet-4-5', 'claude-opus-4-6'], ['low', 'high']),
+    providerConfigs: { codex: {
+      ...codexCatalogFixture(['claude-sonnet-4-5', 'claude-opus-4-6'], ['low', 'high']),
       promptSuggestions: true,
     } },
   };
   const conversation: Conversation = {
-    id: 'conversation-1', providerId: 'claude', selectedModel: 'claude-sonnet-4-5',
+    id: 'conversation-1', providerId: 'codex', selectedModel: 'claude-sonnet-4-5',
     sessionId: 'main-session', messages: [], title: 'Main session', createdAt: testDate().getTime(), lastActivityAt: testDate().getTime(),
   };
   const conversations = new Map([[conversation.id, conversation]]);
@@ -78,7 +67,7 @@ async function createView(fakeBackend?: FakeSideBackend) {
     openConversation: async () => {}, startNewConversation: async () => {},
   });
   await tab.session.runtime.model.hydrate();
-  await tab.executionCoordinator.bindConversation({ conversationId: conversation.id, providerId: 'claude' });
+  await tab.executionCoordinator.bindConversation({ conversationId: conversation.id, providerId: 'codex' });
   await tab.executionCoordinator.prepare();
   vi.spyOn(tab.dom.messagesEl, 'getClientRects').mockImplementation(() => (tab.dom.contentEl.hasClass('claudian-hidden') ? [] : [{}]) as unknown as DOMRectList);
   activateTab(tab);
@@ -86,7 +75,7 @@ async function createView(fakeBackend?: FakeSideBackend) {
   return { get tab() { return tab; }, conversation, saved, plugin,
     rebind: async (providerId: string) => {
       const next = { ...conversation, id: 'next-conversation', providerId, messages: [],
-        selectedModel: providerId === 'claude' ? conversation.selectedModel : 'gpt-5.5' } as Conversation;
+        selectedModel: providerId === 'codex' ? conversation.selectedModel : 'gpt-5.5' } as Conversation;
       conversations.set(next.id, next);
       const tabId = tab.id;
       await destroyTab(tab);
@@ -173,29 +162,6 @@ const retainingActivity = {
   },
 };
 
-it('routes a native post-result suggestion to the composer without persisting it', async () => {
-  const view = await createView();
-  try {
-    sdkMock.setMockMessages([
-      { type: 'system', subtype: 'init', session_id: 'main-session' },
-      { type: 'assistant', message: { content: [{ type: 'text', text: 'Done.' }] } },
-      { type: 'result', subtype: 'success', session_id: 'main-session' },
-      { type: 'prompt_suggestion', suggestion: 'Add tests next', session_id: 'main-session', uuid: 'suggestion' },
-    ], { appendResult: false });
-    view.tab.dom.inputEl.value = 'Do the work';
-    await view.tab.controllers.inputController.sendMessage();
-    await waitFor(() => expect(within(view.tab.dom.inputEl).getByText('Add tests next')).toBeDefined());
-    expect(sdkMock.getLastOptions().promptSuggestions).toBe(true);
-    expect(view.tab.dom.inputEl.value).toBe('');
-    expect(JSON.stringify(view.saved)).not.toContain('Add tests next');
-    expect(JSON.stringify(view.tab.state.messages)).not.toContain('Add tests next');
-    const send = vi.spyOn(view.tab.controllers.inputController, 'sendMessage');
-    fireEvent.keyDown(within(view.tab.dom.inputEl).getByRole('textbox'), { key: 'Tab' });
-    expect(view.tab.dom.inputEl.value).toBe('Add tests next');
-    expect(send).not.toHaveBeenCalled();
-  } finally { await view.dispose(); }
-});
-
 it.each(['tab', 'conversation', 'provider', 'model', 'send'] as const)(
   'discards a suggestion after a %s change, including delayed delivery', async change => {
     const backend = new FakeSideBackend();
@@ -213,7 +179,7 @@ it.each(['tab', 'conversation', 'provider', 'model', 'send'] as const)(
       if (change === 'tab') {
         deactivateTab(view.tab); activateTab(view.tab);
       } else if (change === 'conversation' || change === 'provider') {
-        await view.rebind(change === 'provider' ? 'codex' : 'claude');
+        await view.rebind(change === 'provider' ? 'codex' : 'codex');
       } else if (change === 'model') {
         await selectToolbarModel(view, /opus/i);
       } else {

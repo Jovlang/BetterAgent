@@ -23,7 +23,7 @@ function lastMenu(): MockMenu {
 
 function session(id: string, title: string, extra: Partial<ConversationMeta> = {}): ConversationMeta {
   return {
-    id, providerId: 'claude', title, messageCount: 1, preview: '',
+    id, providerId: 'codex', title, messageCount: 1, preview: '',
     createdAt: testDate({ days: -3 }).getTime(), lastActivityAt: testDate({ days: -1 }).getTime(), ...extra,
   };
 }

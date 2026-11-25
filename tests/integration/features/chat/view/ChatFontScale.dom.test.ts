@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { claudeCatalogFixture } from '@test/helpers/claudeModels';
+import { codexCatalogFixture } from '@test/helpers/codexModels';
 import { createFeatureHostFixture } from '@test/helpers/FeatureHostFixture';
 import { controlChangeSettled } from '@test/helpers/ObsidianHost';
 import { createObsidianPlugin, mountSettingTab } from '@test/helpers/ObsidianSettingsHost';
@@ -12,9 +12,9 @@ import { ChatFontScale } from '@/features/chat/view/ChatFontScale';
 import { ChatViewPublisher } from '@/features/chat/workspace/ChatViewPublisher';
 import { ClaudianSettingTab } from '@/features/settings/ClaudianSettings';
 import { t } from '@/i18n/i18n';
-import { claudeProviderRegistration } from '@/providers/claude/registration';
+import { codexProviderRegistration } from '@/providers/codex/registration';
 
-registerProviderModules([claudeProviderRegistration]);
+registerProviderModules([codexProviderRegistration]);
 afterEach(() => {
   document.body.replaceChildren();
   document.body.removeAttribute('style');
@@ -36,7 +36,7 @@ it('scales chat text in every window from the committed slider value until unloa
     hasLoadedAllSessionMetadata: () => true,
   });
   const fixture = await createFeatureHostFixture({
-    settings: { chatFontScale: 90, providerConfigs: { claude: { ...claudeCatalogFixture(['sonnet']) } } },
+    settings: { chatFontScale: 90, providerConfigs: { codex: { ...codexCatalogFixture(['sonnet']) } } },
     afterPublish: (settings, previous) => publisher.publishSettings(settings, previous),
   });
   onTestFinished(() => fixture.dispose());

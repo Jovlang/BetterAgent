@@ -8,13 +8,13 @@ import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
 import { ProviderSettingsCoordinator } from '@/core/providers/ProviderSettingsCoordinator';
 import type { Conversation } from '@/core/types';
 
-const historyService = ProviderRegistry.getConversationHistoryService('claude');
-const modelPolicy = ProviderRegistry.getModelPolicy('claude');
+const historyService = ProviderRegistry.getConversationHistoryService('codex');
+const modelPolicy = ProviderRegistry.getModelPolicy('codex');
 
 function createConversation(id = 'conversation-1'): Conversation {
   return {
     id,
-    providerId: 'claude',
+    providerId: 'codex',
     title: 'Conversation',
     createdAt: 1,
     lastActivityAt: 1,
@@ -67,7 +67,7 @@ describe('ConversationRepository hydration', () => {
     const getConfig = ProviderRegistry.getModelPolicy.bind(ProviderRegistry);
     vi.spyOn(ProviderRegistry, 'getModelPolicy').mockImplementation(id => {
       const config = getConfig(id);
-      return id === 'claude' ? {
+      return id === 'codex' ? {
         ...config,
         preserveUnavailableModelSelection: false,
         getModelOptions: () => ['haiku', 'sonnet', 'opus', 'fable'].map(value => ({ value, label: value })),
@@ -490,7 +490,7 @@ describe('ConversationRepository hydration', () => {
     const { repository, persistence } = createRepository(affected);
     repository.replaceAll([affected, unaffected]);
 
-    await expect(repository.reconcileSelectedModels('claude'))
+    await expect(repository.reconcileSelectedModels('codex'))
       .resolves.toEqual([]);
 
     expect(repository.getSync(affected.id)!.selectedModel).toBe('claude-code/retired-model');
@@ -836,7 +836,7 @@ describe('ConversationRepository hydration', () => {
       'binding-1',
       1,
       {
-        providerId: 'claude',
+        providerId: 'codex',
         revision: 1,
         status: 'idle',
         providerSessionId: 'provider-session-1',
@@ -875,7 +875,7 @@ describe('ConversationRepository hydration', () => {
       'replacement-binding',
       2,
       {
-        providerId: 'claude',
+        providerId: 'codex',
         revision: 1,
         status: 'idle',
         providerSessionId: 'replacement-provider-session',
@@ -905,7 +905,7 @@ it('does not require a metadata write to keep an unavailable selection', async (
   };
   const { repository, persistence } = createRepository(conversation);
   persistence.saveMetadata.mockRejectedValue(new Error('disk full'));
-  await expect(repository.reconcileSelectedModels('claude')).resolves.toEqual([]);
+  await expect(repository.reconcileSelectedModels('codex')).resolves.toEqual([]);
   expect(repository.getSync(conversation.id)!.selectedModel).toBe('claude-code/retired-model');
   expect(persistence.saveMetadata).not.toHaveBeenCalled();
   expect(repository.getSync(conversation.id)!.providerState).toEqual({

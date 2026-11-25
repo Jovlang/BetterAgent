@@ -9,8 +9,8 @@ import { MarkdownRenderer } from 'obsidian';
 import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
 import { cancelSelectedDestinationTurn } from '@/features/chat/tabs/TabInputEvents';
 
-const subagentAdapter = ProviderRegistry.getSubagentAdapter('claude')!;
-const taskResultInterpreter = ProviderRegistry.getTaskResultInterpreter('claude');
+const subagentAdapter = ProviderRegistry.getSubagentAdapter('codex')!;
+const taskResultInterpreter = ProviderRegistry.getTaskResultInterpreter('codex');
 
 beforeEach(() => {
   vi.spyOn(MarkdownRenderer, 'render').mockImplementation(async (_app, markdown, el) => {

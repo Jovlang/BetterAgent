@@ -24,7 +24,7 @@ function createSession(overrides: Partial<ConstructorParameters<typeof SideChatS
     lifecycleRegistry,
     onRequestedEvent: event => { requestedEvents.push(event.type); },
     onSessionEvent: event => { sessionEvents.push(event.type); },
-    providerId: 'claude',
+    providerId: 'codex',
     ephemeral: false,
     resolveBackend: () => backend,
     workingDirectory: '/vault',
@@ -165,7 +165,7 @@ describe('SideChatSession', () => {
     await waitFor(() => harness.backend.sessions.length === 1);
     harness.backend.latest.complete();
     await first;
-    await harness.lifecycleRegistry.runTransition(['claude'], async () => undefined);
+    await harness.lifecycleRegistry.runTransition(['codex'], async () => undefined);
     let outcome: unknown;
     const continuation = harness.session.execute(turn('Continue')).then(result => { outcome = result; }, error => { outcome = error; });
     await waitFor(() => outcome !== undefined || harness.backend.sessions.length > 1);
@@ -184,7 +184,7 @@ describe('SideChatSession', () => {
     harness.backend.latest.complete();
     await first;
 
-    await harness.lifecycleRegistry.runTransition(['claude'], async () => undefined);
+    await harness.lifecycleRegistry.runTransition(['codex'], async () => undefined);
     expect(harness.backend.sessions[0].disposeCalls).toBe(1);
 
     const second = harness.session.execute(turn('Continue'));
@@ -207,7 +207,7 @@ describe('SideChatSession', () => {
       harness.backend.latest.establishChild('child-session', { childKey: value });
       harness.backend.latest.complete();
       await running;
-      await harness.lifecycleRegistry.runTransition(['claude'], async () => undefined);
+      await harness.lifecycleRegistry.runTransition(['codex'], async () => undefined);
     }
     const resumed = harness.session.execute(turn('Continue'));
     await waitFor(() => harness.backend.sessions.length === 3);

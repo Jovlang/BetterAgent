@@ -16,7 +16,7 @@ import type {
 type WithoutScope<T> = T extends unknown ? Omit<T, 'scope'> : never;
 
 export class FakeAuxiliarySession implements ProviderExecutionSession {
-  readonly providerId = 'claude' as const;
+  readonly providerId = 'codex' as const;
   readonly sessionInstanceId = randomUUID();
   readonly requests: ProviderExecutionRequest[] = [];
   cancelCalls = 0;
@@ -92,7 +92,7 @@ export class FakeAuxiliarySession implements ProviderExecutionSession {
 }
 
 export class FakeAuxiliaryBackend implements ProviderExecutionBackend {
-  readonly providerId = 'claude' as const;
+  readonly providerId = 'codex' as const;
   readonly sessions: FakeAuxiliarySession[] = [];
   readonly configs: ProviderSessionConfig[] = [];
 

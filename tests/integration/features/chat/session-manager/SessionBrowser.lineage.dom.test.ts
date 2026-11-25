@@ -17,7 +17,7 @@ const titles = (menu: MockMenu): string[] => menu.items.map(item => item.title);
 
 function session(id: string, hoursAgo: number, extra: Partial<ConversationMeta> = {}): ConversationMeta {
   return {
-    id, providerId: 'claude', title: `${id} session`, messageCount: 1, preview: '',
+    id, providerId: 'codex', title: `${id} session`, messageCount: 1, preview: '',
     createdAt: testDate({ days: -5 }).getTime(), lastActivityAt: testDate({ hours: -hoursAgo }).getTime(), ...extra,
   };
 }

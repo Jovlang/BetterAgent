@@ -97,10 +97,7 @@ src/
 │   ├── auxiliary/               # Shared provider auxiliary services
 │   └── ...                      # bootstrap, commands, rpc, security, storage, tools, types
 ├── providers/
-│   ├── claude/                  # Claude Agent SDK adaptor, native history, plugins
-│   ├── codex/                   # Codex shared app-server adaptor, JSON-RPC, JSONL history
-│   ├── opencode/                # OpenCode HTTP adaptor, shared server
-│   └── pi/                      # Pi RPC adaptor, model discovery, JSONL history
+│   └── codex/                   # Codex shared app-server adaptor, JSON-RPC, JSONL history
 ├── features/
 │   ├── agent-skills/            # Vault skill and Claude command management
 │   ├── chat/                    # Sidebar chat: tabs, workspace lifecycle, controllers, renderers

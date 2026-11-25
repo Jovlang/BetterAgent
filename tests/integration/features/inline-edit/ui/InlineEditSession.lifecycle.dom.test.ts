@@ -154,8 +154,8 @@ it.each(['plugin unload', 'editor destruction', 'second invocation'] as const)(
     let initialized = false;
     let release!: () => void;
     const gate = new Promise<void>(resolve => { release = resolve; });
-    ProviderWorkspaceRegistry.setServices('claude', undefined);
-    ProviderWorkspaceRegistry.register('claude', {
+    ProviderWorkspaceRegistry.setServices('codex', undefined);
+    ProviderWorkspaceRegistry.register('codex', {
       async initialize() { initialized = true; await gate; return {}; },
     });
     const result = h.createModal().openAndWait();
@@ -165,7 +165,7 @@ it.each(['plugin unload', 'editor destruction', 'second invocation'] as const)(
     else await h.createModal().openAndWait();
     await expect(result).resolves.toEqual({ decision: 'reject' });
     release();
-    await ProviderWorkspaceRegistry.ensureInitialized(h.plugin.providerHost, 'claude', 'test-settlement');
+    await ProviderWorkspaceRegistry.ensureInitialized(h.plugin.providerHost, 'codex', 'test-settlement');
     expect(screen.queryByRole('textbox', { name: 'Edit instructions' })).toBeNull();
     expect(h.backend.sessions).toHaveLength(0);
   },
@@ -180,8 +180,8 @@ it.each(['cursor', 'selection'] as const)('rejects changed %s context during pro
   let initialized = false;
   let release!: () => void;
   const gate = new Promise<void>(resolve => { release = resolve; });
-  ProviderWorkspaceRegistry.setServices('claude', undefined);
-  ProviderWorkspaceRegistry.register('claude', {
+  ProviderWorkspaceRegistry.setServices('codex', undefined);
+  ProviderWorkspaceRegistry.register('codex', {
     async initialize() { initialized = true; await gate; return {}; },
   });
   const modal = new InlineEditModal(
@@ -313,9 +313,9 @@ it('saves the model and effort chosen on its composer chip as the inline edit de
   await waitFor(() => expect(h.plugin.settings).toMatchObject({
     model: 'sonnet',
     effortLevel: 'high',
-    inlineEditModel: { providerId: 'claude', model: 'opus', reasoning: 'low' },
+    inlineEditModel: { providerId: 'codex', model: 'opus', reasoning: 'low' },
   }));
-  expect((await h.settingsStorage.load()).inlineEditModel).toEqual({ providerId: 'claude', model: 'opus', reasoning: 'low' });
+  expect((await h.settingsStorage.load()).inlineEditModel).toEqual({ providerId: 'codex', model: 'opus', reasoning: 'low' });
 });
 
 it('runs a new edit with the model and effort its chip shows when nothing is chosen or saved', async () => {
@@ -329,14 +329,14 @@ it('runs a new edit with the model and effort its chip shows when nothing is cho
 });
 
 it.each([
-  { saved: { providerId: 'claude', model: 'opus', reasoning: 'low' }, chip: 'Model: Opus, effort Low', model: 'opus', reasoning: 'low' },
+  { saved: { providerId: 'codex', model: 'opus', reasoning: 'low' }, chip: 'Model: Opus, effort Low', model: 'opus', reasoning: 'low' },
   // An unavailable saved model falls back to the chat selection. The provider's saved effort, not its
   // default, is what the chip shows, and it is sent explicitly: some providers omit an unset effort.
-  { saved: { providerId: 'claude', model: 'retired' }, chip: 'Model: Sonnet, effort Low', model: 'sonnet', reasoning: 'low' },
+  { saved: { providerId: 'codex', model: 'retired' }, chip: 'Model: Sonnet, effort Low', model: 'sonnet', reasoning: 'low' },
 ])('starts a new edit from the saved inline default ($saved.model) or else the chat selection', async ({ saved, chip, model, reasoning }) => {
   const h = await createHarness();
   await h.plugin.mutateSettings(settings => { settings.effortLevel = 'low'; settings.inlineEditModel = saved; });
-  h.plugin.getActiveModelSelection = () => ({ providerId: 'claude', model: 'sonnet' });
+  h.plugin.getActiveModelSelection = () => ({ providerId: 'codex', model: 'sonnet' });
   void h.createModal().openAndWait();
   await screen.findByRole('button', { name: chip });
   submitInstruction();
@@ -511,15 +511,15 @@ it('uses provider-scoped hidden commands and cancels widget-owned discovery on r
   const h = await createHarness();
   const signals: AbortSignal[] = [];
   const entries = ['analyze', 'visible'].map(name => ({
-    name, id: name, providerId: 'claude', kind: 'command', scope: 'runtime', source: 'user',
+    name, id: name, providerId: 'codex', kind: 'command', scope: 'runtime', source: 'user',
     content: '', displayPrefix: '/', insertPrefix: '/', isEditable: false, isDeletable: false,
   } satisfies ProviderCommandEntry));
   const catalog: ProviderCommandCatalog = {
-    getDropdownConfig: () => ({ providerId: 'claude', triggerChars: ['/'], builtInPrefix: '/', skillPrefix: '/', commandPrefix: '/' }),
+    getDropdownConfig: () => ({ providerId: 'codex', triggerChars: ['/'], builtInPrefix: '/', skillPrefix: '/', commandPrefix: '/' }),
     async listDropdownEntries({ signal }) { signals.push(signal!); return entries; },
     refresh: async () => {},
   };
-  ProviderWorkspaceRegistry.setServices('claude', { commandCatalog: catalog });
+  ProviderWorkspaceRegistry.setServices('codex', { commandCatalog: catalog });
   await h.plugin.mutateSettings(settings => { settings.hiddenCommands = ['analyze']; });
   const session = h.createSession();
   session.show();
@@ -543,14 +543,14 @@ it('discovers commands as a blank chat tab does when the provider reports them t
   const h = await createHarness();
   // A runtime catalog lists only what a session or loader reported; nothing has chatted in this run.
   const catalog = new RuntimeCommandCatalog({
-    dropdownConfig: { providerId: 'claude', triggerChars: ['/'], builtInPrefix: '/', skillPrefix: '/', commandPrefix: '/' },
-    projectEntry: command => ({ ...command, providerId: 'claude', kind: command.kind ?? 'command', scope: 'runtime',
+    dropdownConfig: { providerId: 'codex', triggerChars: ['/'], builtInPrefix: '/', skillPrefix: '/', commandPrefix: '/' },
+    projectEntry: command => ({ ...command, providerId: 'codex', kind: command.kind ?? 'command', scope: 'runtime',
       source: 'sdk', isEditable: false, isDeletable: false, displayPrefix: '/', insertPrefix: '/' }),
   });
   const loadCommands = vi.fn(async () => ({ status: 'ready' as const, items: [
     { id: 'skill:summarize', name: 'summarize', description: 'Summarize', content: '', kind: 'skill' as const },
   ] as [ProviderCommandEntry] }));
-  ProviderWorkspaceRegistry.setServices('claude', {
+  ProviderWorkspaceRegistry.setServices('codex', {
     commandCatalog: catalog,
     commandLoader: { getCacheFingerprint: () => 'test', isAvailable: () => true, loadCommands },
   });

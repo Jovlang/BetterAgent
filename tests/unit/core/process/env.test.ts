@@ -217,7 +217,7 @@ describe('getEnhancedPath', () => {
       const result = getEnhancedPath();
       const segments = result.split(SEP);
 
-      expect(segments).toContain(path.join('/mock/home', '.opencode', 'bin'));
+      expect(segments).not.toContain(path.join('/mock/home', '.opencode', 'bin'));
     });
 
     it('includes the user bin path from HOME', () => {
@@ -566,7 +566,7 @@ describe('getEnhancedPath', () => {
       if (isWindows) return;
 
       const nvmBinDir = '/Users/test/.nvm/versions/node/v20.10.0/bin';
-      const cliPath = path.join(nvmBinDir, 'claude');
+      const cliPath = path.join(nvmBinDir, 'codex');
       mockCliDirWithNode(nvmBinDir);
 
       process.env.PATH = '/usr/bin';
@@ -596,7 +596,7 @@ describe('getEnhancedPath', () => {
 
     it('does not add CLI directory when node is not present', () => {
       const cliDir = isWindows ? 'C:\\custom\\bin' : '/custom/bin';
-      const cliPath = path.join(cliDir, isWindows ? 'claude.exe' : 'claude');
+      const cliPath = path.join(cliDir, isWindows ? 'claude.exe' : 'codex');
 
       // Mock: node does not exist in CLI directory
       vi.spyOn(fs, 'existsSync').mockReturnValue(false);
@@ -650,7 +650,7 @@ describe('getEnhancedPath', () => {
       if (isWindows) return;
 
       const nvmBinDir = '/Users/test/.nvm/versions/node/v20.10.0/bin';
-      const cliPath = path.join(nvmBinDir, 'claude');
+      const cliPath = path.join(nvmBinDir, 'codex');
       mockCliDirWithNode(nvmBinDir);
 
       const userPath = '/user/custom/bin';
@@ -1061,15 +1061,6 @@ describe('getExtraBinaryPaths (Windows branches)', () => {
     const mod = await loadWithWindowsPlatform();
     const result = mod.getEnhancedPath();
     expect(result).toContain('.local');
-  });
-
-  it('includes home/.opencode/bin on Windows', async () => {
-    process.env.HOME = '/mock/home';
-    const mod = await loadWithWindowsPlatform();
-    const result = mod.getEnhancedPath();
-    const segments = result.split(';');
-
-    expect(segments).toContain(path.join('/mock/home', '.opencode', 'bin'));
   });
 
   it('uses semicolon separator on Windows', async () => {

@@ -3,9 +3,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const bundleCriticalRuntimeDependencies = Object.freeze([
-  '@anthropic-ai/claude-agent-sdk',
-]);
+export const bundleCriticalRuntimeDependencies = Object.freeze(['ws']);
 
 const exactVersionPattern = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 

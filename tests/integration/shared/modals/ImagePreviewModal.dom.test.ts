@@ -2,7 +2,7 @@
 import '@/providers';
 
 import { axe } from '@test/helpers/accessibility';
-import { claudeCatalogFixture } from '@test/helpers/claudeModels';
+import { codexCatalogFixture } from '@test/helpers/codexModels';
 import { createChatFeatureHost } from '@test/helpers/features/chat/ChatFeatureHostFixture';
 import { createClaudianView } from '@test/helpers/features/chat/ClaudianViewHarness';
 import { createSessionRuntimePool } from '@test/helpers/features/chat/SessionRuntimePoolHarness';
@@ -40,12 +40,12 @@ async function createView() {
     model: 'claude-sonnet-4-5', effortLevel: 'high', permissionMode: 'manual',
     enableAutoTitleGeneration: false, excludedTags: [], mediaFolder: '', systemPrompt: '', userName: '',
     keyboardNavigation: { scrollUpKey: 'w', scrollDownKey: 's', focusInputKey: 'i' },
-    providerConfigs: { claude: {
-      ...claudeCatalogFixture(['claude-sonnet-4-5'], ['low', 'high']), promptSuggestions: true,
+    providerConfigs: { codex: {
+      ...codexCatalogFixture(['claude-sonnet-4-5'], ['low', 'high']), promptSuggestions: true,
     } },
   } satisfies Partial<ClaudianSettings>;
   const conversation: Conversation = {
-    id: 'conversation-1', providerId: 'claude', selectedModel: 'claude-sonnet-4-5',
+    id: 'conversation-1', providerId: 'codex', selectedModel: 'claude-sonnet-4-5',
     sessionId: 'main-session', messages: [], title: 'Existing conversation',
     createdAt: testDate().getTime(), lastActivityAt: testDate().getTime(),
   };
@@ -79,7 +79,7 @@ async function createView() {
     openConversation: async () => {}, startNewConversation: async () => {},
   });
   await tab.session.runtime.model.hydrate();
-  await tab.executionCoordinator.bindConversation({ conversationId: conversation.id, providerId: 'claude' });
+  await tab.executionCoordinator.bindConversation({ conversationId: conversation.id, providerId: 'codex' });
   await tab.executionCoordinator.prepare();
   vi.spyOn(tab.dom.messagesEl, 'getClientRects').mockImplementation(() =>
     (tab.dom.contentEl.classList.contains('claudian-hidden') ? [] : [{}]) as unknown as DOMRectList);

@@ -63,7 +63,7 @@ function formatToolInput(input: Record<string, unknown>, maxLength = 200): strin
  * Formats a tool call for inclusion in rebuilt context.
  *
  * Strategy:
- * - Always include tool name and input (so Claude knows what was attempted)
+ * - Always include tool name and input (so the model knows what was attempted)
  * - By default, only include results for failed tools during compact recovery
  * - Ephemeral context retains complete results that cannot be read again
  */
@@ -112,7 +112,7 @@ function formatContextLine(message: ChatMessage): string | null {
 
 /**
  * Formats thinking blocks for inclusion in rebuilt context.
- * Just indicates that thinking occurred (content not included - Claude will think anew).
+ * Just indicates that thinking occurred (content not included - the model will reason anew).
  */
 function formatThinkingBlocks(message: ChatMessage): string[] {
   if (!message.contentBlocks) return [];

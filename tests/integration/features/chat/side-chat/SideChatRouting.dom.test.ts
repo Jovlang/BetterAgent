@@ -38,10 +38,10 @@ function createRouting(
   failAt?: 'initialization' | 'missing-coordinator' | 'handoff',
 ) {
   Object.assign(harness.plugin, { renameConversation: vi.fn().mockResolvedValue(undefined) });
-  const native = new FakeBranchSession('claude', 'main-session');
+  const native = new FakeBranchSession('codex', 'main-session');
   native.respond.mockImplementation(run => { run.emit({ type: 'turn_started', accepted: true }); run.complete(); });
   const execution = createExecutionHarness({
-    resolveBackend: () => ({ providerId: 'claude', createSession: () => {
+    resolveBackend: () => ({ providerId: 'codex', createSession: () => {
       if (failAt === 'initialization') throw new Error('Provider unavailable');
       return native;
     } }),
@@ -63,7 +63,7 @@ function createRouting(
   const getExecutionCoordinator = () => failAt === 'missing-coordinator' ? null : execution.coordinator;
   const ensureExecutionInitialized = async () => {
     try {
-      await execution.coordinator.bindConversation({ conversationId: state.currentConversationId!, providerId: 'claude' });
+      await execution.coordinator.bindConversation({ conversationId: state.currentConversationId!, providerId: 'codex' });
       await execution.coordinator.prepare();
       return true;
     } catch { return false; }
@@ -95,7 +95,7 @@ function createRouting(
     getSettings: () => ({ model: 'claude-model', reasoning: 'high', permissionMode: 'normal', serviceTier: 'default' }),
     conversationController, ensureExecutionInitialized, historyRefresh: () => null, getExecutionCoordinator,
     getInputEl: () => harness.inputEl, getSideChatController: () => harness.controller,
-    getTabProviderId: () => 'claude', generateId: () => `main-${++nextId}`,
+    getTabProviderId: () => 'codex', generateId: () => `main-${++nextId}`,
     getMessagesEl: () => messagesEl, getLinkedContentController: () => linkedContent,
     getWelcomeEl: () => null, plugin: harness.plugin, renderer, session, state, streamController,
   };
@@ -487,7 +487,7 @@ it('uses ephemeral side execution when the provider supports ephemeral forks', a
 it('uses the configured provider environment when preparing the native side fork', async () => {
   let database: string | undefined;
   const harness = await createHarness({
-    settings: { providerConfigs: { claude: { environmentVariables: 'OPENCODE_DB=/custom/chat.db' } } },
+    settings: { providerConfigs: { codex: { environmentVariables: 'OPENCODE_DB=/custom/chat.db' } } },
     buildForkProviderState: (_session, _checkpoint, _state, _vault, context, options) => {
       expect(options).toEqual({ lifecycle: 'ephemeral' });
       database = context?.environment.OPENCODE_DB;

@@ -35,7 +35,7 @@ function createConversation(
 ): ConversationMeta {
   return {
     id,
-    providerId: 'claude',
+    providerId: 'codex',
     title,
     createdAt: Date.now() - 10000,
     lastActivityAt: Date.now() - 5000,

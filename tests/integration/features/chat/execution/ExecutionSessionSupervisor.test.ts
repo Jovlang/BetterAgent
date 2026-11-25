@@ -15,7 +15,7 @@ import {
 } from '@/features/chat/execution/ExecutionSessionSupervisor';
 
 class SupervisorSession implements ProviderExecutionSession {
-  readonly providerId = 'claude';
+  readonly providerId = 'codex';
   readonly sessionInstanceId = 'session-1';
   disposeCalls = 0;
   private readonly listeners = new Set<(event: ProviderSessionEvent) => void>();
@@ -27,7 +27,7 @@ class SupervisorSession implements ProviderExecutionSession {
   cancel(): void {}
 
   getSnapshot(): ProviderSessionSnapshot {
-    return { providerId: 'claude', revision: 0, status: 'idle' };
+    return { providerId: 'codex', revision: 0, status: 'idle' };
   }
 
   getStatus(): ProviderSessionStatus {
@@ -49,7 +49,7 @@ describe('ExecutionSessionSupervisor', () => {
     const registry = new ProviderExecutionLifecycleRegistry();
     const session = new SupervisorSession();
     const backend: ProviderExecutionBackend = {
-      providerId: 'claude',
+      providerId: 'codex',
       createSession: vi.fn(() => session),
     };
     const interactionPort = {} as ProviderInteractionPort;
@@ -68,7 +68,7 @@ describe('ExecutionSessionSupervisor', () => {
     expect(first).toBe(second);
     expect(supervisor.isCurrent(session, first.generation)).toBe(true);
 
-    const transition = registry.runTransition(['claude'], async () => undefined);
+    const transition = registry.runTransition(['codex'], async () => undefined);
     for (let attempt = 0; attempt < 10 && supervisor.current; attempt += 1) {
       await Promise.resolve();
     }

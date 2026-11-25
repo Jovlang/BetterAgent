@@ -12,7 +12,7 @@ function createConversation(
 ): ConversationMeta {
   return {
     id,
-    providerId: 'claude',
+    providerId: 'codex',
     title: id,
     createdAt: 1,
     lastActivityAt: 1,

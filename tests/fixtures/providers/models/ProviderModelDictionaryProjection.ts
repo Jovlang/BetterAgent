@@ -1,16 +1,10 @@
-import { getOpencodeProviderSettings, updateOpencodeProviderSettings } from '@/providers/opencode/settings';
+import { getCodexProviderSettings, updateCodexProviderSettings } from '@/providers/codex/settings';
 
-/** Runs untransformed object-spread semantics at the provider configuration/persistence boundary. */
+/** Exercises model alias serialization in the production ES2022 configuration. */
 export function roundTripModelMetadata(): unknown {
-  const aliases = JSON.parse('{"__proto__":"Gateway alias"}') as Record<string, string>;
-  const reasoning = JSON.parse('{"__proto__":"high"}') as Record<string, string>;
+  const aliases = JSON.parse('{"__proto__":"Model alias"}') as Record<string, string>;
   const settings: Record<string, unknown> = {};
-  updateOpencodeProviderSettings(settings, { visibleModels: ['__proto__'], modelAliases: aliases, preferredThinkingByModel: reasoning });
+  updateCodexProviderSettings(settings, { visibleModels: ['__proto__'], modelAliases: aliases });
   const reopened = JSON.parse(JSON.stringify(settings)) as Record<string, unknown>;
-  return {
-    opencode: {
-      aliases: Object.entries(getOpencodeProviderSettings(reopened).modelAliases),
-      reasoning: Object.entries(getOpencodeProviderSettings(reopened).preferredThinkingByModel),
-    },
-  };
+  return Object.entries(getCodexProviderSettings(reopened).modelAliases);
 }

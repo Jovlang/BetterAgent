@@ -38,9 +38,6 @@ test('shared dependencies retain affected native consumers', () => {
 
 test('real subprocess consumers run on native platforms when affected', () => {
   for (const consumer of [
-    'tests/integration/providers/opencode/ToolRendererCompatibility.dom.test.ts',
-    'tests/integration/providers/opencode/app/OpencodeCommandLoader.test.ts',
-    'tests/integration/features/chat/tabs/forking/ForkSource.opencode-v2.test.ts',
     'tests/integration/core/process/ProcessProbe.test.ts',
     'tests/integration/core/process/ManagedStdioProcess.test.ts',
     'tests/integration/core/process/cliBinaryLocator.test.ts',
@@ -91,48 +88,13 @@ test('real dependency discovery retains native launch checks for shared process 
     'tests/integration/core/process/execution-target/WSLCaptureCancellation.test.ts',
     'tests/integration/core/process/execution-target/WSLShellLaunch.test.ts',
     'tests/integration/core/process/loginShellPath.test.ts',
-    'tests/integration/features/chat/tabs/forking/ForkSource.opencode-v2.test.ts',
-    'tests/integration/features/chat/tabs/forking/ForkSource.opencode.test.ts',
     'tests/integration/helpers/WSLProcessFixture.test.ts',
-    'tests/integration/providers/claude/execution/ClaudeExecutionBackend.test.ts',
-    'tests/integration/providers/claude/runtime/ClaudeCLIInstallation.test.ts',
-    'tests/integration/providers/claude/runtime/ClaudeSDKSpawn.test.ts',
     'tests/integration/providers/codex/execution/CodexExecutionBackend.protocol.test.ts',
     'tests/integration/providers/codex/execution/CodexExecutionBackend.test.ts',
     'tests/integration/providers/codex/runtime/CodexSharedRuntime.test.ts',
-    'tests/integration/providers/opencode/ToolRendererCompatibility.dom.test.ts',
-    'tests/integration/providers/opencode/app/OpencodeCommandLoader.test.ts',
-    'tests/integration/providers/opencode/execution/OpencodeExecutionBackend.native.test.ts',
-    'tests/integration/providers/opencode/execution/OpencodeExecutionBackend.wsl.test.ts',
-    'tests/integration/providers/opencode/execution/OpencodeHTTPExecution.background.test.ts',
-    'tests/integration/providers/opencode/execution/OpencodeHTTPExecution.compaction.test.ts',
-    'tests/integration/providers/opencode/execution/OpencodeHTTPExecution.interactions.test.ts',
-    'tests/integration/providers/opencode/execution/OpencodeHTTPExecution.profiles.test.ts',
-    'tests/integration/providers/opencode/execution/OpencodeHTTPExecution.prompts.test.ts',
-    'tests/integration/providers/opencode/execution/OpencodeHTTPExecution.steering.test.ts',
-    'tests/integration/providers/opencode/execution/OpencodeHTTPExecution.test.ts',
-    'tests/integration/providers/opencode/history/OpencodeConversationHistoryService.test.ts',
-    'tests/integration/providers/opencode/history/OpencodeConversationHistoryService.wsl.test.ts',
-    'tests/integration/providers/opencode/http/OpencodeSharedServer.ephemeral.test.ts',
-    'tests/integration/providers/opencode/http/OpencodeSharedServer.history.test.ts',
-    'tests/integration/providers/opencode/http/OpencodeSharedServer.test.ts',
-    'tests/integration/providers/opencode/http/OpencodeSharedServer.transitions.test.ts',
-    'tests/integration/providers/pi/env/PiSettingsReconciler.test.ts',
-    'tests/integration/providers/pi/execution/PiExecutionKernel.test.ts',
-    'tests/integration/providers/pi/execution/PiRecoveryContext.test.ts',
-    'tests/integration/providers/pi/history/PiConversationHistoryService.test.ts',
-    'tests/integration/providers/pi/runtime/PiCLIInstallation.test.ts',
   ]);
-  assert.equal(result.piWindows, true);
   assert.ok(result.testFiles.includes('tests/unit/core/process/windowsCmdShim.test.ts'));
   assert.ok(result.testFiles.includes('tests/unit/core/process/ManagedStdioProcess.test.ts'));
-});
-
-test('Pi-only changes retain native verification without unrelated process suites', () => {
-  const result = select(['tests/integration/providers/pi/runtime/PiSubprocess.windows.test.ts']);
-  assert.equal(result.crossPlatform, true);
-  assert.equal(result.piWindows, true);
-  assert.deepEqual(result.crossPlatformTests, []);
 });
 
 test('changed tests run directly, while removed tests are omitted', () => {
@@ -169,37 +131,6 @@ test('filesystem-read documentation, styles, and captured fixtures retain their 
   for (const status of ['A', 'M']) {
     for (const event of ['pull_request', 'push']) {
       for (const [file, consumers] of [
-        ['tests/helpers/providers/opencode/OpencodeNativePeer.cjs', [
-          'tests/integration/providers/opencode/ToolRendererCompatibility.dom.test.ts',
-          'tests/integration/providers/opencode/app/OpencodeCommandLoader.test.ts',
-          'tests/integration/features/chat/tabs/forking/ForkSource.opencode.test.ts',
-          'tests/integration/features/chat/tabs/forking/ForkSource.opencode-v2.test.ts',
-          'tests/integration/providers/opencode/execution/OpencodeExecutionBackend.native.test.ts',
-          'tests/integration/providers/opencode/execution/OpencodeExecutionBackend.wsl.test.ts',
-          'tests/integration/providers/opencode/execution/OpencodeHTTPExecution.background.test.ts',
-          'tests/integration/providers/opencode/execution/OpencodeHTTPExecution.compaction.test.ts',
-          'tests/integration/providers/opencode/execution/OpencodeHTTPExecution.interactions.test.ts',
-          'tests/integration/providers/opencode/execution/OpencodeHTTPExecution.profiles.test.ts',
-          'tests/integration/providers/opencode/execution/OpencodeHTTPExecution.prompts.test.ts',
-          'tests/integration/providers/opencode/execution/OpencodeHTTPExecution.steering.test.ts',
-          'tests/integration/providers/opencode/execution/OpencodeHTTPExecution.test.ts',
-          'tests/integration/providers/opencode/history/OpencodeConversationHistoryService.test.ts',
-          'tests/integration/providers/opencode/history/OpencodeConversationHistoryService.wsl.test.ts',
-          'tests/integration/providers/opencode/history/OpencodeRuntimeChangeHistory.test.ts',
-          'tests/integration/providers/opencode/http/OpencodeHTTPHistory.test.ts',
-          'tests/integration/providers/opencode/http/OpencodeProcessRetention.test.ts',
-          'tests/integration/providers/opencode/http/OpencodeSharedServer.ephemeral.test.ts',
-          'tests/integration/providers/opencode/http/OpencodeSharedServer.history.test.ts',
-          'tests/integration/providers/opencode/http/OpencodeSharedServer.test.ts',
-          'tests/integration/providers/opencode/http/OpencodeSharedServer.transitions.test.ts',
-          'tests/integration/providers/opencode/metadata/OpencodeHTTPMetadataCancellation.test.ts',
-          'tests/integration/providers/opencode/metadata/OpencodeHTTPMetadataCatalog.test.ts',
-          'tests/integration/providers/opencode/metadata/OpencodeHTTPMetadataReadiness.test.ts',
-          'tests/integration/providers/opencode/metadata/OpencodeHTTPMetadataServerLifecycle.test.ts',
-          'tests/integration/providers/opencode/ui/OpencodeCommands.dom.test.ts',
-          'tests/integration/providers/opencode/ui/OpencodeModels.dom.test.ts',
-          'tests/integration/providers/opencode/ui/OpencodeSettingsTab.dom.test.ts',
-        ]],
       ]) {
         const selected = select([{ status, path: file }], [], event);
         for (const consumer of consumers) {
@@ -231,7 +162,6 @@ for (const [name, selector] of [
             scriptTests: [],
             crossPlatformTests: ['tests/unit/providers/codex/history/CodexHistoryStore.test.ts'],
             crossPlatform: true,
-            piWindows: false,
             wslWindows: false,
             wslSuites: [], build: false, dependencies: false, workflows: false,
           });
@@ -243,7 +173,7 @@ for (const [name, selector] of [
   test(`${name} selector retains full verification outside the known Codex fixture boundary`, () => {
     const full = {
       testFiles: null, scriptTests: null, crossPlatformTests: null,
-      crossPlatform: true, piWindows: true, wslWindows: true,
+      crossPlatform: true, wslWindows: true,
       wslSuites: wslTests, build: true, dependencies: true, workflows: true,
     };
     for (const eventName of ['pull_request', 'push']) {
@@ -262,12 +192,6 @@ for (const [name, selector] of [
     }
   });
 }
-
-test('native Pi launch runs only when affected', () => {
-  const pi = 'tests/integration/providers/pi/runtime/PiSubprocess.windows.test.ts';
-  assert.equal(select(['src/providers/pi/runtime/PiSubprocess.ts'], [pi]).piWindows, true);
-  assert.equal(select(['src/features/chat/ClaudianView.ts'], [panel]).piWindows, false);
-});
 
 test('script edits select their script tests without unrelated Vitest work', () => {
   const result = select(['scripts/summarize-vitest-results.mjs']);
@@ -297,7 +221,6 @@ test('unsafe deletions and global or unknown changes retain full verification', 
     assert.equal(result.testFiles, null);
     assert.equal(result.crossPlatformTests, null);
     assert.equal(result.scriptTests, null);
-    assert.equal(result.piWindows, true);
   }
 });
 
@@ -315,19 +238,6 @@ test('real dependency graph preserves prompt and provider coverage without Colla
   assert.ok(relatedTests.some(file => file.endsWith('/core/prompt/mainAgent.systemPrompt.test.ts')));
   assert.ok(relatedTests.some(file => file.includes('/providers/')));
   assert.equal(relatedTests.some(file => /collab/i.test(file)), false);
-});
-
-test('a provider-internal change selects no other provider suites through the real dependency graph', () => {
-  const tracker = 'src/providers/codex/execution/CodexSubagentTracker.ts';
-  const selection = selectRelatedCiTests({ changes: [{ status: 'M', path: tracker }] });
-  const others = /^tests\/(?:unit|integration)\/providers\/(?:claude|opencode|pi)\//;
-  assert.ok(selection.testFiles.includes('tests/integration/providers/codex/execution/CodexSubagentTracker.test.ts'));
-  // Another provider's suite is selected only when it registers Codex itself.
-  const registersCodex = file => readFileSync(file, 'utf8').includes('codexProviderRegistration');
-  assert.deepEqual(selection.testFiles.filter(file => others.test(file) && !registersCodex(file)), []);
-  assert.ok(selection.testFiles.includes('tests/integration/providers/claude/execution/ClaudeExecutionBackend.test.ts'));
-  // The tracker is platform-neutral, so the native WSL job does not run.
-  assert.deepEqual(selection.wslSuites, []);
 });
 
 test('Vitest shards scale with the selection and script checks run in their own lane', () => {
@@ -411,7 +321,6 @@ test('the CI entry point handles real Git ranges, renames and missing bases', as
     assert.equal(reusable['test-files'], null);
     assert.equal(reusable['script-tests'], null);
     assert.equal(reusable['cross-platform-tests'], null);
-    assert.equal(reusable['pi-windows'], true);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -470,9 +379,7 @@ test('local selection includes committed, staged, unstaged and untracked edits w
 test('WSL suites run only for changes to WSL-related code or WSL test infrastructure', () => {
   const wsl = 'tests/integration/core/process/execution-target/WSLExecution.windows.test.ts';
   const relay = 'tests/integration/core/process/execution-target/WSLSessionToolRelay.windows.test.ts';
-  const opencode = 'tests/integration/providers/opencode/runtime/OpencodeWSL.windows.test.ts';
   const codex = 'tests/integration/providers/codex/runtime/CodexWSL.windows.test.ts';
-  const claude = 'tests/integration/core/process/execution-target/ClaudeWSL.windows.test.ts';
   // Source that launches, targets, maps paths or chooses the installation method for WSL keeps its declared suites.
   for (const [file, suite] of [
     ['src/core/process/execution-target/TargetLaunchSpec.ts', wsl],
@@ -481,22 +388,16 @@ test('WSL suites run only for changes to WSL-related code or WSL test infrastruc
     ['src/core/providers/settings/InstallationSettings.ts', wsl],
     ['src/core/providers/cli/TargetCLIInstallationProbe.ts', wsl],
     ['src/shared/settings/ExecutionTargetSettings.ts', wsl],
-    ['src/providers/opencode/runtime/OpencodeExecutionTarget.ts', opencode],
-    ['src/providers/opencode/ui/OpencodeSettingsTab.ts', opencode],
     ['src/providers/codex/runtime/CodexLaunchSpecBuilder.ts', codex],
     ['src/providers/codex/settings.ts', codex],
     ['src/providers/codex/history/CodexConversationHistoryService.ts', codex],
-    ['src/providers/pi/settings.ts', wsl],
-    ['src/providers/pi/runtime/PiSubprocess.ts', wsl],
   ]) {
     const selection = select([file]);
     assert.ok(selection.wslSuites.includes(suite), `${file} must select ${suite}`);
   }
-  assert.ok(select(['src/providers/claude/runtime/customSpawn.ts'], [claude]).wslSuites.includes(claude));
   assert.deepEqual(selectRelatedCiTests({ changes: [{ status: 'M', path: 'src/core/process/execution-target/WSLEnvironment.ts' }] }).wslSuites.includes(wsl), true);
   // Relay launchers and path owners reach WSL suites through the real dependency graph without naming WSL.
   for (const [file, suite] of [
-    ['src/providers/opencode/runtime/OpencodeSessionToolsPlugin.ts', opencode],
     ['src/core/storage/pathContainment.ts', null],
     ['src/utils/path.ts', null],
   ]) {
@@ -505,33 +406,20 @@ test('WSL suites run only for changes to WSL-related code or WSL test infrastruc
   }
   // WSL suites, helpers and fixtures change what the native job runs.
   for (const [file, suite] of [
-    [wsl, wsl], [relay, relay], [opencode, opencode], [codex, codex],
-    [claude, claude],
-    ['tests/fixtures/providers/pi/PiSessionProcess.mjs', wsl],
+    [wsl, wsl], [relay, relay], [codex, codex],
     ['tests/helpers/providers/codex/CodexWSLPeer.ts', codex],
   ]) assert.ok(select([file]).wslSuites.includes(suite), `${file} must select ${suite}`);
-  for (const [helper, suite] of [['tests/helpers/WSLNativeTarget.ts', relay], ['tests/helpers/WSLNativePeer.ts', codex], ['tests/helpers/WSLClaudeFixture.ts', claude]]) {
-    assert.ok(select([helper], [suite]).wslSuites.includes(suite), `${helper} must select ${suite}`);
-  }
   // Platform-neutral source and test-only edits leave the native WSL job out, even when declarations select the suite on Linux.
   for (const file of [
     'src/providers/codex/execution/CodexExecutionBackend.ts',
     'src/providers/codex/execution/CodexSubagentTracker.ts',
     'src/utils/markdownMath.ts',
-    'tests/integration/providers/pi/history/PiWSLHistory.test.ts',
     'tests/integration/core/providers/cli/TargetCLIInstallationProbe.test.ts',
   ]) {
     const selection = select([file]);
     assert.deepEqual([selection.wslSuites, selection.wslWindows], [[], false], file);
   }
   assert.deepEqual(select(['src/features/chat/ClaudianView.ts'], [panel]).wslSuites, []);
-  // Declarations still select the suites on Linux, where they skip without a distro.
-  const piFixture = select(['tests/fixtures/providers/pi/PiSessionProcess.mjs']);
-  for (const consumer of [
-    'tests/integration/features/chat/side-chat/SideChatNative.pi.test.ts',
-    'tests/integration/features/chat/tabs/forking/ForkSource.pi.test.ts',
-    'tests/integration/providers/pi/execution/PiExecutionKernel.test.ts',
-  ]) assert.ok(piFixture.testFiles.includes(consumer), `${consumer} must follow Pi RPC fixture changes`);
   // A mixed change runs WSL suites only through its WSL-related part.
   const mixed = select(['src/providers/codex/execution/CodexSubagentTracker.ts', 'src/providers/codex/runtime/CodexLaunchSpecBuilder.ts']);
   assert.ok(mixed.wslSuites.includes(codex));
@@ -585,7 +473,6 @@ test('WSL runs only the suites a change affects', () => {
   const codex = 'tests/integration/providers/codex/runtime/CodexWSL.windows.test.ts';
   const affected = select([codex]).wslSuites;
   assert.ok(affected.includes(codex));
-  assert.equal(affected.includes('tests/integration/providers/opencode/runtime/OpencodeWSL.windows.test.ts'), false);
   assert.ok(affected.every(file => wslTests.includes(file)));
   assert.deepEqual(select(['.github/wsl/provision-rootfs.sh']).wslSuites, wslTests);
   assert.deepEqual(select(['package.json']).wslSuites, wslTests);

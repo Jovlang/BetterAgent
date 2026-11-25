@@ -56,7 +56,7 @@ it.each([
   const native = createHarness();
   const fixture = (await createFixture({ selections, getInputEl: () => input, getExecutionCoordinator: () => native.coordinator }));
   try {
-    await native.coordinator.bindConversation({ conversationId: 'conversation-1', providerId: 'claude' });
+    await native.coordinator.bindConversation({ conversationId: 'conversation-1', providerId: 'codex' });
     const pending = browser.poll();
     expect(webview.executeJavaScript).toHaveBeenCalledTimes(1);
     activeLeaf = ownLeaf;
@@ -79,7 +79,7 @@ it.each([
 
     input.value = 'Explain this selection';
     await fixture.controller.sendMessage();
-    const requests = native.backends.get('claude')!.sessions.flatMap(session => session.requests);
+    const requests = native.backends.get('codex')!.sessions.flatMap(session => session.requests);
     expect(requests).toHaveLength(1);
     expect(requests[0].input).toEqual([{ type: 'text', text: 'Explain this selection' }]);
     expect(requests[0].context?.selections ?? []).toEqual(action === 'own composer' ? [{

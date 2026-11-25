@@ -4,8 +4,6 @@ import {
   ANTIGRAVITY_PROVIDER_ICON,
   createProviderIconSvg,
   OPENAI_PROVIDER_ICON,
-  OPENCODE_PROVIDER_ICON,
-  PI_PROVIDER_ICON,
 } from '@/shared/icons';
 
 describe('createProviderIconSvg', () => {
@@ -26,33 +24,6 @@ describe('createProviderIconSvg', () => {
     const path = svg.querySelector('path');
     expect(path).not.toBeNull();
     expect(path?.getAttribute('fill')).toBe('currentColor');
-  });
-
-  it('renders composite provider icons with theme variants', () => {
-    const svg = createProviderIconSvg(OPENCODE_PROVIDER_ICON, {
-      dataProvider: 'opencode',
-      height: 18,
-      parent: document.body,
-      width: 18,
-    });
-
-    expect(svg.getAttribute('data-provider')).toBe('opencode');
-    expect(svg.getAttribute('viewBox')).toBe(OPENCODE_PROVIDER_ICON.viewBox);
-    expect(svg.querySelector('.claudian-provider-icon-variant--light')).not.toBeNull();
-    expect(svg.querySelector('.claudian-provider-icon-variant--dark')).not.toBeNull();
-  });
-
-  it('renders the Pi provider icon as currentColor composite paths', () => {
-    const svg = createProviderIconSvg(PI_PROVIDER_ICON, {
-      dataProvider: 'pi',
-      parent: document.body,
-    });
-
-    expect(svg.getAttribute('viewBox')).toBe('106.61 106.61 586.79 586.79');
-    const paths = Array.from(svg.querySelectorAll('path'));
-    expect(paths).toHaveLength(2);
-    expect(paths[0].getAttribute('fill-rule')).toBe('evenodd');
-    expect(paths.every(path => path.getAttribute('fill') === 'currentColor')).toBe(true);
   });
 
   it('keeps each full-colour Antigravity icon\'s mask and blur references inside its own SVG', () => {

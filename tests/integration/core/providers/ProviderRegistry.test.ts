@@ -26,7 +26,7 @@ describe('ProviderRegistry', () => {
 
   it('returns capabilities for the default provider', () => {
     const caps = ProviderRegistry.getCapabilities();
-    expect(caps.providerId).toBe('claude');
+    expect(caps.providerId).toBe('codex');
     expect(caps).toHaveProperty('supportsFork');
   });
 
@@ -44,97 +44,20 @@ describe('ProviderRegistry', () => {
     expect(caps.reasoningControl).toBe('effort');
   });
 
-  it('returns OpenCode capabilities', () => {
-    const caps = ProviderRegistry.getCapabilities('opencode');
-    expect(caps.providerId).toBe('opencode');
-    expect(caps.supportsProviderCommands).toBe(true);
-    expect(caps.supportsFork).toBe(true);
-  });
-
   it('registers provider-owned subagent protocols outside the capability matrix', () => {
-    const claudeAdapter = ProviderRegistry.getSubagentAdapter('claude');
-    expect(claudeAdapter).toMatchObject({
-      protocol: 'managed-agent',
-    });
-    const opencodeAdapter = ProviderRegistry.getSubagentAdapter('opencode');
-    expect(opencodeAdapter).toMatchObject({
-      protocol: 'managed-agent',
-    });
-    expect(ProviderRegistry.getSubagentAdapter('codex')).toMatchObject({
-      protocol: 'lifecycle',
-    });
-    expect(ProviderRegistry.getSubagentAdapter('pi')).toMatchObject({
-      protocol: 'lifecycle',
-    });
-
-    expect(claudeAdapter?.isSpawnTool('Agent')).toBe(true);
-    expect(claudeAdapter?.isSpawnTool('Task')).toBe(false);
-    expect(opencodeAdapter?.isSpawnTool('Agent')).toBe(true);
-    expect(opencodeAdapter?.isSpawnTool('Task')).toBe(false);
-
-    for (const providerId of ['claude', 'opencode', 'codex', 'pi'] as const) {
-      expect(ProviderRegistry.getCapabilities(providerId)).not.toHaveProperty(
-        'supportsLegacySubagentTools',
-      );
-    }
-  });
-
-  it('returns Pi capabilities', () => {
-    const caps = ProviderRegistry.getCapabilities('pi');
-    expect(caps.providerId).toBe('pi');
-    expect(caps.supportsProviderCommands).toBe(true);
-    expect(caps.supportsImageAttachments).toBe(true);
-    expect(caps.supportsTurnSteer).toBe(true);
-    expect(caps.supportsFork).toBe(true);
+    expect(ProviderRegistry.getSubagentAdapter('codex')).toMatchObject({ protocol: 'lifecycle' });
   });
 
   it('lists registered provider ids', () => {
     const ids = ProviderRegistry.getRegisteredProviderIds();
-    expect(ids).toContain('claude');
-    expect(ids).toContain('codex');
-    expect(ids).toContain('pi');
+    expect(ids).toEqual(['codex']);
   });
 
-  it('filters enabled provider ids using registration metadata', () => {
-    expect(ProviderRegistry.getEnabledProviderIds({
-      providerConfigs: {
-        codex: { enabled: false },
-      },
-    })).toEqual(['claude']);
-    expect(ProviderRegistry.getEnabledProviderIds({
-      providerConfigs: {
-        codex: { enabled: true },
-      },
-    })).toEqual(['codex', 'claude']);
-    expect(ProviderRegistry.getEnabledProviderIds({
-      providerConfigs: {
-        claude: { enabled: false },
-        codex: { enabled: true },
-      },
-    })).toEqual(['codex']);
-    expect(ProviderRegistry.getEnabledProviderIds({
-      providerConfigs: {
-        codex: { enabled: true },
-        opencode: { enabled: true },
-      },
-    })).toEqual(['opencode', 'codex', 'claude']);
-    expect(ProviderRegistry.getEnabledProviderIds({
-      providerConfigs: {
-        codex: { enabled: true },
-        opencode: { enabled: true },
-        pi: { enabled: true },
-      },
-    })).toEqual(['opencode', 'pi', 'codex', 'claude']);
-  });
-
-  it('exposes the blank-tab default-provider priority', () => {
-    expect(ProviderRegistry.getBlankTabProviderIds({
-      providerConfigs: {
-        codex: { enabled: true },
-        opencode: { enabled: true },
-        pi: { enabled: true },
-      },
-    })).toEqual(['claude', 'codex', 'pi', 'opencode']);
+  it('only enables registered Codex even with saved legacy provider settings', () => {
+    expect(ProviderRegistry.getEnabledProviderIds({ providerConfigs: {
+      codex: { enabled: true }, claude: { enabled: true }, pi: { enabled: true }, opencode: { enabled: true },
+    } })).toEqual(['codex']);
+    expect(ProviderRegistry.getBlankTabProviderIds({ providerConfigs: { codex: { enabled: true } } })).toEqual(['codex']);
   });
 
   it('exposes title generation models only from enabled providers', () => {
@@ -195,22 +118,16 @@ describe('ProviderRegistry', () => {
       },
     });
 
-    // An upstream group stays in the label, since the flat list has no headings.
-    expect(options.find(option => option.value === 'opencode:zai-coding-plan/glm-5.3')?.label)
-      .toBe('OpenCode: zai-coding-plan/GLM-5.3');
-
     expect(options.find(option => option.value === `openai-codex/${TEST_CODEX_MODEL}`)?.label)
       .toBe(`Codex: ${TEST_CODEX_MODEL_LABEL}`);
-    expect(options.find(option => option.value === 'sonnet')?.label)
-      .toBe('Claude Code: Sonnet');
+    expect(options.every(option => option.value.startsWith('openai-codex/'))).toBe(true);
   });
 
   it('returns the display name from provider registration metadata', () => {
-    expect(ProviderRegistry.getProviderDisplayName('claude')).toBe('Claude Code');
     expect(ProviderRegistry.getProviderDisplayName('codex')).toBe('Codex');
   });
 
-  it('requires an explicit title model instead of selecting Claude automatically', async () => {
+  it('requires an explicit title model instead of selecting Codex automatically', async () => {
     const service = ProviderRegistry.createTitleGenerationService((await createProviderHostFixture({
       settings: { ...DEFAULT_CLAUDIAN_SETTINGS,
         titleGenerationModel: '',

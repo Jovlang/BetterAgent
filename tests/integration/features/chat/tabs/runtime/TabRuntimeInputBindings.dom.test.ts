@@ -29,7 +29,7 @@ beforeEach(async () => {
   const app = new App();
   Object.assign(app.vault.adapter, { basePath: '/vault' });
   const conversation = {
-    id: 'conversation-1', providerId: 'claude', selectedModel: 'claude-sonnet-4-5',
+    id: 'conversation-1', providerId: 'codex', selectedModel: 'claude-sonnet-4-5',
     sessionId: 'main-session', messages: [],
   } as unknown as Conversation;
   const pool = createSessionRuntimePool(() => plugin);
@@ -39,7 +39,7 @@ beforeEach(async () => {
     settings: {
       model: 'claude-sonnet-4-5', permissionMode: 'normal',
       keyboardNavigation: { focusInputKey: 'i', scrollUpKey: 'w', scrollDownKey: 's' },
-      providerConfigs: { claude: { enabled: true, visibleModels: ['claude-sonnet-4-5'],
+      providerConfigs: { codex: { enabled: true, visibleModels: ['claude-sonnet-4-5'],
         discoveredModels: [{ value: 'claude-sonnet-4-5', label: 'Sonnet' }] } },
     },
     getActiveEnvironmentVariables: () => '',
@@ -97,7 +97,7 @@ async function streamText(): Promise<void> {
 
 it('routes Escape through the selected main session for published jobs-only work', async () => {
   await releaseResponse();
-  await tab.executionCoordinator.bindConversation({ conversationId: 'conversation-1', providerId: 'claude' });
+  await tab.executionCoordinator.bindConversation({ conversationId: 'conversation-1', providerId: 'codex' });
   await tab.executionCoordinator.prepare();
   const native = harness.backend.latest;
   let working = true;
@@ -129,7 +129,7 @@ it('routes Escape through the selected main session for published jobs-only work
 
 it('stops main background work with Escape without aborting a settling foreground turn', async () => {
   await releaseResponse();
-  await tab.executionCoordinator.bindConversation({ conversationId: 'conversation-1', providerId: 'claude' });
+  await tab.executionCoordinator.bindConversation({ conversationId: 'conversation-1', providerId: 'codex' });
   await tab.executionCoordinator.prepare();
   const native = harness.backend.latest;
   Object.assign(native, { hasBackgroundWork: () => true });
@@ -166,7 +166,7 @@ it.each([false, true])('routes Escape to a working side chat when main backgroun
     { id: 'u1', role: 'user', content: 'Remember A', timestamp: 1 },
     { id: 'a1', role: 'assistant', content: 'Noted A', timestamp: 2, assistantMessageId: 'checkpoint-1' },
   ];
-  await tab.executionCoordinator.bindConversation({ conversationId: 'conversation-1', providerId: 'claude' });
+  await tab.executionCoordinator.bindConversation({ conversationId: 'conversation-1', providerId: 'codex' });
   await tab.executionCoordinator.prepare();
   const mainNative = harness.backend.latest;
   Object.assign(mainNative, { hasBackgroundWork: () => mainBackground });

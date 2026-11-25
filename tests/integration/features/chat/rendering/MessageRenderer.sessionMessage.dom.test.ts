@@ -14,7 +14,7 @@ import { MessageRenderer } from '@/features/chat/rendering/MessageRenderer';
 it.each(['live', 'history'])('shows the sender safely in %s and keeps the envelope out of the body', async mode => {
   document.body.replaceChildren();
   const host = document.body.createDiv();
-  const records = new Map([['source-session', { id: 'source-session', providerId: 'claude' } as Conversation]]);
+  const records = new Map([['source-session', { id: 'source-session', providerId: 'codex' } as Conversation]]);
   const getCachedConversation = vi.fn((id: string) => records.get(id) ?? null);
   const openConversation = vi.fn(async (_id: string) => undefined);
   const renderer = new MessageRenderer(await createChatFeatureHost({ settings: { mediaFolder: '' }, ensureConversationMetadataLoaded: async () => undefined, getCachedConversation, getConversationSummary: (id: string) => records.get(id) ?? null }), new Component(), host, undefined, undefined, undefined, undefined, openConversation);

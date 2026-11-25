@@ -47,7 +47,7 @@ Owned process groups are terminated and the temporary profile/vault/build remove
 failure, SIGINT or SIGTERM. Logs and AX snapshots remain in .context/local/obsidian-smoke/<run-id>/.
 Tests: plugin/view activation, modal ARIA and native Escape scope ownership (including both snippet
 fields), project memory/confirm, shared skill modals, image preview, settings roles, production
-fork/Pi modals in-host, Component/ItemView lifecycle, view reopen,
+fork modal in-host, Component/ItemView lifecycle, view reopen,
 inline editor, unload, and renderer errors. No native-provider, screen-reader or Linux claim.
 
 Options:

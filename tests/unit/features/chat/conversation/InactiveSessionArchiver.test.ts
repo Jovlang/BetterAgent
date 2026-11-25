@@ -11,7 +11,7 @@ describe('InactiveSessionArchiver', () => {
 
   function session(id: string, inactiveDays: number, extra: Partial<ConversationMeta> = {}): ConversationMeta {
     return {
-      id, providerId: 'claude', title: id, messageCount: 1, preview: '',
+      id, providerId: 'codex', title: id, messageCount: 1, preview: '',
       createdAt: inactiveFor(inactiveDays + 1), lastActivityAt: inactiveFor(inactiveDays), ...extra,
     };
   }

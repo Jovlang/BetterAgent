@@ -22,13 +22,11 @@ import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
 import { ProviderSettingsCoordinator } from '@/core/providers/ProviderSettingsCoordinator';
 import { ProviderWorkspaceRegistry } from '@/core/providers/ProviderWorkspaceRegistry';
 import { isVersionedRuntimeInputFingerprint } from '@/core/providers/settings/RuntimeInputFingerprint';
-import { TOOL_SUBAGENT } from '@/core/tools/toolNames';
 import { type ClaudianSettings, type Conversation, type SessionMetadata, VIEW_TYPE_CLAUDIAN } from '@/core/types';
 import { ClaudianView } from '@/features/chat/ClaudianView';
 import { stripLegacySessionMentions } from '@/features/chat/composer/composerSessionMentions';
 import { ConversationTitleGeneration } from '@/features/chat/conversation/ConversationTitleGeneration';
 import { SessionRuntimePool } from '@/features/chat/sessions/SessionRuntimePool';
-import * as sdkSession from '@/providers/claude/history/ClaudeHistoryStore';
 import { createCodexModelCatalogCommit } from '@/providers/codex/app/CodexWorkspaceServices';
 import { CodexModelCatalogCoordinator } from '@/providers/codex/runtime/CodexModelCatalogCoordinator';
 import {
@@ -176,7 +174,7 @@ describe('ClaudianPlugin', () => {
   function mockMetadataSources(
     ...metadata: Array<{
       id: string;
-      providerId: 'claude' | 'codex';
+      providerId: 'codex';
       title: string;
       createdAt: number;
       lastActivityAt: number;
@@ -235,16 +233,6 @@ describe('ClaudianPlugin', () => {
     // Reset mocks
     vi.restoreAllMocks();
     vi.clearAllMocks();
-    vi.spyOn(sdkSession, 'locateSDKSession').mockImplementation(async (_vaultPath, sessionId) => ({
-      availability: 'available',
-      sessionPath: `/test/claude-project/${sessionId}.jsonl`,
-    }));
-    vi.spyOn(sdkSession, 'locateSDKSessions').mockImplementation(async (_vaultPath, sessionIds) => new Map(
-      sessionIds.map(sessionId => [sessionId, {
-        availability: 'available' as const,
-        sessionPath: `/test/claude-project/${sessionId}.jsonl`,
-      }]),
-    ));
 
     mockApp = createApp();
 
@@ -358,14 +346,14 @@ describe('ClaudianPlugin', () => {
       const initialize = vi.spyOn(ProviderWorkspaceRegistry, 'ensureInitialized').mockResolvedValue(undefined);
       const refresh = vi.fn().mockResolvedValue({ changed: true });
       await plugin.onload();
-      plugin.settings.providerConfigs.claude = {
-        ...plugin.settings.providerConfigs.claude, enabled, visibleModels: ['sonnet'], discoveredModels: [],
+      plugin.settings.providerConfigs.codex = {
+        ...plugin.settings.providerConfigs.codex, enabled, visibleModels: ['sonnet'], discoveredModels: [],
       };
-      ProviderWorkspaceRegistry.setServices('claude', { modelCatalog: catalogWith({ refresh }) });
+      ProviderWorkspaceRegistry.setServices('codex', { modelCatalog: catalogWith({ refresh }) });
       expect(refresh).not.toHaveBeenCalled();
       for (const [ready] of mockApp.workspace.onLayoutReady.mock.calls) ready();
       await plugin['modelMetadataMigration'];
-      expect(initialize.mock.calls.filter(([, id, reason]) => id === 'claude' && reason === 'model-metadata-migration'))
+      expect(initialize.mock.calls.filter(([, id, reason]) => id === 'codex' && reason === 'model-metadata-migration'))
         .toHaveLength(enabled ? 1 : 0);
       expect(refresh).toHaveBeenCalledTimes(enabled ? 1 : 0);
     });
@@ -480,7 +468,7 @@ describe('ClaudianPlugin', () => {
         expect(plugin.registerView as Mock).not.toHaveBeenCalled();
         expect(plugin.addCommand as Mock).not.toHaveBeenCalled();
         expect(plugin.addSettingTab as Mock).not.toHaveBeenCalled();
-        expect(() => chatHostOf(plugin).sessionRuntimes.ensure({ conversationId: 'late', providerId: 'claude', draftModel: null }))
+        expect(() => chatHostOf(plugin).sessionRuntimes.ensure({ conversationId: 'late', providerId: 'codex', draftModel: null }))
           .toThrow('Session runtime pool is shutting down');
       } finally {
         held.mockRestore();
@@ -509,7 +497,7 @@ describe('ClaudianPlugin', () => {
       });
       const restoredMetadata = {
         id: 'restored-conversation',
-        providerId: 'claude' as const,
+        providerId: 'codex' as const,
         title: 'Restored conversation',
         createdAt: 1,
         lastActivityAt: 2,
@@ -542,7 +530,7 @@ describe('ClaudianPlugin', () => {
     it('loads metadata requested by a view-scoped tab workspace', async () => {
       const restoredMetadata = {
         id: 'view-restored-conversation',
-        providerId: 'claude' as const,
+        providerId: 'codex' as const,
         title: 'View restored conversation',
         createdAt: 1,
         lastActivityAt: 2,
@@ -564,7 +552,7 @@ describe('ClaudianPlugin', () => {
       const layoutCallbacks: Array<() => void> = [];
       const backgroundMetadata = {
         id: 'background-conversation',
-        providerId: 'claude' as const,
+        providerId: 'codex' as const,
         title: 'Background conversation',
         createdAt: 1,
         lastActivityAt: 2,
@@ -613,40 +601,6 @@ describe('ClaudianPlugin', () => {
       scanSpy.mockRestore();
 
       expect(scanCallCount).toBe(0);
-    });
-
-    it('publishes an unavailable Claude selection without silently persisting a fallback', async () => {
-      const deferredMetadata = {
-        id: 'deferred-retired-model',
-        providerId: 'claude' as const,
-        title: 'Deferred retired model',
-        createdAt: 1,
-        lastActivityAt: 2,
-        selectedModel: 'claude-code/retired-model',
-      };
-      await plugin.onload();
-      const scanSpy = vi.spyOn(SessionStorage.prototype, 'scan')
-        .mockImplementation(async (options) => {
-          options?.onBatch?.(deviceMetadataRecords(deferredMetadata));
-          return {
-            records: deviceMetadataRecords(deferredMetadata),
-            complete: true,
-            invalidMetadataCount: 0,
-          };
-        });
-      const loadSourceSpy = mockMetadataSources(deferredMetadata);
-      const notifyConversationListChanged = vi.fn();
-      vi.spyOn(viewsOf(plugin), 'getAllViews').mockReturnValue([createUnopenedView({
-        notifyConversationListChanged,
-      })]);
-      const saveSpy = vi.spyOn(getConversationPersistence(plugin), 'saveMetadata');
-      await plugin['sessionMetadata']['loadRemaining']();
-      expect(chatHostOf(plugin).getCachedConversation(deferredMetadata.id)?.selectedModel).toBe('claude-code/retired-model');
-      expect(saveSpy).not.toHaveBeenCalled();
-      expect(notifyConversationListChanged).toHaveBeenCalledTimes(1);
-      scanSpy.mockRestore();
-      loadSourceSpy.mockRestore();
-      saveSpy.mockRestore();
     });
 
     it('recovers missing model metadata after the background session scan', async () => {
@@ -726,7 +680,7 @@ describe('ClaudianPlugin', () => {
     it('keeps restored and deferred bindings when upgraded settings carry a changed environment', async () => {
       const restoredMetadata = {
         id: 'restored-environment-session',
-        providerId: 'claude' as const,
+        providerId: 'codex' as const,
         title: 'Restored environment session',
         createdAt: 1,
         lastActivityAt: 3,
@@ -736,7 +690,7 @@ describe('ClaudianPlugin', () => {
       };
       const deferredMetadata = {
         id: 'deferred-environment-session',
-        providerId: 'claude' as const,
+        providerId: 'codex' as const,
         title: 'Deferred environment session',
         createdAt: 1,
         lastActivityAt: 2,
@@ -752,12 +706,12 @@ describe('ClaudianPlugin', () => {
           // Pre-#1024 fingerprint, a scoped session fingerprint and a pending invalidation, all
           // written by earlier versions, beside a moved native store.
           return JSON.stringify({
-            pendingProviderSessionInvalidations: { claude: 1 },
+            pendingProviderSessionInvalidations: { codex: 1 },
             providerConfigs: {
-              claude: {
-                environmentHash: 'CLAUDE_CONFIG_DIR=/old/claude-home',
+              codex: {
+                environmentHash: 'CODEX_HOME=/old/claude-home',
                 sessionEnvironmentHash: 'runtime-input:v1:0000000000000000000000000000000000000000000000000000000000000000',
-                environmentVariables: 'CLAUDE_CONFIG_DIR=/new/claude-home',
+                environmentVariables: 'CODEX_HOME=/new/claude-home',
               },
             },
           });
@@ -804,7 +758,7 @@ describe('ClaudianPlugin', () => {
     it('suppresses metadata tombstoned after scanning but before source resolution', async () => {
       const tombstonedMetadata = {
         id: 'tombstoned-during-source-resolution',
-        providerId: 'claude' as const,
+        providerId: 'codex' as const,
         title: 'Tombstoned during source resolution',
         createdAt: 1,
         lastActivityAt: 2,
@@ -835,7 +789,7 @@ describe('ClaudianPlugin', () => {
     it('suppresses an already cached shell tombstoned during source resolution', async () => {
       const tombstonedMetadata = {
         id: 'cached-shell-tombstoned-during-source-resolution',
-        providerId: 'claude' as const,
+        providerId: 'codex' as const,
         title: 'Cached shell tombstoned during source resolution',
         createdAt: 1,
         lastActivityAt: 2,
@@ -898,7 +852,7 @@ describe('ClaudianPlugin', () => {
     it('releases unowned history after title generation', async () => {
       const { host, repository, ids } = await setupHistoryReads();
       await host.mutateSettings(settings => { settings.enableAutoTitleGeneration = true; });
-      vi.spyOn(ProviderRegistry, 'resolveTitleGenerationSelection').mockReturnValue({ providerId: 'claude', model: 'haiku' });
+      vi.spyOn(ProviderRegistry, 'resolveTitleGenerationSelection').mockReturnValue({ providerId: 'codex', model: 'haiku' });
       const titles = new ConversationTitleGeneration({ host, getService: () => ({
         generateTitle: async (id, _content, callback) => { await callback(id, { success: true, title: 'Generated' }); },
         cancel() {},
@@ -1192,7 +1146,7 @@ describe('ClaudianPlugin', () => {
     it('drains views and detached sessions before disposing execution and workspace resources', async () => {
       await plugin.onload();
       const pool = chatHostOf().sessionRuntimes;
-      const { attachment } = pool.acquire({ conversationId: 'detached', providerId: 'claude', draftModel: null }, { reveal: () => undefined });
+      const { attachment } = pool.acquire({ conversationId: 'detached', providerId: 'codex', draftModel: null }, { reveal: () => undefined });
       let finishSession!: () => void;
       let turnSignal!: AbortSignal;
       const turn = attachment.runtime.turns.run(signal => {
@@ -1434,7 +1388,7 @@ describe('ClaudianPlugin', () => {
         refreshModelSelector: vi.fn(() => events.push('refresh')),
       })]);
 
-      chatHostOf(plugin).notifyProviderChatOptionsChanged('claude');
+      chatHostOf(plugin).notifyProviderChatOptionsChanged('codex');
       await plugin['providerChatOptions']['queue'].settled();
 
       expect(events).toEqual(['reconcile', 'refresh']);
@@ -1450,7 +1404,7 @@ describe('ClaudianPlugin', () => {
         refreshModelSelector,
       })]);
 
-      chatHostOf(plugin).notifyProviderChatOptionsChanged('claude');
+      chatHostOf(plugin).notifyProviderChatOptionsChanged('codex');
       await plugin['providerChatOptions']['queue'].settled();
 
       expect(refreshModelSelector).not.toHaveBeenCalled();
@@ -1494,12 +1448,12 @@ describe('ClaudianPlugin', () => {
       })]);
 
       await plugin.providerHost.applyEnvironmentVariables(
-        'provider:claude',
-        'ANTHROPIC_MODEL=claude-sonnet-enterprise',
+        'provider:codex',
+        'OPENAI_PROFILE=changed',
       );
 
       expect(events).toEqual(['invalidate', 'reconcile', 'refresh']);
-      expect(repository.reconcileSelectedModels).toHaveBeenCalledWith('claude');
+      expect(repository.reconcileSelectedModels).toHaveBeenCalledWith('codex');
     });
 
     it('lets an initialized transition owner resolve CLI without reinitializing services', async () => {
@@ -1775,7 +1729,7 @@ describe('ClaudianPlugin', () => {
       const conv = await chatHostOf(plugin).createConversation({ sessionId: 'session-123' });
       await chatHostOf(plugin).updateConversation(conv.id, { providerState: { providerSessionId: 'session-123' } });
 
-      await plugin.providerHost.applyEnvironmentVariables('provider:claude', 'CLAUDE_CONFIG_DIR=/moved/claude-home');
+      await plugin.providerHost.applyEnvironmentVariables('provider:codex', 'CODEX_HOME=/moved/claude-home');
 
       const updated = await chatHostOf(plugin).getConversationById(conv.id);
       expect(updated).toEqual(expect.objectContaining({
@@ -1798,7 +1752,7 @@ describe('ClaudianPlugin', () => {
       const settingsWrites: string[] = [];
       mockApp.vault.adapter.write.mockImplementation(async (path: string, content: string) => {
         if (path !== settingsPath) return;
-        settingsWrites.push(JSON.parse(content).providerConfigs.claude.environmentVariables);
+        settingsWrites.push(JSON.parse(content).providerConfigs.codex.environmentVariables);
         if (settingsWrites.length === 1) {
           markFirstWriteStarted();
           await firstWriteRelease;
@@ -1806,14 +1760,14 @@ describe('ClaudianPlugin', () => {
       });
 
       const firstUpdate = plugin.providerHost.applyEnvironmentVariables(
-        'provider:claude',
-        'ANTHROPIC_BASE_URL=https://first-overlap.example.com',
+        'provider:codex',
+        'OPENAI_BASE_URL=https://first-overlap.example.com',
       );
       await firstWriteStarted;
       let secondUpdateSettled = false;
       const secondUpdate = plugin.providerHost.applyEnvironmentVariables(
-        'provider:claude',
-        'ANTHROPIC_BASE_URL=https://second-overlap.example.com',
+        'provider:codex',
+        'OPENAI_BASE_URL=https://second-overlap.example.com',
       ).finally(() => {
         secondUpdateSettled = true;
       });
@@ -1824,20 +1778,20 @@ describe('ClaudianPlugin', () => {
       finishFirstWrite();
       await Promise.all([firstUpdate, secondUpdate]);
 
-      expect(writesWhileFirstWritePending).toEqual(['ANTHROPIC_BASE_URL=https://first-overlap.example.com']);
+      expect(writesWhileFirstWritePending).toEqual(['OPENAI_BASE_URL=https://first-overlap.example.com']);
       expect(secondSettledWhileFirstWritePending).toBe(false);
       expect(settingsWrites).toEqual([
-        'ANTHROPIC_BASE_URL=https://first-overlap.example.com',
-        'ANTHROPIC_BASE_URL=https://second-overlap.example.com',
+        'OPENAI_BASE_URL=https://first-overlap.example.com',
+        'OPENAI_BASE_URL=https://second-overlap.example.com',
       ]);
-      expect(plugin.providerHost.getEnvironmentVariablesForScope('provider:claude'))
-        .toBe('ANTHROPIC_BASE_URL=https://second-overlap.example.com');
+      expect(plugin.providerHost.getEnvironmentVariablesForScope('provider:codex'))
+        .toBe('OPENAI_BASE_URL=https://second-overlap.example.com');
     });
 
     it('restarts provider executions through the lifecycle registry when env changes', async () => {
       await plugin.onload();
       const initialGeneration = plugin.executionLifecycleRegistry
-        .getProviderGeneration('claude');
+        .getProviderGeneration('codex');
 
       const mockView = createUnopenedView({
         getTabManager: vi.fn(),
@@ -1849,7 +1803,7 @@ describe('ClaudianPlugin', () => {
       // Change env but not in a way that affects model
       await plugin.providerHost.applyEnvironmentVariables('shared', 'SOME_VAR=value');
 
-      expect(plugin.executionLifecycleRegistry.getProviderGeneration('claude'))
+      expect(plugin.executionLifecycleRegistry.getProviderGeneration('codex'))
         .toBe(initialGeneration + 1);
       expect(mockView.getTabManager).not.toHaveBeenCalled();
     });
@@ -2304,11 +2258,11 @@ describe('ClaudianPlugin', () => {
     it('should store the selected model in conversation metadata', async () => {
       await plugin.onload();
 
-      const conv = await chatHostOf(plugin).createConversation({ selectedModel: 'opus' });
+      const conv = await chatHostOf(plugin).createConversation({ selectedModel: 'gpt-5.5' });
       const fetched = await chatHostOf(plugin).getConversationById(conv.id);
 
-      expect(conv.selectedModel).toBe('opus');
-      expect(fetched?.selectedModel).toBe('opus');
+      expect(conv.selectedModel).toBe('gpt-5.5');
+      expect(fetched?.selectedModel).toBe('gpt-5.5');
     });
 
     it('should preserve custom selected models that are not in picker options', async () => {
@@ -2330,7 +2284,7 @@ describe('ClaudianPlugin', () => {
       const conv = await chatHostOf(plugin).createConversation();
       delete (conv as { selectedModel?: string }).selectedModel;
       conv.usage = {
-        model: 'opus',
+        model: 'gpt-5.5',
         inputTokens: 1,
         contextTokens: 1,
         contextWindow: 200000,
@@ -2342,9 +2296,9 @@ describe('ClaudianPlugin', () => {
 
       const fetched = await chatHostOf(plugin).getConversationById(conv.id);
 
-      expect(fetched?.selectedModel).toBe('opus');
+      expect(fetched?.selectedModel).toBe('gpt-5.5');
       expect(saveMetadataSpy).toHaveBeenCalledWith(expect.objectContaining({
-        selectedModel: 'opus',
+        selectedModel: 'gpt-5.5',
       }));
     });
 
@@ -2387,77 +2341,6 @@ describe('ClaudianPlugin', () => {
 
       expect(result).toBeNull();
     });
-
-    it('should preserve a conversation when local Claude history is missing', async () => {
-      await plugin.onload();
-      const conversation = await chatHostOf(plugin).createConversation({
-        sessionId: 'session-removed-after-startup',
-      });
-      const availabilitySpy = vi.mocked(sdkSession.locateSDKSession)
-        .mockResolvedValue({ availability: 'missing' });
-
-      const result = await chatHostOf(plugin).switchConversation(conversation.id);
-
-      expect(result?.id).toBe(conversation.id);
-      expect(chatHostOf(plugin).getConversationList()).toHaveLength(1);
-      expect(mockApp.vault.adapter.remove).not.toHaveBeenCalledWith(
-        '.claudian/sessions/session-removed-after-startup.meta.json',
-      );
-      availabilitySpy.mockRestore();
-    });
-
-    it('should preserve a conversation whose Claude session belongs to a previous vault path', async () => {
-      await plugin.onload();
-      const conversation = await chatHostOf(plugin).createConversation({
-        sessionId: 'session-from-previous-vault-path',
-      });
-      const availabilitySpy = vi.mocked(sdkSession.locateSDKSession)
-        .mockResolvedValue({
-          availability: 'relocated',
-          sessionPath: '/old-project/session-from-previous-vault-path.jsonl',
-        });
-      const loadSpy = vi.spyOn(sdkSession, 'loadSDKSessionMessages')
-        .mockResolvedValue({ messages: [], skippedLines: 0 });
-
-      const result = await chatHostOf(plugin).switchConversation(conversation.id);
-
-      expect(result?.id).toBe(conversation.id);
-      expect(chatHostOf(plugin).getConversationList()).toHaveLength(1);
-      expect(result?.sessionId).toBeNull();
-      expect(result?.providerState).toEqual(expect.objectContaining({
-        previousProviderSessionIds: ['session-from-previous-vault-path'],
-      }));
-      expect(mockApp.vault.adapter.remove).not.toHaveBeenCalledWith(
-        '.claudian/sessions/session-from-previous-vault-path.meta.json',
-      );
-      availabilitySpy.mockRestore();
-      loadSpy.mockRestore();
-    });
-
-    it('should restore resume metadata when relocated-state persistence fails', async () => {
-      await plugin.onload();
-      const conversation = await chatHostOf(plugin).createConversation({
-        sessionId: 'session-relocation-save-failure',
-      });
-      const availabilitySpy = vi.mocked(sdkSession.locateSDKSession)
-        .mockResolvedValue({
-          availability: 'relocated',
-          sessionPath: '/old-project/session-relocation-save-failure.jsonl',
-        });
-      const loadSpy = vi.spyOn(sdkSession, 'loadSDKSessionMessages')
-        .mockResolvedValue({ messages: [], skippedLines: 0 });
-      const saveSpy = vi.spyOn(getConversationPersistence(plugin), 'saveMetadata')
-        .mockRejectedValueOnce(new Error('Write failed'));
-
-      const result = await chatHostOf(plugin).switchConversation(conversation.id);
-
-      expect(result?.sessionId).toBe('session-relocation-save-failure');
-      expect(result?.providerState).toBeUndefined();
-
-      availabilitySpy.mockRestore();
-      loadSpy.mockRestore();
-      saveSpy.mockRestore();
-    });
   });
 
   describe('deleteConversation', () => {
@@ -2484,16 +2367,6 @@ describe('ClaudianPlugin', () => {
 
       const list = chatHostOf(plugin).getConversationList();
       expect(list).toEqual([]);
-    });
-
-    it('does not expose or invoke provider-native session deletion', async () => {
-      await plugin.onload();
-      const conv = await chatHostOf(plugin).createConversation({ sessionId: 'provider-session-1' });
-
-      await chatHostOf(plugin).deleteConversation(conv.id);
-
-      expect('deleteSDKSession' in sdkSession).toBe(false);
-      expect(chatHostOf(plugin).getConversationList().find(item => item.id === conv.id)).toBeUndefined();
     });
 
     it('resets each view through its tab owner when deleting a conversation', async () => {
@@ -2721,17 +2594,6 @@ describe('ClaudianPlugin', () => {
       expect(Notice).toHaveBeenCalledWith('Codex could not archive or restore its sessions: codex unavailable');
     });
 
-    it('does not initialize providers without native session archive', async () => {
-      await plugin.onload();
-      const ensureInitialized = vi.spyOn(ProviderWorkspaceRegistry, 'ensureInitialized');
-      const conversation = await chatHostOf(plugin).createConversation({ providerId: 'claude', sessionId: 'session-1' });
-      ensureInitialized.mockClear();
-
-      await chatHostOf(plugin).conversationLifecycle.setArchived(conversation.id, true);
-
-      expect(chatHostOf(plugin).getConversationSync(conversation.id)?.isArchived).toBe(true);
-      expect(ensureInitialized).not.toHaveBeenCalled();
-    });
   });
 
   describe('Linked content path events', () => {
@@ -2816,7 +2678,7 @@ describe('ClaudianPlugin', () => {
       mockApp.vault.getAbstractFileByPath = vi.fn().mockReturnValue(null);
       const host = chatHostOf();
       const { attachment } = host.sessionRuntimes.acquire(
-        { conversationId: null, providerId: 'claude', draftModel: null },
+        { conversationId: null, providerId: 'codex', draftModel: null },
         { reveal: () => undefined },
       );
       const model = attachment.runtime.model;
@@ -2833,7 +2695,7 @@ describe('ClaudianPlugin', () => {
       });
       const blocking = phase === 'queued' ? host.createConversation() : undefined;
       if (blocking) await waitForCondition(() => Boolean(releaseWrite));
-      const creating = model.conversationController.createConversation(token, { providerId: 'claude' });
+      const creating = model.conversationController.createConversation(token, { providerId: 'codex' });
       if (!blocking) await waitForCondition(() => Boolean(releaseWrite));
       const renaming = plugin['vaultContentEvents'].handleRename(
         Object.assign(new TFile(), { path: 'Notes/New.md' }), 'Notes/Old.md',
@@ -3063,10 +2925,10 @@ describe('ClaudianPlugin', () => {
     const clock = testClock();
     const inactiveFor = (days: number): number => clock().getTime() - days * 86_400_000;
     const sessions = [
-      { id: 'stale-session', providerId: 'claude' as const, title: 'Stale', createdAt: inactiveFor(21), lastActivityAt: inactiveFor(20) },
-      { id: 'recent-session', providerId: 'claude' as const, title: 'Recent', createdAt: inactiveFor(3), lastActivityAt: inactiveFor(2) },
-      { id: 'pinned-stale-session', providerId: 'claude' as const, title: 'Pinned', createdAt: inactiveFor(21), lastActivityAt: inactiveFor(20), isPinned: true },
-      { id: 'second-stale-session', providerId: 'claude' as const, title: 'Second stale', createdAt: inactiveFor(31), lastActivityAt: inactiveFor(30) },
+      { id: 'stale-session', providerId: 'codex' as const, title: 'Stale', createdAt: inactiveFor(21), lastActivityAt: inactiveFor(20) },
+      { id: 'recent-session', providerId: 'codex' as const, title: 'Recent', createdAt: inactiveFor(3), lastActivityAt: inactiveFor(2) },
+      { id: 'pinned-stale-session', providerId: 'codex' as const, title: 'Pinned', createdAt: inactiveFor(21), lastActivityAt: inactiveFor(20), isPinned: true },
+      { id: 'second-stale-session', providerId: 'codex' as const, title: 'Second stale', createdAt: inactiveFor(31), lastActivityAt: inactiveFor(30) },
     ];
 
     async function loadAllSessions(settings: Record<string, unknown>): Promise<Map<string, string>> {
@@ -3094,7 +2956,7 @@ describe('ClaudianPlugin', () => {
         files.get(`${getDeviceSessionsPath(getHostnameKey())}/stale-session.meta.json`) ?? '{}',
       );
       expect(persisted.isArchived).toBe(true);
-      expect(Notice).toHaveBeenCalledWith('Auto-archived 2 inactive sessions');
+      await vi.waitFor(() => expect(Notice).toHaveBeenCalledWith('Auto-archived 2 inactive sessions'));
     });
 
     it('skips sessions held by a deferred chat pane that has not mounted its view', async () => {
@@ -3201,761 +3063,6 @@ describe('ClaudianPlugin', () => {
 
       const updated = await chatHostOf(plugin).getConversationById(conv.id);
       expect((updated?.providerState)?.previousProviderSessionIds).toEqual([]);
-    });
-  });
-
-  describe('loadSdkMessagesForConversation - fork branch', () => {
-    it('should repair blank image data from Claude SDK history during hydration', async () => {
-      await plugin.onload();
-
-      const conv = await chatHostOf(plugin).createConversation();
-      await chatHostOf(plugin).updateConversation(conv.id, {
-        providerState: {
-          providerSessionId: 'session-with-image',
-        },
-        messages: [
-          {
-            id: 'user-with-image',
-            role: 'user',
-            content: 'See attached image',
-            timestamp: 1000,
-            images: [{
-              id: 'img-blank',
-              name: 'pasted.png',
-              mediaType: 'image/png',
-              data: '',
-              size: 0,
-              source: 'paste',
-            }],
-          },
-        ],
-      });
-
-      const loadSpy = vi.spyOn(sdkSession, 'loadSDKSessionMessages').mockResolvedValue({
-        messages: [
-          {
-            id: 'user-with-image',
-            role: 'user',
-            content: 'See attached image',
-            timestamp: 1000,
-            images: [{
-              id: 'sdk-img-user-with-image-0',
-              name: 'image-1',
-              mediaType: 'image/png',
-              data: 'aGVsbG8=',
-              size: 5,
-              source: 'paste',
-            }],
-          },
-        ],
-        skippedLines: 0,
-      });
-
-      const loaded = await chatHostOf(plugin).getConversationById(conv.id);
-
-      expect(loadSpy).toHaveBeenCalledWith(
-        expect.any(String),
-        'session-with-image',
-        undefined,
-        undefined,
-        expect.any(Object),
-        'latest-branch',
-      );
-      expect(loaded?.messages[0].images?.[0]).toMatchObject({
-        id: 'img-blank',
-        data: 'aGVsbG8=',
-        mediaType: 'image/png',
-        size: 5,
-      });
-
-      loadSpy.mockRestore();
-    });
-
-    it('should load from forkSource.sessionId and truncate at forkSource.resumeAt for pending fork', async () => {
-      await plugin.onload();
-
-      const conv = await chatHostOf(plugin).createConversation();
-      await chatHostOf(plugin).updateConversation(conv.id, {
-        providerState: {
-          forkSource: { sessionId: 'source-session-abc', resumeAt: 'asst-uuid-cutoff' },
-          // No providerSessionId → isPendingFork returns true
-          providerSessionId: undefined,
-        },
-        sessionId: null,
-      });
-
-      const loadSpy = vi.spyOn(sdkSession, 'loadSDKSessionMessages').mockResolvedValue({
-        messages: [
-          { id: 'sdk-msg-1', role: 'user', content: 'Hello', timestamp: 1000 },
-          { id: 'sdk-msg-2', role: 'assistant', content: 'Hi', timestamp: 1001 },
-        ],
-        skippedLines: 0,
-      });
-
-      // Trigger loadSdkMessagesForConversation via public API
-      const loaded = await chatHostOf(plugin).getConversationById(conv.id);
-
-      // Should check existence of source session, not the conversation's own session
-      expect(sdkSession.locateSDKSession).toHaveBeenCalledWith(
-        expect.any(String),
-        'source-session-abc',
-        expect.any(Object),
-      );
-
-      // Should load from forkSource.sessionId with forkSource.resumeAt as truncation point
-      expect(loadSpy).toHaveBeenCalledWith(
-        expect.any(String),
-        'source-session-abc',
-        'asst-uuid-cutoff',
-        undefined,
-        expect.any(Object),
-        'exact',
-      );
-
-      // Messages should be loaded
-      expect(loaded?.messages).toBeDefined();
-
-      loadSpy.mockRestore();
-    });
-
-    it('should NOT use fork path when conversation has its own providerSessionId', async () => {
-      await plugin.onload();
-
-      const conv = await chatHostOf(plugin).createConversation();
-      await chatHostOf(plugin).updateConversation(conv.id, {
-        providerState: {
-          forkSource: { sessionId: 'source-session', resumeAt: 'asst-uuid' },
-          providerSessionId: 'own-session-id',
-        },
-      });
-
-      const loadSpy = vi.spyOn(sdkSession, 'loadSDKSessionMessages').mockResolvedValue({
-        messages: [],
-        skippedLines: 0,
-      });
-
-      await chatHostOf(plugin).getConversationById(conv.id);
-
-      // Should load from own session, not forkSource session
-      expect(sdkSession.locateSDKSession).toHaveBeenCalledWith(
-        expect.any(String),
-        'own-session-id',
-        expect.any(Object),
-      );
-
-      loadSpy.mockRestore();
-    });
-  });
-
-  describe('loadSdkMessagesForConversation - subagent recovery', () => {
-    it('restores subagent data when Agent tool exists but subagent content block is missing', async () => {
-      await plugin.onload();
-
-      const conv = await chatHostOf(plugin).createConversation();
-      await chatHostOf(plugin).updateConversation(conv.id, {
-        providerState: {
-          providerSessionId: 'session-subagent-recovery',
-          subagentData: {
-            'task-1': {
-              id: 'task-1',
-              description: 'Recovered subagent',
-              status: 'completed',
-              result: 'Recovered result',
-              toolCalls: [
-                {
-                  id: 'sub-tool-1',
-                  name: 'Read',
-                  input: { file_path: 'README.md' },
-                  status: 'completed',
-                  result: 'content',
-                },
-              ],
-              isExpanded: false,
-            },
-          },
-        },
-        messages: [
-          {
-            id: 'assistant-1',
-            role: 'assistant',
-            content: '',
-            timestamp: 1000,
-            toolCalls: [
-              {
-                id: 'task-1',
-                name: 'Agent',
-                input: { description: 'Do sub task' },
-                status: 'completed',
-                result: 'Task completed',
-              },
-            ],
-            // Simulate partial persisted blocks that lost the task tool block.
-            contentBlocks: [{ type: 'text', content: 'Done' }],
-          },
-        ],
-      });
-
-      const loadSpy = vi.spyOn(sdkSession, 'loadSDKSessionMessages').mockResolvedValue({
-        messages: [],
-        skippedLines: 0,
-      });
-
-      const loaded = await chatHostOf(plugin).getConversationById(conv.id);
-      expect(loadSpy).toHaveBeenCalledWith(
-        expect.any(String),
-        'session-subagent-recovery',
-        undefined,
-        undefined,
-        expect.any(Object),
-        'latest-branch',
-      );
-      expect(loaded?.messages[0].toolCalls?.find(tc => tc.id === 'task-1')).toEqual(
-        expect.objectContaining({
-          subagent: expect.objectContaining({
-            id: 'task-1',
-            description: 'Recovered subagent',
-            result: 'Recovered result',
-          }),
-        })
-      );
-      expect(loaded?.messages[0].contentBlocks).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({ type: 'subagent', subagentId: 'task-1' }),
-        ])
-      );
-
-      loadSpy.mockRestore();
-    });
-
-    it('prefers richer SDK task result over stale cached subagent result', async () => {
-      await plugin.onload();
-
-      const conv = await chatHostOf(plugin).createConversation();
-      await chatHostOf(plugin).updateConversation(conv.id, {
-        providerState: {
-          providerSessionId: 'session-subagent-merge',
-          subagentData: {
-            'task-merge-1': {
-              id: 'task-merge-1',
-              description: 'Recovered subagent',
-              mode: 'async',
-              asyncStatus: 'completed',
-              status: 'completed',
-              result: 'Short stale result',
-              toolCalls: [],
-              isExpanded: false,
-            },
-          },
-        },
-        messages: [
-          {
-            id: 'assistant-merge',
-            role: 'assistant',
-            content: '',
-            timestamp: 1000,
-            toolCalls: [
-              {
-                id: 'task-merge-1',
-                name: 'Agent',
-                input: { description: 'Do sub task', run_in_background: true },
-                status: 'completed',
-                result: 'Full SDK result from queue-operation',
-              },
-            ],
-            contentBlocks: [{ type: 'subagent', subagentId: 'task-merge-1', mode: 'async' }],
-          },
-        ],
-      });
-
-      const loadSpy = vi.spyOn(sdkSession, 'loadSDKSessionMessages').mockResolvedValue({
-        messages: [],
-        skippedLines: 0,
-      });
-
-      const loaded = await chatHostOf(plugin).getConversationById(conv.id);
-      const taskTool = loaded?.messages[0].toolCalls?.find(tc => tc.id === 'task-merge-1');
-
-      expect(loadSpy).toHaveBeenCalledWith(
-        expect.any(String),
-        'session-subagent-merge',
-        undefined,
-        undefined,
-        expect.any(Object),
-        'latest-branch',
-      );
-      expect(taskTool?.result).toBe('Full SDK result from queue-operation');
-      expect(taskTool?.subagent?.result).toBe('Full SDK result from queue-operation');
-
-      loadSpy.mockRestore();
-    });
-
-    it('keeps the richer cached async result when both SDK and cache are terminal', async () => {
-      await plugin.onload();
-
-      const conv = await chatHostOf(plugin).createConversation();
-      await chatHostOf(plugin).updateConversation(conv.id, {
-        providerState: {
-          providerSessionId: 'session-subagent-cache-richer',
-          subagentData: {
-            'task-merge-2': {
-              id: 'task-merge-2',
-              description: 'Recovered subagent',
-              mode: 'async',
-              asyncStatus: 'completed',
-              status: 'completed',
-              result: 'Recovered final result with full details',
-              toolCalls: [],
-              isExpanded: false,
-              agentId: 'agent-cache-richer',
-            },
-          },
-        },
-        messages: [],
-      });
-
-      const loadSpy = vi.spyOn(sdkSession, 'loadSDKSessionMessages').mockResolvedValue({
-        messages: [
-          {
-            id: 'assistant-cache-richer',
-            role: 'assistant',
-            content: '',
-            timestamp: 1000,
-            toolCalls: [
-              {
-                id: 'task-merge-2',
-                name: 'Agent',
-                input: { description: 'SDK async subagent', run_in_background: true },
-                status: 'completed',
-                result: 'Short SDK result',
-                subagent: {
-                  id: 'task-merge-2',
-                  description: 'SDK async subagent',
-                  mode: 'async',
-                  asyncStatus: 'completed',
-                  status: 'completed',
-                  result: 'Short SDK result',
-                  toolCalls: [],
-                  isExpanded: false,
-                  agentId: 'agent-cache-richer',
-                },
-              },
-            ],
-            contentBlocks: [{ type: 'subagent', subagentId: 'task-merge-2', mode: 'async' }],
-          },
-        ],
-        skippedLines: 0,
-      });
-
-      const loaded = await chatHostOf(plugin).getConversationById(conv.id);
-      const taskTool = loaded?.messages[0].toolCalls?.find(tc => tc.id === 'task-merge-2');
-
-      expect(taskTool?.status).toBe('completed');
-      expect(taskTool?.result).toBe('Recovered final result with full details');
-      expect(taskTool?.subagent?.result).toBe('Recovered final result with full details');
-
-      loadSpy.mockRestore();
-    });
-
-    it('drops stale asyncStatus from cached sync subagents during recovery', async () => {
-      await plugin.onload();
-
-      const conv = await chatHostOf(plugin).createConversation();
-      await chatHostOf(plugin).updateConversation(conv.id, {
-        providerState: {
-          providerSessionId: 'session-sync-subagent-cleanup',
-          subagentData: {
-            'task-sync-1': {
-              id: 'task-sync-1',
-              description: 'Recovered sync subagent',
-              mode: 'sync',
-              asyncStatus: 'completed',
-              status: 'completed',
-              result: 'Recovered sync result',
-              toolCalls: [],
-              isExpanded: false,
-            },
-          },
-        },
-        messages: [
-          {
-            id: 'assistant-sync',
-            role: 'assistant',
-            content: '',
-            timestamp: 1000,
-            toolCalls: [
-              {
-                id: 'task-sync-1',
-                name: 'Agent',
-                input: { description: 'Do sync task' },
-                status: 'completed',
-                result: 'Sync result',
-              },
-            ],
-            contentBlocks: [{ type: 'subagent', subagentId: 'task-sync-1', mode: 'sync' }],
-          },
-        ],
-      });
-
-      const loadSpy = vi.spyOn(sdkSession, 'loadSDKSessionMessages').mockResolvedValue({
-        messages: [],
-        skippedLines: 0,
-      });
-
-      const loaded = await chatHostOf(plugin).getConversationById(conv.id);
-      const taskTool = loaded?.messages[0].toolCalls?.find(tc => tc.id === 'task-sync-1');
-
-      expect(taskTool?.subagent?.mode).toBe('sync');
-      expect(taskTool?.subagent?.asyncStatus).toBeUndefined();
-
-      loadSpy.mockRestore();
-    });
-
-    it('prefers terminal SDK async status over stale cached running state', async () => {
-      await plugin.onload();
-
-      const conv = await chatHostOf(plugin).createConversation();
-      await chatHostOf(plugin).updateConversation(conv.id, {
-        providerState: {
-          providerSessionId: 'session-async-sdk-terminal',
-          subagentData: {
-            'task-async-sdk-terminal': {
-              id: 'task-async-sdk-terminal',
-              description: 'Cached async subagent',
-              mode: 'async',
-              asyncStatus: 'running',
-              status: 'running',
-              result: 'Still running',
-              toolCalls: [],
-              isExpanded: false,
-            },
-          },
-        },
-        messages: [],
-      });
-
-      const loadSpy = vi.spyOn(sdkSession, 'loadSDKSessionMessages').mockResolvedValue({
-        messages: [
-          {
-            id: 'assistant-sdk-terminal',
-            role: 'assistant',
-            content: '',
-            timestamp: 1000,
-            toolCalls: [
-              {
-                id: 'task-async-sdk-terminal',
-                name: 'Agent',
-                input: { description: 'SDK async subagent', run_in_background: true },
-                status: 'completed',
-                result: 'Full SDK final result',
-                subagent: {
-                  id: 'task-async-sdk-terminal',
-                  description: 'SDK async subagent',
-                  mode: 'async',
-                  asyncStatus: 'completed',
-                  status: 'completed',
-                  result: 'Full SDK final result',
-                  toolCalls: [],
-                  isExpanded: false,
-                  agentId: 'agent-sdk-terminal',
-                },
-              },
-            ],
-            contentBlocks: [{ type: 'subagent', subagentId: 'task-async-sdk-terminal', mode: 'async' }],
-          },
-        ],
-        skippedLines: 0,
-      });
-
-      const loaded = await chatHostOf(plugin).getConversationById(conv.id);
-      const taskTool = loaded?.messages[0].toolCalls?.find(tc => tc.id === 'task-async-sdk-terminal');
-
-      expect(taskTool?.status).toBe('completed');
-      expect(taskTool?.result).toBe('Full SDK final result');
-      expect(taskTool?.subagent?.status).toBe('completed');
-      expect(taskTool?.subagent?.asyncStatus).toBe('completed');
-      expect(taskTool?.subagent?.result).toBe('Full SDK final result');
-
-      loadSpy.mockRestore();
-    });
-
-    it('prefers cached terminal async status over SDK launch-only running state', async () => {
-      await plugin.onload();
-
-      const conv = await chatHostOf(plugin).createConversation();
-      await chatHostOf(plugin).updateConversation(conv.id, {
-        providerState: {
-          providerSessionId: 'session-async-cache-terminal',
-          subagentData: {
-            'task-async-cache-terminal': {
-              id: 'task-async-cache-terminal',
-              description: 'Cached async subagent',
-              mode: 'async',
-              asyncStatus: 'completed',
-              status: 'completed',
-              result: 'Recovered final result',
-              toolCalls: [],
-              isExpanded: false,
-              agentId: 'agent-cache-terminal',
-            },
-          },
-        },
-        messages: [],
-      });
-
-      const loadSpy = vi.spyOn(sdkSession, 'loadSDKSessionMessages').mockResolvedValue({
-        messages: [
-          {
-            id: 'assistant-sdk-running',
-            role: 'assistant',
-            content: '',
-            timestamp: 1000,
-            toolCalls: [
-              {
-                id: 'task-async-cache-terminal',
-                name: 'Agent',
-                input: { description: 'SDK async subagent', run_in_background: true },
-                status: 'running',
-                result: 'Task launched in background.',
-                subagent: {
-                  id: 'task-async-cache-terminal',
-                  description: 'SDK async subagent',
-                  mode: 'async',
-                  asyncStatus: 'running',
-                  status: 'running',
-                  result: 'Task launched in background.',
-                  toolCalls: [],
-                  isExpanded: false,
-                  agentId: 'agent-cache-terminal',
-                },
-              },
-            ],
-            contentBlocks: [{ type: 'subagent', subagentId: 'task-async-cache-terminal', mode: 'async' }],
-          },
-        ],
-        skippedLines: 0,
-      });
-
-      const loaded = await chatHostOf(plugin).getConversationById(conv.id);
-      const taskTool = loaded?.messages[0].toolCalls?.find(tc => tc.id === 'task-async-cache-terminal');
-
-      expect(taskTool?.status).toBe('completed');
-      expect(taskTool?.result).toBe('Recovered final result');
-      expect(taskTool?.subagent?.status).toBe('completed');
-      expect(taskTool?.subagent?.asyncStatus).toBe('completed');
-      expect(taskTool?.subagent?.result).toBe('Recovered final result');
-
-      loadSpy.mockRestore();
-    });
-
-    it('restores async subagent data and mode when Agent tool exists but async block is missing', async () => {
-      await plugin.onload();
-
-      const conv = await chatHostOf(plugin).createConversation();
-      await chatHostOf(plugin).updateConversation(conv.id, {
-        providerState: {
-          providerSessionId: 'session-async-subagent-recovery',
-          subagentData: {
-            'task-async-1': {
-              id: 'task-async-1',
-              description: 'Recovered async subagent',
-              mode: 'async',
-              asyncStatus: 'completed',
-              status: 'completed',
-              result: 'Recovered async result',
-              toolCalls: [],
-              isExpanded: false,
-            },
-          },
-        },
-        messages: [
-          {
-            id: 'assistant-1',
-            role: 'assistant',
-            content: '',
-            timestamp: 1000,
-            toolCalls: [
-              {
-                id: 'task-async-1',
-                name: 'Agent',
-                input: { description: 'Do background task', run_in_background: true },
-                status: 'completed',
-                result: 'Task started',
-              },
-            ],
-            contentBlocks: [{ type: 'text', content: 'Started' }],
-          },
-        ],
-      });
-
-      const loadSpy = vi.spyOn(sdkSession, 'loadSDKSessionMessages').mockResolvedValue({
-        messages: [],
-        skippedLines: 0,
-      });
-
-      const loaded = await chatHostOf(plugin).getConversationById(conv.id);
-      const block = loaded?.messages[0].contentBlocks?.find(
-        (b) => b.type === 'subagent' && b.subagentId === 'task-async-1'
-      );
-
-      expect(loaded?.messages[0].toolCalls?.find(tc => tc.id === 'task-async-1')).toEqual(
-        expect.objectContaining({
-          id: 'task-async-1',
-          subagent: expect.objectContaining({
-            id: 'task-async-1',
-            mode: 'async',
-            asyncStatus: 'completed',
-          }),
-        })
-      );
-      expect(block).toEqual(
-        expect.objectContaining({ type: 'subagent', subagentId: 'task-async-1', mode: 'async' })
-      );
-
-      loadSpy.mockRestore();
-    });
-
-    it('hydrates async subagent tool calls from SDK subagent files on reload', async () => {
-      await plugin.onload();
-
-      const conv = await chatHostOf(plugin).createConversation();
-      await chatHostOf(plugin).updateConversation(conv.id, {
-        providerState: {
-          providerSessionId: 'session-async-subagent-tools',
-          subagentData: {
-            'task-async-tools': {
-              id: 'task-async-tools',
-              description: 'Recovered async subagent',
-              mode: 'async',
-              asyncStatus: 'completed',
-              status: 'completed',
-              result: 'Recovered async result',
-              agentId: 'agent-a123',
-              toolCalls: [],
-              isExpanded: false,
-            },
-          },
-        },
-        messages: [
-          {
-            id: 'assistant-1',
-            role: 'assistant',
-            content: '',
-            timestamp: 1000,
-            toolCalls: [
-              {
-                id: 'task-async-tools',
-                name: 'Agent',
-                input: { description: 'Do background task', run_in_background: true },
-                status: 'completed',
-                result: 'Task started',
-              },
-            ],
-            contentBlocks: [{ type: 'subagent', subagentId: 'task-async-tools', mode: 'async' }],
-          },
-        ],
-      });
-
-      const loadSpy = vi.spyOn(sdkSession, 'loadSDKSessionMessages').mockResolvedValue({
-        messages: [],
-        skippedLines: 0,
-      });
-      const loadSubagentToolsSpy = vi.spyOn(sdkSession, 'loadSubagentToolCalls').mockResolvedValue([
-        {
-          id: 'sub-tool-1',
-          name: 'Bash',
-          input: { command: 'ls' },
-          status: 'completed',
-          result: 'ok',
-          isExpanded: false,
-        },
-      ]);
-
-      const loaded = await chatHostOf(plugin).getConversationById(conv.id);
-      const taskTool = loaded?.messages[0].toolCalls?.find(tc => tc.id === 'task-async-tools');
-
-      expect(loadSubagentToolsSpy).toHaveBeenCalledWith(
-        expect.any(String),
-        'session-async-subagent-tools',
-        'agent-a123',
-        undefined,
-        expect.any(Object),
-      );
-      expect(taskTool?.subagent?.toolCalls).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            id: 'sub-tool-1',
-            name: 'Bash',
-            result: 'ok',
-          }),
-        ])
-      );
-
-      loadSpy.mockRestore();
-      loadSubagentToolsSpy.mockRestore();
-    });
-
-    it('keeps async subagent renderer visible when task block and task tool call are both missing', async () => {
-      await plugin.onload();
-
-      const conv = await chatHostOf(plugin).createConversation();
-      await chatHostOf(plugin).updateConversation(conv.id, {
-        providerState: {
-          providerSessionId: 'session-async-subagent-fallback',
-          subagentData: {
-            'task-async-orphan': {
-              id: 'task-async-orphan',
-              description: 'Recovered async orphan subagent',
-              mode: 'async',
-              asyncStatus: 'running',
-              status: 'running',
-              result: 'Running in background',
-              toolCalls: [],
-              isExpanded: false,
-            },
-          },
-        },
-        messages: [
-          {
-            id: 'assistant-1',
-            role: 'assistant',
-            content: 'Background work started',
-            timestamp: 1000,
-            contentBlocks: [{ type: 'text', content: 'Background work started' }],
-          },
-        ],
-      });
-
-      const loadSpy = vi.spyOn(sdkSession, 'loadSDKSessionMessages').mockResolvedValue({
-        messages: [],
-        skippedLines: 0,
-      });
-
-      const loaded = await chatHostOf(plugin).getConversationById(conv.id);
-      const assistant = loaded?.messages.find(m => m.id === 'assistant-1');
-      const block = assistant?.contentBlocks?.find(
-        (b) => b.type === 'subagent' && b.subagentId === 'task-async-orphan'
-      );
-
-      expect(assistant?.toolCalls?.find((tc) => tc.id === 'task-async-orphan')).toEqual(
-        expect.objectContaining({
-          id: 'task-async-orphan',
-          name: TOOL_SUBAGENT,
-          subagent: expect.objectContaining({
-            id: 'task-async-orphan',
-            mode: 'async',
-            asyncStatus: 'running',
-          }),
-        })
-      );
-      expect(block).toEqual(
-        expect.objectContaining({
-          type: 'subagent',
-          subagentId: 'task-async-orphan',
-          mode: 'async',
-        })
-      );
-
-      loadSpy.mockRestore();
     });
   });
 

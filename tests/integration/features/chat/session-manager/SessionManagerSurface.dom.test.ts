@@ -17,7 +17,7 @@ function conversation(id: string, overrides: Partial<ConversationMeta> = {}): Co
   const at = testDate({ hours: -1 }).getTime();
   return {
     id,
-    providerId: 'claude',
+    providerId: 'codex',
     title: id,
     createdAt: at,
     lastActivityAt: at,

@@ -6,10 +6,7 @@ import { createChatFeatureHost } from '@test/helpers/features/chat/ChatFeatureHo
 import { parseCodexSessionContent } from '@test/helpers/providers/codex/parseCodexSessionContent';
 import { testDate, testTime } from '@test/helpers/testClock';
 import { fireEvent, screen, within } from '@testing-library/dom';
-import fs from 'fs';
 import { Component } from 'obsidian';
-import { tmpdir } from 'os';
-import { join } from 'path';
 
 import { NOOP_TASK_RESULT_INTERPRETER } from '@/core/providers/NoopTaskResultInterpreter';
 import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
@@ -22,7 +19,6 @@ import { createAsyncSubagentBlock, createSubagentBlock, updateAsyncSubagentBlock
 import { ChatState } from '@/features/chat/state/ChatState';
 import { StreamController } from '@/features/chat/turns/StreamController';
 import { setLocale, t } from '@/i18n/i18n';
-import { ClaudeTaskResultInterpreter } from '@/providers/claude/runtime/ClaudeTaskResultInterpreter';
 import { CodexSubagentTracker } from '@/providers/codex/execution/CodexSubagentTracker';
 import { codexSubagentLifecycleAdapter } from '@/providers/codex/normalization/codexSubagentNormalization';
 import type { Thread } from '@/providers/codex/runtime/codexAppServerTypes';
@@ -328,66 +324,6 @@ it('honors provider lifecycle state and ignores late progress after completion',
   expect(spawn.subagent).toMatchObject({ status: 'completed', result: 'Provider answer' });
 });
 
-it('normalizes a completed synchronous answer containing not-ready prose', () => {
-  const manager = new SubagentManager(() => {}, new ClaudeTaskResultInterpreter());
-  const parent = document.createElement('div');
-  document.body.append(parent);
-  manager.handleTaskToolUse('sync', { run_in_background: false, description: 'Deployment check' }, parent);
-  manager.addSyncToolCall('sync', { id: 'read', name: 'Read', input: { file_path: 'note.md' }, status: 'running' });
-  manager.addSyncToolCall('sync', { id: 'read', name: 'Read', input: { limit: 10 }, status: 'running' });
-  manager.updateSyncToolResult('sync', 'read', {
-    ...manager.getSyncSubagent('sync')!.toolCalls[0], status: 'completed', result: 'The note.',
-  });
-  expect(manager.getSyncSubagent('sync')?.toolCalls).toEqual([
-    expect.objectContaining({ input: { file_path: 'note.md', limit: 10 }, status: 'completed', result: 'The note.' }),
-  ]);
-  expandButton(parent, /Subagent task: Deployment check/);
-  expect(parent.querySelectorAll('.claudian-subagent-tool-item')).toHaveLength(1);
-  const answer = 'Deployment is not ready.';
-  const metadata = 'agentId: agent-sync\n<usage>total_tokens: 500</usage>';
-
-  expect(manager.finalizeSyncSubagent('sync', `${answer}\n${metadata}`, false, { rawOutput: {
-    status: 'completed', agentId: 'agent-sync',
-    content: [{ type: 'text', text: answer }],
-  } })).toMatchObject({ status: 'completed', result: answer });
-  fireEvent.click(screen.getByRole('button', { name: /Subagent task: Deployment check - Status: completed/ }));
-  fireEvent.click(screen.getByRole('button', { name: /^Result/ }));
-  expect(screen.getByText(answer)).toBeDefined();
-});
-
-it.each(['unrelated', 'running'] as const)('defers output-file recovery for %s results until an owned task completes', (state) => {
-  const directory = fs.mkdtempSync(join(tmpdir(), 'claudian-managed-output-'));
-  const outputPath = join(directory, 'task.output');
-  fs.writeFileSync(outputPath, JSON.stringify({ message: { role: 'assistant', content: [{ type: 'text', text: 'Recovered task answer' }] } }));
-  const read = vi.spyOn(fs, 'readFileSync');
-  const manager = new SubagentManager(() => {}, new ClaudeTaskResultInterpreter());
-  const parent = document.createElement('div');
-  document.body.append(parent);
-  const launch = () => {
-    manager.handleTaskToolUse('spawn', { run_in_background: true, description: 'Recovery job' }, parent);
-    manager.handleTaskToolResult('spawn', 'agent_id: native-job');
-    manager.handleAgentOutputToolUse({ id: 'output', name: 'TaskOutput', input: { task_id: 'native-job' }, status: 'running' });
-  };
-  const output = `<output>[Truncated. Full output: ${outputPath}]</output>`;
-
-  try {
-    if (state === 'running') launch();
-    const result = manager.handleAgentOutputToolResult('output', `<status>${state}</status>${output}`, false);
-    expect(result?.asyncStatus).toBe(state === 'running' ? 'running' : undefined);
-    expect(read.mock.calls.some(([path]) => path === outputPath)).toBe(false);
-
-    if (state === 'unrelated') launch();
-    manager.handleAgentOutputToolUse({ id: 'completed-output', name: 'TaskOutput', input: { task_id: 'native-job' }, status: 'running' });
-    expect(manager.handleAgentOutputToolResult('completed-output', output, false))
-      .toMatchObject({ asyncStatus: 'completed', result: 'Recovered task answer' });
-    fireEvent.click(screen.getByRole('button', { name: /Background task: Recovery job - Completed/ }));
-    expect(screen.getByText('Recovered task answer')).toBeDefined();
-  } finally {
-    read.mockRestore();
-    fs.rmSync(directory, { recursive: true, force: true });
-  }
-});
-
 it('renders and settles a managed task using provider-normalized mode, identity, and output', async () => {
   const interpreter = {
     ...NOOP_TASK_RESULT_INTERPRETER,
@@ -468,40 +404,6 @@ it('reconciles a large expanded child list with linear identity lookups and remo
   expect(parent.querySelector('[data-tool-id="child-0"]')).toBeNull();
   expect(parent.querySelector('[data-tool-id="child-99"]')).not.toBeNull();
   expect(identityReads).toBeLessThanOrEqual(400);
-});
-
-it('preserves focus in a completed child result when a sibling tool updates', () => {
-  const manager = new SubagentManager(() => {}, new ClaudeTaskResultInterpreter());
-  const parent = document.body.createDiv();
-  manager.handleTaskToolUse('sync', { run_in_background: false, description: 'Search task' }, parent);
-  manager.addSyncToolCall('sync', { id: 'search', name: 'WebSearch', input: { query: 'Docs' }, status: 'completed',
-    result: 'Links: [{"title":"Docs","url":"https://example.com"}]' });
-  fireEvent.click(within(parent).getByRole('button', { name: /Subagent task: Search task/ }));
-  fireEvent.click(within(parent).getByRole('button', { name: /^WebSearch/ }));
-  const link = within(parent).getByRole('link', { name: 'Docs' });
-  link.focus();
-  manager.addSyncToolCall('sync', { id: 'read', name: 'Read', input: { file_path: 'note.md' }, status: 'running' });
-  expect(document.activeElement).toBe(link);
-  expect(within(parent).getByRole('link', { name: 'Docs' })).toBe(link);
-});
-
-it('preserves async prompt expansion and focus on repeated tool snapshots', () => {
-  const parent = document.body.createDiv();
-  const manager = new SubagentManager(() => {}, new ClaudeTaskResultInterpreter());
-  const input = {run_in_background: true, description: 'Research', prompt: 'Find details'};
-  try {
-    manager.handleTaskToolUse('async', input, parent);
-    fireEvent.click(within(parent).getByRole('button', {name: /Background task: Research/}));
-    const prompt = within(parent).getByRole('button', {name: /^Prompt/});
-    fireEvent.click(prompt); prompt.focus();
-    expect(prompt.getAttribute('aria-expanded')).toBe('true');
-    expect(document.activeElement).toBe(prompt);
-    manager.handleTaskToolUse('async', input, parent);
-    const updated = within(parent).getByRole('button', {name: /^Prompt/});
-    expect(updated).toBe(prompt);
-    expect(document.activeElement).toBe(prompt);
-    expect(updated.getAttribute('aria-expanded')).toBe('true');
-  } finally { manager.clear(); }
 });
 
 
@@ -810,143 +712,6 @@ it('shows previous runs of reused OpenCode subagents live and after reload', asy
     expect(histories[1].textContent).not.toContain('Answer A');
     expect(await axe(view.parent)).toHaveNoViolations();
   }
-});
-
-it.each(['sync', 'async', 'partial-sync'] as const)('records a %s task and its result without transcript elements', async mode => {
-  const parent = document.body.createDiv();
-  const plugin = await createChatFeatureHost({ settings: { mediaFolder: '' } });
-  const state = new ChatState();
-  const manager = new SubagentManager(info => stream.subagents.onAsyncSubagentStateChange(info), new ClaudeTaskResultInterpreter());
-  const renderer = new MessageRenderer(plugin, new Component(), parent);
-  const stream = new StreamController({ plugin, state, renderer, subagentManager: manager,
-    getMessagesEl: () => parent, getProviderId: () => 'claude', updateQueueIndicator: () => {} });
-  cleanups.push(() => { stream.dispose(); manager.clear(); renderer.dispose(); });
-  const message: ChatMessage = { id: 'headless', role: 'assistant', timestamp: testDate().getTime(), content: '', contentBlocks: [], toolCalls: [] };
-  state.addMessage(message);
-  await stream.handleStreamChunk({ type: 'tool_use', id: 'task', name: TOOL_SUBAGENT,
-    input: mode === 'partial-sync' ? {} : { description: 'Research', prompt: 'Read the note.', run_in_background: mode === 'async' } }, message);
-  expect(manager.hasActiveAsyncSubagents()).toBe(mode === 'async');
-  let childOutput: string | undefined;
-  if (mode === 'async') {
-    await stream.handleStreamChunk({ type: 'tool_result', id: 'task', content: 'agentId: child-123' }, message);
-    await stream.subagents.handleAsyncSubagentCompletion({ type: 'async_subagent_completion', providerSessionId: 'session',
-      taskId: 'child-123', status: 'completed', result: 'Research complete.' });
-
-  } else {
-    await stream.handleStreamChunk({ type: 'subagent_tool_use', subagentId: 'task', id: 'read', name: 'Read', input: { file_path: 'note.md' } }, message);
-    await stream.handleStreamChunk({ type: 'subagent_tool_output', subagentId: 'task', id: 'read', content: 'The ' }, message);
-    await stream.handleStreamChunk({ type: 'subagent_tool_output', subagentId: 'task', id: 'read', content: 'note.' }, message);
-    childOutput = message.toolCalls?.[0].subagent?.toolCalls[0]?.result;
-    await stream.handleStreamChunk({ type: 'subagent_tool_result', subagentId: 'task', id: 'read', content: 'The note.' }, message);
-    await stream.handleStreamChunk({ type: 'tool_result', id: 'task', content: 'Research complete.' }, message);
-
-  }
-  expect(childOutput).toBe(mode === 'async' ? undefined : 'The note.');
-  expect(manager.hasActiveAsyncSubagents()).toBe(false);
-  expect(message.toolCalls?.[0].subagent).toMatchObject({ mode: mode === 'async' ? 'async' : 'sync',
-    status: 'completed', result: 'Research complete.', toolCalls: mode === 'async' ? [] : [{ id: 'read', status: 'completed', result: 'The note.' }] });
-  expect(parent.childElementCount).toBe(0);
-  expect(message.contentBlocks).toEqual([{ type: 'subagent', subagentId: 'task', ...(mode === 'async' ? { mode: 'async' } : {}) }]);
-  const model = JSON.stringify(message);
-  manager.attachTaskView(message.toolCalls![0].subagent!, parent);
-  expect(within(parent).getByRole('button', { name: /(?:Background|Subagent) task:.*Research|Subagent task: Subagent task/ })).toBeTruthy();
-  expect(parent.textContent).toContain('Research complete.');
-  expect(JSON.stringify(message)).toBe(model);
-});
-
-
-it('renders a managed sync task through child-tool completion and the full SDK result', async () => {
-  const parent = document.body.createDiv();
-  const manager = new SubagentManager(() => undefined, new ClaudeTaskResultInterpreter());
-  cleanups.push(() => manager.clear());
-  const ui = within(parent);
-  expect(manager.handleTaskToolUse('task-sdk', { run_in_background: false, description: 'Read report' }, parent).action)
-    .toBe('created_sync');
-  fireEvent.click(ui.getByRole('button', { name: /Subagent task: Read report/ }));
-  const tool: ToolCallInfo = { id: 'read-1', name: 'Read', input: { file_path: 'test.md' }, status: 'running', isExpanded: false };
-  manager.addSyncToolCall('task-sdk', tool);
-  const read = ui.getByRole('button', { name: /^Read.*test.md/ });
-  expect(read).toBeDefined();
-  manager.updateSyncToolResult('task-sdk', 'read-1', { ...tool, status: 'completed', result: 'file content' });
-  fireEvent.click(read);
-  expect(ui.getByText('file content')).toBeDefined();
-
-  const result = 'Full sync subagent result with multiple lines.\n\nSecond paragraph.';
-  const info = manager.finalizeSyncSubagent('task-sdk', 'truncated', false, {
-    rawOutput: { status: 'completed', content: [{ type: 'text', text: result }], agentId: 'sdk-agent' },
-  });
-  expect(info).toMatchObject({ id: 'task-sdk', status: 'completed', result });
-  expect(manager.getSyncSubagent('task-sdk')).toBeUndefined();
-  fireEvent.click(ui.getByRole('button', { name: /^Result/ }));
-  expect(ui.getByText(/Full sync subagent result with multiple lines/).textContent).toContain(result);
-  expect(await axe(parent)).toHaveNoViolations();
-});
-
-
-it.each(['sync', 'async'] as const)('opens and closes managed %s task details by mouse and keyboard', async mode => {
-  const parent = document.body.createDiv();
-  const manager = new SubagentManager(() => undefined, new ClaudeTaskResultInterpreter());
-  cleanups.push(() => manager.clear());
-  manager.handleTaskToolUse('task', { description: 'Test task', run_in_background: mode === 'async' }, parent);
-  const header = within(parent).getByRole('button', { name: /(?:Subagent|Background) task: Test task/ });
-  const wrapper = header.parentElement!;
-  const content = wrapper.querySelector<HTMLElement>('.claudian-subagent-content')!;
-  expect(header.getAttribute('tabindex')).toBe('0');
-  expect(header.getAttribute('aria-label')).toContain('click to expand');
-  const expectExpanded = (expanded: boolean) => {
-    expect(header.getAttribute('aria-expanded')).toBe(String(expanded));
-    expect(wrapper.classList.contains('expanded')).toBe(expanded);
-    expect(content.classList.contains('claudian-hidden')).toBe(!expanded);
-  };
-  expectExpanded(false);
-  for (const input of ['click', 'Enter', ' '] as const) {
-    if (input === 'click') fireEvent.click(header);
-    else fireEvent.keyDown(header, { key: input });
-    expectExpanded(true);
-    if (input === 'click') fireEvent.click(header);
-    else fireEvent.keyDown(header, { key: input === 'Enter' ? ' ' : 'Enter' });
-    expectExpanded(false);
-  }
-  expect(await axe(parent)).toHaveNoViolations();
-});
-
-
-it('localizes managed task controls and progress while preserving native content', async () => {
-  const englishTask = t('chat.subagentUI.taskLabel', { description: 'Native task', status: t('chat.tools.status.running') });
-  setLocale('zh-CN');
-  const runningTask = t('chat.subagentUI.taskLabel', { description: 'Native task', status: t('chat.tools.status.running') });
-  const completedTask = t('chat.subagentUI.taskLabel', { description: 'Native task', status: t('chat.tools.status.completed') });
-  expect(runningTask).not.toBe(englishTask);
-  const parent = document.body.createDiv();
-  const manager = new SubagentManager(() => undefined, new ClaudeTaskResultInterpreter());
-  cleanups.push(() => manager.clear());
-  manager.handleTaskToolUse('localized', { description: 'Native task', prompt: 'Native prompt', run_in_background: false }, parent);
-  const ui = within(parent);
-  const header = ui.getByRole('button', { name: t('chat.disclosure.expand', { label: runningTask }) });
-  fireEvent.click(header);
-  fireEvent.keyDown(ui.getByRole('button', { name: t('chat.disclosure.expand', { label: t('chat.subagentUI.prompt') }) }), { key: 'Enter' });
-  expect(ui.getByText('Native prompt')).toBeDefined();
-  const child: ToolCallInfo = { id: 'native-read', name: 'Read', input: { file_path: 'native.md' }, status: 'running' };
-  manager.addSyncToolCall('localized', child);
-  const read = ui.getByRole('button', { name: /^Read.*native.md/ });
-  fireEvent.click(read);
-  expect(ui.getByText(t('chat.tools.running'))).toBeDefined();
-  manager.updateSyncToolResult('localized', child.id, { ...child, status: 'completed', result: 'Native child output' });
-  expect(ui.getByText('Native child output')).toBeDefined();
-  manager.applyProgress({ toolCallId: 'localized', lastToolName: 'Read', toolUses: 1, totalTokens: 999, durationMs: 1500 });
-  expect(ui.getByText(t('chat.subagentUI.lastTool', { name: 'Read' }))).toBeDefined();
-  expect(ui.getByText(`${t('chat.subagentUI.toolUse', { count: 1 })} · ${t('chat.subagentUI.tokens', { value: 999 })} · 2s`)).toBeDefined();
-  manager.applyProgress({ toolCallId: 'localized', toolUses: 2, totalTokens: 1000 });
-  expect(ui.getByText(`${t('chat.subagentUI.toolUses', { count: 2 })} · ${t('chat.subagentUI.compactTokens', { value: 1 })} · 2s`)).toBeDefined();
-  manager.applyProgress({ toolCallId: 'localized', totalTokens: 100000, summary: 'Native summary' });
-  expect(ui.getByText('Native summary')).toBeDefined();
-  expect(ui.getByText(`${t('chat.subagentUI.toolUses', { count: 2 })} · ${t('chat.subagentUI.compactTokens', { value: 100 })} · 2s`)).toBeDefined();
-  const info = manager.finalizeSyncSubagent('localized', 'Native result', false);
-  expect(info).toMatchObject({ description: 'Native task', prompt: 'Native prompt', result: 'Native result' });
-  expect(header.getAttribute('aria-label')).toBe(t('chat.disclosure.collapse', { label: completedTask }));
-  fireEvent.keyDown(ui.getByRole('button', { name: t('chat.disclosure.expand', { label: t('chat.subagentUI.result') }) }), { key: ' ' });
-  expect(ui.getByText('Native result')).toBeDefined();
-  expect(await axe(parent)).toHaveNoViolations();
 });
 
 it.each([

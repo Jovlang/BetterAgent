@@ -6,7 +6,7 @@ import { conversationRecord } from '@test/helpers/features/chat/ConversationFixt
 
 import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
 
-const nativeCapabilities = ProviderRegistry.getCapabilities('claude');
+const nativeCapabilities = ProviderRegistry.getCapabilities('codex');
 beforeEach(() => {
   vi.spyOn(ProviderRegistry, 'resolveTitleGenerationSelection');
   vi.spyOn(ProviderRegistry, 'getCapabilities').mockReturnValue({ ...nativeCapabilities, supportsTurnSteer: true });
@@ -19,7 +19,7 @@ describe('FirstTurnAdmission', () => {
     vi.clearAllMocks();
     vi.mocked(ProviderRegistry.getCapabilities).mockReturnValue({
       ...nativeCapabilities,
-      providerId: 'claude',
+      providerId: 'codex',
       supportsFork: true,
       supportsNativeHistory: true,
       supportsTurnSteer: true,
@@ -42,7 +42,7 @@ describe('FirstTurnAdmission', () => {
   });
 
   it('starts title generation independently of the execution session', async () => {
-    vi.mocked(ProviderRegistry.resolveTitleGenerationSelection).mockReturnValueOnce({ providerId: 'claude', model: 'sonnet' });
+    vi.mocked(ProviderRegistry.resolveTitleGenerationSelection).mockReturnValueOnce({ providerId: 'codex', model: 'sonnet' });
     const generateTitle = vi.fn().mockResolvedValue(undefined);
     const fixture = (await createFixture({
       getTitleGenerationService: () => ({ generateTitle, cancel: vi.fn() }),
@@ -70,7 +70,7 @@ describe('FirstTurnAdmission', () => {
     await fixture.controller.sendMessage({ content: 'Start linked session' });
 
     expect(fixture.plugin.createConversation).toHaveBeenCalledWith({
-      providerId: 'claude',
+      providerId: 'codex',
       selectedModel: 'claude-model',
       linkedContentPath: 'Projects/Plan.md',
     });

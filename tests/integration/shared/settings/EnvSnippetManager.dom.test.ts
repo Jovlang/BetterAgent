@@ -9,7 +9,6 @@ import { Notice } from 'obsidian';
 import type { Mock } from 'vitest';
 
 import { getProviderEnvironmentVariables, getRuntimeEnvironmentVariables } from '@/core/providers/providerEnvironment';
-import { getClaudeProviderSettings, updateClaudeProviderSettings } from '@/providers/claude/settings';
 import { EnvSnippetManager, EnvSnippetModal } from '@/shared/settings/EnvSnippetManager';
 
 type ModalTimerJoin = () => Promise<void>;
@@ -136,37 +135,6 @@ it.each([
   expect(reloaded.sharedEnvironmentVariables).toBe(shared);
   expect(getProviderEnvironmentVariables(reloaded, 'claude')).toBe(envVars);
   expect(getProviderEnvironmentVariables(reloaded, 'codex')).toBe('OPENAI_MODEL=codex-keep');
-});
-
-it.each<Record<string, string>>([{}, { custom: ' Snippet name ' }])('leaves provider aliases alone when inserting a snippet with aliases %o', async modelAliases => {
-  const notifyProviderChatOptionsChanged = vi.fn();
-  const { host, settings } = await createProviderHostFixture({
-    overrides: {
-      notifyProviderChatOptionsChanged,
-      applyEnvironmentVariables: (...args) => applyEnvironmentVariables(...args),
-    },
-  });
-  updateClaudeProviderSettings(settings, { modelAliases: { custom: 'Old name', other: 'Keep name' }, loadUserSettings: false });
-  settings.envSnippets = [{
-    id: 'snippet', name: 'Custom endpoint', description: '', scope: 'provider:claude',
-    envVars: 'ANTHROPIC_MODEL=custom', modelAliases,
-  }];
-  const applyEnvironmentVariables = vi.fn().mockResolvedValue(undefined);
-
-  const container = document.body.createEl('main');
-  const onChanged = vi.fn();
-  new EnvSnippetManager(container, host, 'provider:claude', onChanged);
-  expect(['Insert', 'Edit', 'Delete'].map(name =>
-    within(container).getByRole<HTMLButtonElement>('button', { name }).type,
-  )).toEqual(['button', 'button', 'button']);
-  fireEvent.click(within(container).getByRole('button', { name: 'Insert' }));
-  await waitFor(() => expect(onChanged).toHaveBeenCalledTimes(1));
-  expect(applyEnvironmentVariables).toHaveBeenCalledWith('provider:claude', 'ANTHROPIC_MODEL=custom');
-  expect(getClaudeProviderSettings(settings).modelAliases).toEqual({ custom: 'Old name', other: 'Keep name' });
-  expect(notifyProviderChatOptionsChanged).not.toHaveBeenCalled();
-  expect(getClaudeProviderSettings(settings).loadUserSettings).toBe(false);
-  expect(settings).not.toHaveProperty('customModelAliases');
-  expect(await axe(container)).toHaveNoViolations();
 });
 
 it('offers saving the current environment from the empty snippet state', async () => {

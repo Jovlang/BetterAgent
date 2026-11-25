@@ -2,7 +2,7 @@
 
 import '@/providers';
 
-import { claudeCatalogFixture } from '@test/helpers/claudeModels';
+import { codexCatalogFixture } from '@test/helpers/codexModels';
 import { DesktopVault } from '@test/helpers/core/DesktopVault';
 import { DEFAULT_CLAUDIAN_SETTINGS } from '@test/helpers/defaultSettings';
 import { testDate } from '@test/helpers/testClock';
@@ -26,7 +26,7 @@ it('hides failed-title retry while title generation is disabled and restores wor
   const settings = structuredClone(DEFAULT_CLAUDIAN_SETTINGS);
   settings.enableAutoTitleGeneration = false;
   settings.titleGenerationModel = 'haiku';
-  settings.providerConfigs.claude = claudeCatalogFixture(['haiku']);
+  settings.providerConfigs.codex = codexCatalogFixture(['haiku']);
   const coordinator = new SettingsCoordinator(settings, async () => undefined,
     (current, previous) => publisher.publishSettings(current, previous));
   const persistence = new ConversationPersistenceStore(vault.files, `device-${'a'.repeat(64)}`);
@@ -36,7 +36,7 @@ it('hides failed-title retry while title generation is disabled and restores wor
     onConversationDeleted: async () => undefined,
   });
   const conversation: Conversation = {
-    id: 'failed-title', providerId: 'claude', title: 'Fallback title', selectedModel: 'haiku',
+    id: 'failed-title', providerId: 'codex', title: 'Fallback title', selectedModel: 'haiku',
     createdAt: testDate().getTime(), lastActivityAt: testDate().getTime(), sessionId: null,
     titleGenerationStatus: 'failed', messages: [{ id: 'user', role: 'user', content: 'Explain the code', timestamp: testDate().getTime() }],
   };

@@ -1,13 +1,14 @@
 import '@/providers';
 
-import { claudeCatalogFixture } from '@test/helpers/claudeModels';
+import { codexCatalogFixture } from '@test/helpers/codexModels';
 import { TEST_CODEX_CATALOG, TEST_CODEX_MODEL } from '@test/helpers/codexModels';
 
 import { getProviderSettingsSnapshotWithModel } from '@/core/providers/conversationModel';
 import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
 import { ProviderSettingsCoordinator } from '@/core/providers/ProviderSettingsCoordinator';
 import type { ProviderSettingsReconciler } from '@/core/providers/types';
-import { DEFAULT_CLAUDE_PROVIDER_SETTINGS } from '@/providers/claude/config';
+import { DEFAULT_CODEX_PROVIDER_CONFIG } from '@/providers/codex/config';
+
 
 describe('ProviderSettingsCoordinator', () => {
   it('commits only the target provider preferences without changing its selected model', () => {
@@ -15,7 +16,7 @@ describe('ProviderSettingsCoordinator', () => {
       settingsProvider: 'claude', model: 'opus', effortLevel: 'high', permissionMode: 'normal',
       savedProviderModel: { claude: 'opus', codex: TEST_CODEX_MODEL },
       savedProviderEffort: { claude: 'high', codex: 'low' },
-      providerConfigs: { claude: claudeCatalogFixture(), codex: { enabled: true, discoveredModels: TEST_CODEX_CATALOG } },
+      providerConfigs: { claude: codexCatalogFixture(), codex: { enabled: true, discoveredModels: TEST_CODEX_CATALOG } },
       locale: 'en',
     };
     const before = getProviderSettingsSnapshotWithModel(settings, 'codex', TEST_CODEX_MODEL);
@@ -143,54 +144,6 @@ describe('ProviderSettingsCoordinator', () => {
 
       expect(conversationSnapshot.serviceTier).toBe(expectedServiceTier);
     });
-
-    it('uses a Pi conversation model preference before normalizing against the saved provider model', () => {
-      const deepSeekModel = 'pi:deepseek/deepseek-reasoner';
-      const gptModel = 'pi:openai/gpt-5';
-      const settings: Record<string, unknown> = {
-        effortLevel: 'minimal',
-        model: deepSeekModel,
-        providerConfigs: {
-          pi: {
-            discoveredModels: [
-              {
-                encodedId: deepSeekModel,
-                id: 'deepseek-reasoner',
-                input: ['text'],
-                label: 'DeepSeek Reasoner',
-                provider: 'deepseek',
-                reasoning: true,
-                thinkingLevels: ['off', 'high'],
-              },
-              {
-                encodedId: gptModel,
-                id: 'gpt-5',
-                input: ['text'],
-                label: 'GPT-5',
-                provider: 'openai',
-                reasoning: true,
-                thinkingLevels: ['off', 'minimal', 'low', 'medium', 'high', 'xhigh'],
-              },
-            ],
-            enabled: true,
-            preferredThinkingByModel: {
-              [deepSeekModel]: 'high',
-              [gptModel]: 'minimal',
-            },
-            visibleModels: [deepSeekModel, gptModel],
-          },
-        },
-        savedProviderEffort: { pi: 'minimal' },
-        savedProviderModel: { pi: deepSeekModel },
-        serviceTier: 'default',
-        settingsProvider: 'pi',
-      };
-
-      const snapshot = getProviderSettingsSnapshotWithModel(settings, 'pi', gptModel);
-
-      expect(snapshot.model).toBe(gptModel);
-      expect(snapshot.effortLevel).toBe('minimal');
-    });
   });
 
   describe('selected model snapshot', () => {
@@ -219,21 +172,8 @@ describe('ProviderSettingsCoordinator', () => {
   });
 
   describe('normalizeProviderSelection', () => {
-    it('falls back to claude when codex is disabled', () => {
-      const settings: Record<string, unknown> = {
-        settingsProvider: 'codex',
-        providerConfigs: {
-          codex: { enabled: false },
-        },
-      };
 
-      const changed = ProviderSettingsCoordinator.normalizeProviderSelection(settings);
-
-      expect(changed).toBe(true);
-      expect(settings.settingsProvider).toBe('claude');
-    });
-
-    it('falls back to claude for unknown providers', () => {
+    it('falls back to Codex for unknown providers', () => {
       const settings: Record<string, unknown> = {
         settingsProvider: 'mystery-provider',
         providerConfigs: {
@@ -244,40 +184,12 @@ describe('ProviderSettingsCoordinator', () => {
       const changed = ProviderSettingsCoordinator.normalizeProviderSelection(settings);
 
       expect(changed).toBe(true);
-      expect(settings.settingsProvider).toBe('claude');
-    });
-
-    it('does not save the previous provider\'s permission mode as the new provider\'s choice', () => {
-      const settings: Record<string, unknown> = {
-        settingsProvider: 'codex',
-        permissionMode: 'yolo',
-        savedProviderPermissionMode: { claude: 'manual', codex: 'yolo' },
-        providerConfigs: { codex: { enabled: false } },
-      };
-
-      ProviderSettingsCoordinator.normalizeProviderSelection(settings);
-      ProviderSettingsCoordinator.persistProjectedProviderState(settings);
-
-      expect(settings.permissionMode).toBe('manual');
-      expect(settings.savedProviderPermissionMode).toEqual({ claude: 'manual', codex: 'yolo' });
-    });
-
-    it('fails a malformed saved permission mode closed when switching to that provider', () => {
-      const settings: Record<string, unknown> = {
-        settingsProvider: 'codex',
-        permissionMode: 'yolo',
-        savedProviderPermissionMode: { claude: false, codex: 'yolo' },
-        providerConfigs: { codex: { enabled: false } },
-      };
-
-      ProviderSettingsCoordinator.normalizeProviderSelection(settings);
-
-      expect(settings.permissionMode).toBe('manual');
+      expect(settings.settingsProvider).toBe('codex');
     });
 
     it('returns false when already normalized (no-op)', () => {
       const settings: Record<string, unknown> = {
-        settingsProvider: 'claude',
+        settingsProvider: 'codex',
         providerConfigs: {
           codex: { enabled: false },
         },
@@ -290,100 +202,43 @@ describe('ProviderSettingsCoordinator', () => {
     it('preflights the sole enabled provider without mutating settings', () => {
       const settings: Record<string, unknown> = {
         providerConfigs: {
-          claude: { ...DEFAULT_CLAUDE_PROVIDER_SETTINGS, enabled: true },
-          codex: { enabled: false },
+          codex: { ...DEFAULT_CODEX_PROVIDER_CONFIG, enabled: true },
         },
       };
 
       expect(ProviderSettingsCoordinator.canApplyProviderEnablement(
         settings,
-        'claude',
+        'codex',
         false,
       )).toBe(false);
       expect(ProviderSettingsCoordinator.canApplyProviderEnablement(
         settings,
-        'claude',
+        'codex',
         true,
       )).toBe(true);
-      expect(ProviderRegistry.isEnabled('claude', settings)).toBe(true);
+      expect(ProviderRegistry.isEnabled('codex', settings)).toBe(true);
     });
 
     it('keeps the sole enabled provider enabled', () => {
       const settings: Record<string, unknown> = {
-        settingsProvider: 'claude',
+        settingsProvider: 'codex',
         model: 'sonnet',
         titleGenerationModel: '',
         providerConfigs: {
-          claude: { ...DEFAULT_CLAUDE_PROVIDER_SETTINGS, enabled: true },
-          codex: { enabled: false },
+          codex: { ...DEFAULT_CODEX_PROVIDER_CONFIG, enabled: true },
         },
       };
 
       const accepted = ProviderSettingsCoordinator.applyProviderEnablement(
         settings,
-        'claude',
+        'codex',
         false,
       );
 
       expect(accepted).toBe(false);
-      expect(ProviderRegistry.isEnabled('claude', settings)).toBe(true);
-      expect(ProviderRegistry.getEnabledProviderIds(settings)).toEqual(['claude']);
-      expect(settings.settingsProvider).toBe('claude');
-    });
-
-    it('atomically disables a provider and preserves dependent title selections', () => {
-      const settings: Record<string, unknown> = {
-        settingsProvider: 'codex',
-        titleGenerationModel: TEST_CODEX_MODEL,
-        providerConfigs: {
-          codex: {
-            discoveredModels: TEST_CODEX_CATALOG,
-            enabled: true,
-          },
-        },
-      };
-
-      ProviderSettingsCoordinator.applyProviderEnablement(settings, 'codex', false);
-
-      expect(ProviderRegistry.isEnabled('codex', settings)).toBe(false);
-      expect(settings.settingsProvider).toBe('claude');
-      expect(settings.titleGenerationModel).toBe(TEST_CODEX_MODEL);
-    });
-
-    it('disables Claude and selects another enabled provider', () => {
-      const settings: Record<string, unknown> = {
-        settingsProvider: 'claude',
-        model: 'sonnet',
-        effortLevel: 'high',
-        serviceTier: 'default',
-        permissionMode: 'yolo',
-        titleGenerationModel: 'sonnet',
-        savedProviderModel: { codex: TEST_CODEX_MODEL },
-        savedProviderEffort: { codex: 'medium' },
-        savedProviderServiceTier: { codex: 'default' },
-        providerConfigs: {
-          claude: { ...DEFAULT_CLAUDE_PROVIDER_SETTINGS, enabled: true },
-          codex: {
-            discoveredModels: TEST_CODEX_CATALOG,
-            enabled: true,
-          },
-        },
-      };
-
-      const accepted = ProviderSettingsCoordinator.applyProviderEnablement(
-        settings,
-        'claude',
-        false,
-      );
-
-      expect(accepted).toBe(true);
-      expect(ProviderRegistry.isEnabled('claude', settings)).toBe(false);
+      expect(ProviderRegistry.isEnabled('codex', settings)).toBe(true);
+      expect(ProviderRegistry.getEnabledProviderIds(settings)).toEqual(['codex']);
       expect(settings.settingsProvider).toBe('codex');
-      expect(settings.model).toBe(`openai-codex/${TEST_CODEX_MODEL}`);
-      // Claude's YOLO stays Claude's; Codex never chose a mode, so it starts at its default.
-      expect(settings.permissionMode).toBe('auto-review');
-      expect(settings.savedProviderPermissionMode).toEqual({ claude: 'yolo' });
-      expect(settings.titleGenerationModel).toBe('sonnet');
     });
   });
 
@@ -450,7 +305,7 @@ describe('ProviderSettingsCoordinator', () => {
         titleGenerationModel: '',
         providerConfigs: {
           claude: {
-            ...DEFAULT_CLAUDE_PROVIDER_SETTINGS,
+            ...DEFAULT_CODEX_PROVIDER_CONFIG,
             environmentVariables: 'ANTHROPIC_DEFAULT_FABLE_MODEL=gpt-4.1',
           },
         },
@@ -464,30 +319,12 @@ describe('ProviderSettingsCoordinator', () => {
       expect(settings.titleGenerationModel).toBe('claude-code/gpt-4.1');
     });
 
-    it('migrates available Claude custom title models to provider-qualified ids', () => {
-      const settings: Record<string, unknown> = {
-        titleGenerationModel: 'claude-opus-4-6',
-        providerConfigs: {
-          claude: {
-            ...DEFAULT_CLAUDE_PROVIDER_SETTINGS,
-            discoveredModels: [{ value: 'claude-opus-4-6', label: 'Opus', description: '' }],
-            visibleModels: ['claude-opus-4-6'],
-          },
-        },
-      };
-
-      expect(
-        ProviderSettingsCoordinator.reconcileTitleGenerationModelSelection(settings),
-      ).toBe(true);
-      expect(settings.titleGenerationModel).toBe('claude-code/claude-opus-4-6');
-    });
-
     it('preserves titleGenerationModel when no provider exposes the saved model', () => {
       const settings: Record<string, unknown> = {
         titleGenerationModel: 'claude-opus-4-6',
         providerConfigs: {
           claude: {
-            ...DEFAULT_CLAUDE_PROVIDER_SETTINGS,
+            ...DEFAULT_CODEX_PROVIDER_CONFIG,
             customModels: '',
           },
         },
@@ -552,41 +389,6 @@ describe('ProviderSettingsCoordinator', () => {
   });
 
   describe('Claude environment reconciliation', () => {
-    it('preserves an inactive Claude selection across environment changes', () => {
-      const settings: Record<string, unknown> = {
-        settingsProvider: 'codex',
-        model: TEST_CODEX_MODEL,
-        effortLevel: 'high',
-        serviceTier: 'default',
-        savedProviderModel: {
-          claude: 'claude-code/fable-v1',
-          codex: TEST_CODEX_MODEL,
-        },
-        providerConfigs: {
-          claude: {
-            ...DEFAULT_CLAUDE_PROVIDER_SETTINGS,
-            environmentVariables: [
-              'ANTHROPIC_DEFAULT_HAIKU_MODEL=haiku-v2',
-              'ANTHROPIC_DEFAULT_FABLE_MODEL=fable-v2',
-            ].join('\n'),
-            environmentHash: [
-              'ANTHROPIC_DEFAULT_FABLE_MODEL=fable-v1',
-              'ANTHROPIC_DEFAULT_HAIKU_MODEL=haiku-v1',
-            ].join('|'),
-          },
-          codex: {
-            enabled: true,
-            discoveredModels: TEST_CODEX_CATALOG,
-          },
-        },
-      };
-
-      ProviderSettingsCoordinator.reconcileProviders(settings, ['claude']);
-
-      expect(settings.savedProviderModel).toMatchObject({
-        claude: 'claude-code/fable-v1',
-      });
-    });
 
     it('preserves a title model while environment configuration changes', () => {
       const settings: Record<string, unknown> = {
@@ -595,7 +397,7 @@ describe('ProviderSettingsCoordinator', () => {
         titleGenerationModel: 'claude-code/fable-old',
         providerConfigs: {
           claude: {
-            ...DEFAULT_CLAUDE_PROVIDER_SETTINGS,
+            ...DEFAULT_CODEX_PROVIDER_CONFIG,
             environmentVariables: 'ANTHROPIC_DEFAULT_HAIKU_MODEL=custom-haiku',
             environmentHash: [
               'ANTHROPIC_DEFAULT_FABLE_MODEL=fable-old',
@@ -636,7 +438,7 @@ describe('ProviderSettingsCoordinator', () => {
       expect(snapshot.permissionMode).toBe(permissionMode);
     });
 
-    it.each(['claude', 'codex', 'opencode'] as const)(
+    it.each(['codex'] as const)(
       'projects legacy plan permissions as Safe for %s',
       (providerId) => {
         for (const permissionMode of ['plan', 'yolo']) {
@@ -646,66 +448,32 @@ describe('ProviderSettingsCoordinator', () => {
             savedProviderPermissionMode: { [providerId]: 'plan' },
           };
           const snapshot = ProviderSettingsCoordinator.getProviderSettingsSnapshot(settings, providerId);
-          expect(snapshot.permissionMode).toBe(providerId === 'claude' ? 'manual' : 'normal');
+          expect(snapshot.permissionMode).toBe('normal');
         }
       },
     );
 
-    it.each(['claude', 'codex', 'opencode'] as const)(
+    it.each(['codex'] as const)(
       'projects an unsaved legacy plan selection as Safe for %s',
       (providerId) => {
         const snapshot = ProviderSettingsCoordinator.getProviderSettingsSnapshot({
           settingsProvider: providerId,
           permissionMode: 'plan',
         }, providerId);
-        expect(snapshot.permissionMode).toBe(providerId === 'claude' ? 'manual' : 'normal');
+        expect(snapshot.permissionMode).toBe('normal');
       },
     );
 
-    it.each([
-      ['codex', 'normal'], ['codex', 'auto-review'], ['codex', 'yolo'],
-    ])('defaults a new Claude selection to Auto without inheriting %s %s', (settingsProvider, permissionMode) => {
-      const settings = {
-        settingsProvider,
-        permissionMode,
-        providerConfigs: { [settingsProvider]: { enabled: true } },
-      };
-      expect(ProviderSettingsCoordinator.getProviderSettingsSnapshot(settings, 'claude').permissionMode)
-        .toBe('auto');
-      expect(settings.permissionMode).toBe(permissionMode);
-    });
-
-    it.each(['auto', 'manual', 'acceptEdits', 'yolo'])('keeps the saved Claude permission mode %s', (mode) => {
-      const snapshot = ProviderSettingsCoordinator.getProviderSettingsSnapshot({
-        settingsProvider: 'codex',
-        permissionMode: 'normal',
-        savedProviderPermissionMode: { claude: mode },
-      }, 'claude');
-      expect(snapshot.permissionMode).toBe(mode);
-    });
-
-    it.each([undefined, { safeMode: 'acceptEdits' }])('fails the retired Claude Safe selection closed with config %o', (claudeConfig) => {
-      for (const saved of [{ claude: 'normal' }, {}]) {
-        const snapshot = ProviderSettingsCoordinator.getProviderSettingsSnapshot({
-          settingsProvider: 'claude',
-          permissionMode: 'normal',
-          savedProviderPermissionMode: saved,
-          providerConfigs: claudeConfig ? { claude: claudeConfig } : {},
-        }, 'claude');
-        expect(snapshot.permissionMode).toBe('manual');
-      }
-    });
-
-    it.each([false, null, {}, 1])('fails a malformed saved Claude permission mode %o closed instead of reusing YOLO', (saved) => {
+    it.each([false, null, {}, 1])('fails a malformed saved Codex permission mode %o closed instead of reusing YOLO', (saved) => {
       const settings: Record<string, unknown> = {
-        settingsProvider: 'claude',
+        settingsProvider: 'codex',
         permissionMode: 'yolo',
-        savedProviderPermissionMode: { claude: saved },
+        savedProviderPermissionMode: { codex: saved },
       };
 
-      expect(ProviderSettingsCoordinator.getProviderSettingsSnapshot(settings, 'claude').permissionMode).toBe('manual');
+      expect(ProviderSettingsCoordinator.getProviderSettingsSnapshot(settings, 'codex').permissionMode).toBe('normal');
       ProviderSettingsCoordinator.projectActiveProviderState(settings);
-      expect(settings.permissionMode).toBe('manual');
+      expect(settings.permissionMode).toBe('normal');
     });
 
     it('keeps a malformed saved permission mode failing closed after another provider persists', () => {
@@ -840,7 +608,7 @@ describe('ProviderSettingsCoordinator', () => {
     it('normalizes saved effort values that the projected Claude model no longer supports', () => {
       const settings: Record<string, unknown> = {
         settingsProvider: 'claude',
-        providerConfigs: { claude: claudeCatalogFixture(['claude-sonnet-4-5'], ['low', 'medium', 'high']) },
+        providerConfigs: { claude: codexCatalogFixture(['claude-sonnet-4-5'], ['low', 'medium', 'high']) },
         model: 'claude-sonnet-4-5',
         effortLevel: 'xhigh',
         serviceTier: 'default',
@@ -941,29 +709,6 @@ describe('ProviderSettingsCoordinator', () => {
 
       expect(settings.model).toBe('gpt-5.4-mini');
       expect(settings.serviceTier).toBe('fast');
-    });
-
-    it('starts OpenCode on Ask instead of inheriting another provider YOLO projection', () => {
-      const settings: Record<string, unknown> = {
-        settingsProvider: 'claude',
-        permissionMode: 'yolo',
-        providerConfigs: {
-          opencode: {
-            enabled: true,
-          },
-        },
-        model: 'haiku',
-        effortLevel: 'high',
-        serviceTier: 'default',
-        savedProviderModel: {},
-        savedProviderEffort: {},
-        savedProviderServiceTier: {},
-        savedProviderPermissionMode: {},
-      };
-
-      ProviderSettingsCoordinator.projectProviderState(settings, 'opencode');
-
-      expect(settings.permissionMode).toBe('normal');
     });
   });
 

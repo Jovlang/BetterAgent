@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import '@/providers';
 
-import { claudeCatalogFixture } from '@test/helpers/claudeModels';
+import { codexCatalogFixture } from '@test/helpers/codexModels';
 import { createSessionBrowserHost } from '@test/helpers/features/chat/SessionBrowserTestHarness';
 import { testDate } from '@test/helpers/testClock';
 import { createEvent, fireEvent, waitFor, within } from '@testing-library/dom';
@@ -29,7 +29,7 @@ async function createMockDeps(overrides: { getTitleGenerationService?: () => Tit
         userName: '',
         enableAutoTitleGeneration: true,
         titleGenerationModel: 'haiku',
-        providerConfigs: { claude: claudeCatalogFixture(['haiku']) },
+        providerConfigs: { codex: codexCatalogFixture(['haiku']) },
         permissionMode: 'yolo',
       },
     } })).plugin,
@@ -226,7 +226,7 @@ describe('SessionBrowser', () => {
         const onSelectConversation = vi.fn().mockResolvedValue(undefined);
         (deps.plugin.getConversationList as Mock).mockReturnValue([{
           id: 'session-1',
-          providerId: 'claude',
+          providerId: 'codex',
           title: 'Keyboard session',
           createdAt: 1_000,
           lastActivityAt: 2_000,

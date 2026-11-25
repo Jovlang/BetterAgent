@@ -11,7 +11,6 @@ import { deliverAsyncQuestion } from '@/features/chat/interactions/asyncQuestion
 import { createInteractionPromptPort } from '@/features/chat/interactions/interactionPromptPort';
 import { SessionInteractions } from '@/features/chat/interactions/SessionInteractions';
 import { setLocale, t } from '@/i18n/i18n';
-import { ClaudeExecutionInteractionRouter } from '@/providers/claude/execution/ClaudeExecutionInteractionRouter';
 import { CodexExecutionServerRequestRouter } from '@/providers/codex/execution/CodexExecutionServerRequestRouter';
 
 afterEach(() => { document.body.replaceChildren(); setLocale('en'); });
@@ -201,43 +200,6 @@ it('keeps answer drafts and an in-flight submission across presentation disposal
   fireEvent.click(within(parent).getByRole('button', { name: 'Submit answers' }));
   await expect(pending).resolves.toEqual({ scope: 'Only this file' });
   expect(answer).toHaveBeenCalledTimes(2);
-});
-
-
-it.each([false, true])('localizes explicit Claude approval choices through the real prompt port (persistent: %s)', async persistent => {
-  const parent = document.body.createDiv();
-  const prompts = new SessionInteractions({ getPromptParentEl: () => parent });
-  const router = new ClaudeExecutionInteractionRouter({
-    interactionPort: createInteractionPromptPort(() => prompts),
-    sessionInstanceId: 'localized', getTurnId: () => 'turn', isToolAllowed: () => true, onToolBlocked: vi.fn(),
-  });
-  // Construct the adapter before selecting the locale to catch eagerly translated option arrays.
-  const englishTitle = t('chat.approval.title');
-  setLocale('zh-CN');
-  const localizedTitle = t('chat.approval.title');
-  expect(localizedTitle).not.toBe(englishTitle);
-  const suggestions = [{ type: 'addDirectories' as const, directories: ['/outside'], destination: 'session' as const }];
-  const input = { command: 'git status' };
-  const result = router.canUseTool('Bash', input, {
-    toolUseID: 'approval', requestId: 'request', signal: new AbortController().signal,
-    ...(persistent ? { suggestions } : {}),
-  });
-  try {
-    const region = within(parent).getByRole('region', { name: localizedTitle });
-    expect(within(region).getByRole('region', { name: t('chat.approval.details', { tool: 'Bash' }) }).textContent)
-      .toBe(t('chat.approval.runCommand', { pattern: 'git status' }));
-    expect(within(region).getByRole('button', { name: t('chat.approval.deny') })).toBeDefined();
-    expect(within(region).queryByRole('button', { name: t('chat.approval.alwaysAllow') }) !== null).toBe(persistent);
-    expect(await axe(region)).toHaveNoViolations();
-    fireEvent.click(within(region).getByRole('button', { name: persistent ? t('chat.approval.alwaysAllow') : t('chat.approval.allowOnce') }));
-    await expect(result).resolves.toEqual({
-      behavior: 'allow', updatedInput: input,
-      ...(persistent ? { updatedPermissions: suggestions, decisionClassification: 'user_permanent' } : { decisionClassification: 'user_temporary' }),
-    });
-  } finally {
-    router.dismissAll('cancelled');
-    await result;
-  }
 });
 
 it.each([

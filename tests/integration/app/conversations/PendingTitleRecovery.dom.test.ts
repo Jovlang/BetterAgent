@@ -2,7 +2,7 @@
 
 import '@/providers';
 
-import { claudeCatalogFixture } from '@test/helpers/claudeModels';
+import { codexCatalogFixture } from '@test/helpers/codexModels';
 import { DesktopVault } from '@test/helpers/core/DesktopVault';
 import { DEFAULT_CLAUDIAN_SETTINGS } from '@test/helpers/defaultSettings';
 import { testDate } from '@test/helpers/testClock';
@@ -29,7 +29,7 @@ async function fixture() {
   const settings = structuredClone(DEFAULT_CLAUDIAN_SETTINGS);
   settings.enableAutoTitleGeneration = true;
   settings.titleGenerationModel = 'haiku';
-  settings.providerConfigs.claude = claudeCatalogFixture(['haiku']);
+  settings.providerConfigs.codex = codexCatalogFixture(['haiku']);
   const persistence = new ConversationPersistenceStore(vault.files, `device-${'a'.repeat(64)}`);
   const repository = new ConversationRepository({
     providers: ProviderRegistry, providerSettings: ProviderSettingsCoordinator,
@@ -41,7 +41,7 @@ async function fixture() {
     isUnloading: () => false, whenLayoutReady: callback => callback(), onConversationListChanged: () => undefined,
   });
   const metadata: SessionMetadata = {
-    id: 'interrupted-title', providerId: 'claude', title: 'Fallback title', selectedModel: 'haiku',
+    id: 'interrupted-title', providerId: 'codex', title: 'Fallback title', selectedModel: 'haiku',
     createdAt: testDate().getTime(), lastActivityAt: testDate().getTime(), sessionId: null,
     titleGenerationStatus: 'pending',
   };
@@ -70,7 +70,7 @@ it('offers and completes title retry after loading an interrupted job from disk'
   const f = await fixture();
   try {
     // Provider history is an external port; storage, metadata restoration, repository and title policy remain real.
-    const history = ProviderRegistry.getConversationHistoryService('claude');
+    const history = ProviderRegistry.getConversationHistoryService('codex');
     vi.spyOn(ProviderRegistry, 'getConversationHistoryService').mockReturnValue({
       ...history,
       hydrateConversationHistory: async () => ({ messages: [{ id: 'user', role: 'user', content: 'Explain the code', timestamp: testDate().getTime() }] }),
@@ -87,7 +87,7 @@ it('offers and completes title retry after loading an interrupted job from disk'
 it('keeps live pending jobs and completed persisted titles unchanged', async () => {
   const f = await fixture();
   try {
-    f.repository.replaceAll([{ ...f.metadata, providerId: 'claude', sessionId: f.metadata.sessionId ?? null, messages: [] }]);
+    f.repository.replaceAll([{ ...f.metadata, providerId: 'codex', sessionId: f.metadata.sessionId ?? null, messages: [] }]);
     await f.loader.ensureLoaded([f.metadata.id]);
     f.render();
     expect(f.repository.list()[0].titleGenerationStatus).toBe('pending');

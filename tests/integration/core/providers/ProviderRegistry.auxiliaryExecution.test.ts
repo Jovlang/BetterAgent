@@ -3,22 +3,22 @@ import { createProviderHostFixture } from '@test/helpers/providerRuntimeHost';
 
 import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
 import { ProviderWorkspaceRegistry } from '@/core/providers/ProviderWorkspaceRegistry';
-import { claudeProviderRegistration } from '@/providers/claude/registration';
+import { codexProviderRegistration } from '@/providers/codex/registration';
 
 it.each([true, false])('selects auxiliary persistence from ephemeral support (%s)', async (supported) => {
   const backend = new FakeAuxiliaryBackend();
-  ProviderRegistry.register('claude', {
-    ...claudeProviderRegistration,
-    capabilities: { ...claudeProviderRegistration.capabilities, supportsEphemeralSessions: supported },
+  ProviderRegistry.register('codex', {
+    ...codexProviderRegistration,
+    capabilities: { ...codexProviderRegistration.capabilities, supportsEphemeralSessions: supported },
     createExecutionBackend: () => backend,
     displayName: 'Claude',
     isEnabled: () => true,
-    modelPolicy: { ...claudeProviderRegistration.modelPolicy, getModelOptions: () => [{ value: 'explicit-title-model', label: 'Title' }] },
+    modelPolicy: { ...codexProviderRegistration.modelPolicy, getModelOptions: () => [{ value: 'explicit-title-model', label: 'Title' }] },
   });
   const { host, lifecycle } = await createProviderHostFixture({ settings: { titleGenerationModel: 'explicit-title-model' } });
-  ProviderWorkspaceRegistry.setServices('claude', {});
+  ProviderWorkspaceRegistry.setServices('codex', {});
   const title = ProviderRegistry.createTitleGenerationService(host);
-  const inlineEdit = ProviderRegistry.createInlineEditService(host, 'claude');
+  const inlineEdit = ProviderRegistry.createInlineEditService(host, 'codex');
   try {
     const results = [
       title.generateTitle('conversation', 'Draft', vi.fn()),

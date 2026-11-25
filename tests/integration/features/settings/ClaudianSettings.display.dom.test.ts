@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { axe } from '@test/helpers/accessibility';
-import { claudeCatalogFixture } from '@test/helpers/claudeModels';
+import { codexCatalogFixture } from '@test/helpers/codexModels';
 import { TEST_CODEX_CATALOG } from '@test/helpers/codexModels';
 import { createFeatureHostFixture } from '@test/helpers/FeatureHostFixture';
 import { controlChangeSettled } from '@test/helpers/ObsidianHost';
@@ -14,9 +14,8 @@ import type { ProviderSettingsTabRenderer } from '@/core/providers/types';
 import type { ClaudianSettings } from '@/core/types';
 import { ClaudianSettingTab } from '@/features/settings/ClaudianSettings';
 import { t } from '@/i18n/i18n';
-import { claudeProviderRegistration } from '@/providers/claude/registration';
-import { updateClaudeProviderSettings } from '@/providers/claude/settings';
 import { codexProviderRegistration } from '@/providers/codex/registration';
+
 
 const cleanups: Array<() => Promise<void>> = [];
 afterEach(async () => {
@@ -37,7 +36,7 @@ async function createSettings(
     settings: {
       enableAutoTitleGeneration: false, ...overrides,
       providerConfigs: {
-        claude: { enabled: true, ...claudeCatalogFixture(['sonnet']), ...overrides.providerConfigs?.claude },
+        claude: { ...codexCatalogFixture(['sonnet']), ...overrides.providerConfigs?.claude },
         codex: { enabled: true, visibleModels: ['gpt-5.5'], discoveredModels: structuredClone(TEST_CODEX_CATALOG), ...overrides.providerConfigs?.codex },
       },
     },
@@ -50,7 +49,7 @@ async function createSettings(
     await mutate(mutation);
     onCommit(settings);
   });
-  const providers = [claudeProviderRegistration, codexProviderRegistration].map(registration => {
+  const providers = [codexProviderRegistration, codexProviderRegistration].map(registration => {
     const { id } = registration;
     ProviderRegistry.register(id, registration);
     const render = vi.fn<ProviderSettingsTabRenderer['render']>((container, context) => {
@@ -158,30 +157,6 @@ it('batches text changes and durably flushes the last draft on teardown', async 
   expect(h.settings.userName).toBe('Last edit');
   expect((await h.storage.load()).userName).toBe('Last edit');
   expect(h.persist).toHaveBeenCalledTimes(2);
-});
-
-it('updates title eligibility from real provider catalogs after selection and catalog changes', async () => {
-  const h = await createSettings({ enableAutoTitleGeneration: true, titleGenerationModel: '' });
-  const ui = within(h.container);
-  expect(ui.getByRole('status').textContent).toBe(t('settings.titleModel.unavailableWarning'));
-  const menu = ui.getByRole<HTMLSelectElement>('combobox', { name: t('settings.titleModel.name') });
-  expect(within(menu).queryByRole('option', { name: /Auto/ })).toBeNull();
-  expect(menu.value).toBe('');
-  expect(menu.options[0].disabled).toBe(true);
-  expect(menu.required).toBe(true);
-  expect(h.persist).not.toHaveBeenCalled();
-  expect(await axe(menu.parentElement!)).toHaveNoViolations();
-  fireEvent.change(menu, { target: { value: 'sonnet' } });
-  await controlChangeSettled(menu);
-  expect(ui.queryByRole('status')).toBeNull();
-  expect((await h.storage.load()).titleGenerationModel).toBe('sonnet');
-  updateClaudeProviderSettings(h.settings, { visibleModels: [] });
-  h.tab.refreshModelOptions();
-  expect(ui.getByRole('status').textContent).toBe(t('settings.titleModel.unavailableWarning'));
-  updateClaudeProviderSettings(h.settings, { visibleModels: ['sonnet'] });
-  h.tab.refreshModelOptions();
-  expect(ui.queryByRole('status')).toBeNull();
-  expect(await axe(menu.parentElement!)).toHaveNoViolations();
 });
 
 it('omits title guidance while automatic titles are disabled', async () => {

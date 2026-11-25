@@ -14,7 +14,7 @@ import type { ChatMessage, Conversation } from '@/core/types';
 import type { ImageAttachment } from '@/core/types';
 import { t } from '@/i18n/i18n';
 
-const nativeCapabilities = ProviderRegistry.getCapabilities('claude');
+const nativeCapabilities = ProviderRegistry.getCapabilities('codex');
 beforeEach(() => {
   vi.spyOn(ProviderRegistry, 'getCapabilities').mockReturnValue({ ...nativeCapabilities, supportsTurnSteer: true });
 });
@@ -26,7 +26,7 @@ describe('MainTurnExecution', () => {
     vi.clearAllMocks();
     vi.mocked(ProviderRegistry.getCapabilities).mockReturnValue({
       ...nativeCapabilities,
-      providerId: 'claude',
+      providerId: 'codex',
       supportsFork: true,
       supportsNativeHistory: true,
       supportsTurnSteer: true,
@@ -34,7 +34,7 @@ describe('MainTurnExecution', () => {
 
   });
 
-  it.each(['claude', 'codex', 'opencode', 'pi'])('uses the toolbar model and reasoning snapshot as the only submission input for %s', async providerId => {
+  it.each(['codex'])('uses the toolbar model and reasoning snapshot as the only submission input for %s', async providerId => {
     const toolbar = { model: 'toolbar-model', reasoning: 'low', permissionMode: 'normal', serviceTier: 'default' };
     const fixture = (await createFixture({
       getSettings: () => toolbar,
@@ -580,7 +580,7 @@ describe('MainTurnExecution', () => {
       const response = fixture.holdNextResponse();
       const sending = fixture.controller.sendMessage({ content: 'finish this' });
       const run = await response.started;
-      if (status === 'invalidated') await fixture.execution.registry.runTransition(['claude'], async () => undefined);
+      if (status === 'invalidated') await fixture.execution.registry.runTransition(['codex'], async () => undefined);
       else run.emit({ type: 'cancelled', reason: 'Stopped' });
       await sending;
 
@@ -635,7 +635,7 @@ it.each(['before', 'after'] as const)(
 );
 
 it('cancels a turn while it commits a branch draft before provider handoff', async () => {
-  const native = new FakeBranchSession('claude', 'branch-session');
+  const native = new FakeBranchSession('codex', 'branch-session');
   const fixture = await createFixture({ nativeSession: native });
   const commit = deferred<ConversationBranchResult>();
   const entered = deferred<void>();
@@ -663,7 +663,7 @@ it('cancels a turn while it commits a branch draft before provider handoff', asy
 
 describe('branch draft submission', () => {
   it.each([false, true])('waits for native branch navigation before sending and preserves cancelled drafts (%s)', async cancelled => {
-    const native = new FakeBranchSession('claude', 'branch-session');
+    const native = new FakeBranchSession('codex', 'branch-session');
     const fixture = await createFixture({ nativeSession: native });
     const first = { id: 'first', role: 'user' as const, content: 'First', timestamp: Date.now(), userMessageId: 'native-first' };
     const prompt = { id: 'second', role: 'user' as const, content: 'Original', timestamp: Date.now(), userMessageId: 'native-second' };

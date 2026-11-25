@@ -1,6 +1,6 @@
 import '@/providers';
 
-import { claudeCatalogFixture } from '@test/helpers/claudeModels';
+import { codexCatalogFixture } from '@test/helpers/codexModels';
 import { DEFAULT_CLAUDIAN_SETTINGS } from '@test/helpers/defaultSettings';
 import { testDate } from '@test/helpers/testClock';
 import { Notice } from 'obsidian';
@@ -57,7 +57,7 @@ describe('ConversationTitleGeneration', () => {
         ...DEFAULT_CLAUDIAN_SETTINGS,
         enableAutoTitleGeneration: true,
         titleGenerationModel: 'haiku',
-        providerConfigs: { claude: claudeCatalogFixture(['haiku']) },
+        providerConfigs: { codex: codexCatalogFixture(['haiku']) },
       },
       getConversationById: vi.fn().mockResolvedValue(null),
       renameConversation: vi.fn().mockResolvedValue(undefined),

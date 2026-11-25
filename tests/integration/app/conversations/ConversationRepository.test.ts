@@ -14,7 +14,7 @@ import { ChatExecutionCoordinator } from '@/features/chat/execution/ChatExecutio
 
 function fixture() {
   const conversation: Conversation = {
-    id: 'audit-conversation', providerId: 'claude', title: 'Original',
+    id: 'audit-conversation', providerId: 'codex', title: 'Original',
     sessionId: 'native-shared', createdAt: testDate().getTime(),
     lastActivityAt: testDate().getTime(), messages: [], isPinned: false,
   };
@@ -68,7 +68,7 @@ test('two runtime owners cannot both hand off the same conversation to native ex
   }));
   try {
     for (const coordinator of coordinators) {
-      await coordinator.bindConversation({ conversationId: conversation.id, providerId: 'claude', resumeSeed: { providerSessionId: conversation.sessionId! } });
+      await coordinator.bindConversation({ conversationId: conversation.id, providerId: 'codex', resumeSeed: { providerSessionId: conversation.sessionId! } });
     }
     const outcomes: unknown[] = [];
     const runs = coordinators.map((coordinator, index) => coordinator.execute({
@@ -187,7 +187,7 @@ test('historical recovery cannot overwrite a model selection whose write is pend
   const { repository, persistence, conversation } = fixture();
   let finishRecovery!: (model: string) => void;
   const recoveryResult = new Promise<string>(resolve => { finishRecovery = resolve; });
-  const history = ProviderRegistry.getConversationHistoryService('claude');
+  const history = ProviderRegistry.getConversationHistoryService('codex');
   const recoverySpy = vi.spyOn(history, 'recoverConversationModelSelection').mockReturnValue(recoveryResult);
   let finishWrite!: () => void;
   persistence.saveMetadata.mockImplementationOnce(() => new Promise<void>(resolve => { finishWrite = resolve; }));
@@ -226,7 +226,7 @@ test('a native history read waits for an already-admitted binding write', async 
   const { repository, persistence, conversation } = fixture();
   let finishWrite!: () => void;
   persistence.saveMetadata.mockImplementationOnce(() => new Promise<void>(resolve => { finishWrite = resolve; }));
-  const history = ProviderRegistry.getConversationHistoryService('claude');
+  const history = ProviderRegistry.getConversationHistoryService('codex');
   const readSessionIds: Array<string | null> = [];
   const availabilitySpy = vi.spyOn(history, 'getConversationSessionAvailability').mockImplementation(async input => {
     readSessionIds.push(input.sessionId);
@@ -279,7 +279,7 @@ test('failed deletion restores a recovered model committed while deletion was pe
   let finishWrite!: () => void;
   persistence.saveMetadata.mockImplementationOnce(() => new Promise<void>(resolve => { finishWrite = resolve; }));
   persistence.deleteCurrentMetadata.mockRejectedValueOnce(new Error('deletion failed'));
-  const history = ProviderRegistry.getConversationHistoryService('claude');
+  const history = ProviderRegistry.getConversationHistoryService('codex');
   const recoverySpy = vi.spyOn(history, 'recoverConversationModelSelection').mockResolvedValue('sonnet');
   try {
     const recovery = repository.recoverMissingSelectedModels();

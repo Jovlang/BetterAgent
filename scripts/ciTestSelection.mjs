@@ -7,18 +7,15 @@ import suites from './testSuites.cjs';
 
 const docsTest = 'tests/unit/docs/Documentation.test.ts';
 export const wslTests = [
-  'tests/integration/core/process/execution-target/ClaudeWSL.windows.test.ts',
   'tests/integration/core/process/execution-target/WSLExecution.windows.test.ts',
   'tests/integration/core/process/execution-target/WSLSessionToolRelay.windows.test.ts',
-  'tests/integration/providers/opencode/runtime/OpencodeWSL.windows.test.ts',
   'tests/integration/providers/codex/runtime/CodexWSL.windows.test.ts',
 ];
 const fullSelection = {
   testFiles: null, scriptTests: null, crossPlatformTests: null,
-  crossPlatform: true, piWindows: true, wslWindows: true, wslSuites: wslTests,
+  crossPlatform: true, wslWindows: true, wslSuites: wslTests,
   build: true, dependencies: true, workflows: true,
 };
-const piTest = 'tests/integration/providers/pi/runtime/PiSubprocess.windows.test.ts';
 // ci.yml mirrors this list as paths-ignore, so changes limited to these paths skip CI entirely.
 // Node's `**` skips dot directories while GitHub's does not, so `.github/*.md` is listed explicitly.
 export const documentationPaths = ['**/*.md', '.github/*.md', '.github/ISSUE_TEMPLATE/**', 'assets/**', 'docs/**', 'LICENSE'];
@@ -105,15 +102,13 @@ export function selectCiTests({ changes, relatedTests, eventName }) {
   }
   const testFiles = [...files];
   const crossPlatformTests = suites.crossPlatformTests.filter(file => files.has(file));
-  const piWindows = files.has(piTest);
   const wslSuites = wslProvisioning ? wslTests
     : changes.some(change => isWSLInput(change.path)) ? wslTests.filter(file => files.has(file)) : [];
   return {
     testFiles, scriptTests: [...scripts], crossPlatformTests,
-    crossPlatform: crossPlatformTests.length > 0 || piWindows
+    crossPlatform: crossPlatformTests.length > 0
       || scripts.has('scripts/ciTestSelection.test.mjs') || scripts.has('scripts/run-tests.test.mjs')
       || changes.some(change => change.path === 'scripts/testDeclarations.test.mjs'),
-    piWindows,
     wslWindows: wslSuites.length > 0,
     wslSuites,
     build: changes.some(change => isBuildInput(change.path)),
@@ -182,7 +177,6 @@ function main() {
     `script-tests=${JSON.stringify(selection.scriptTests)}`,
     `cross-platform-tests=${JSON.stringify(selection.crossPlatformTests)}`,
     `cross-platform=${selection.crossPlatform}`,
-    `pi-windows=${selection.piWindows}`,
     `wsl-windows=${selection.wslWindows}`,
     `has-tests=${lanes.length > 0}`,
     `wsl-suites=${JSON.stringify(selection.wslSuites)}`,

@@ -3,17 +3,17 @@ import { createProviderHostFixture } from '@test/helpers/providerRuntimeHost';
 
 import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
 import { ProviderWorkspaceRegistry } from '@/core/providers/ProviderWorkspaceRegistry';
-import { claudeProviderRegistration } from '@/providers/claude/registration';
+import { codexProviderRegistration } from '@/providers/codex/registration';
 
 async function createReadyService() {
   const backend = new FakeAuxiliaryBackend();
   ProviderWorkspaceRegistry.clear();
-  ProviderWorkspaceRegistry.setServices('claude', {});
-  ProviderRegistry.register('claude', {
-    ...claudeProviderRegistration,
+  ProviderWorkspaceRegistry.setServices('codex', {});
+  ProviderRegistry.register('codex', {
+    ...codexProviderRegistration,
     isEnabled: () => true,
-    modelPolicy: { ...claudeProviderRegistration.modelPolicy, getModelOptions: () => [{ value: 'test-title', label: 'Test title' }] },
-    capabilities: { ...claudeProviderRegistration.capabilities, supportsEphemeralSessions: true },
+    modelPolicy: { ...codexProviderRegistration.modelPolicy, getModelOptions: () => [{ value: 'test-title', label: 'Test title' }] },
+    capabilities: { ...codexProviderRegistration.capabilities, supportsEphemeralSessions: true },
     createExecutionBackend: () => backend,
   });
   const { host, lifecycle } = await createProviderHostFixture({ settings: { titleGenerationModel: 'test-title' } });
@@ -26,18 +26,18 @@ it('does not submit a title request after cancellation during provider initializ
   let initializing = false;
   const initialization = new Promise<void>(resolve => { releaseInitialization = resolve; });
   ProviderWorkspaceRegistry.clear();
-  ProviderWorkspaceRegistry.register('claude', {
+  ProviderWorkspaceRegistry.register('codex', {
     async initialize() {
       initializing = true;
       await initialization;
       return {};
     },
   });
-  ProviderRegistry.register('claude', {
-    ...claudeProviderRegistration,
+  ProviderRegistry.register('codex', {
+    ...codexProviderRegistration,
     isEnabled: () => true,
-    modelPolicy: { ...claudeProviderRegistration.modelPolicy, getModelOptions: () => [{ value: 'test-title', label: 'Test title' }] },
-    capabilities: { ...claudeProviderRegistration.capabilities, supportsEphemeralSessions: true },
+    modelPolicy: { ...codexProviderRegistration.modelPolicy, getModelOptions: () => [{ value: 'test-title', label: 'Test title' }] },
+    capabilities: { ...codexProviderRegistration.capabilities, supportsEphemeralSessions: true },
     createExecutionBackend: () => backend,
   });
   const { host, lifecycle } = await createProviderHostFixture({ settings: { titleGenerationModel: 'test-title' } });

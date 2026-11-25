@@ -1,4 +1,4 @@
-// @test-ci {"inputs":["tests/fixtures/providers/models/**","src/providers/opencode/{settings,config,models,discoveryState,internal/compareCollections}.ts","src/core/device/InstallationKey.ts","src/core/providers/providerConfig.ts","src/core/providers/{settings,models}/**"]}
+// @test-ci {"inputs":["tests/fixtures/providers/models/**","src/providers/codex/{settings,config,models}.ts","src/core/device/InstallationKey.ts","src/core/providers/providerConfig.ts","src/core/providers/{settings,models}/**"]}
 import { execFileSync } from 'node:child_process';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -21,8 +21,7 @@ it('retains accepted prototype-named metadata in the production ES2022 configura
       process.stdout.write(JSON.stringify(roundTripModelMetadata()));
     `;
     const actual = JSON.parse(execFileSync(process.execPath, ['-e', program, artifact], { encoding: 'utf8' }));
-    const expected = { aliases: [['__proto__', 'Gateway alias']], reasoning: [['__proto__', 'high']] };
-    expect(actual).toEqual({ opencode: expected });
+    expect(actual).toEqual([['__proto__', 'Model alias']]);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

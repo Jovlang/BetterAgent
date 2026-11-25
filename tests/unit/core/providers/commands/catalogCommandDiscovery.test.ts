@@ -18,7 +18,7 @@ function createPendingCatalog(
   return {
     catalog: {
       getDropdownConfig: () => ({
-        providerId: 'claude',
+        providerId: 'codex',
         triggerChars: ['/'],
         builtInPrefix: '/',
         skillPrefix: '/',
@@ -33,7 +33,7 @@ function createPendingCatalog(
 
 const reviewEntry = {
   id: 'sdk:review',
-  providerId: 'claude',
+  providerId: 'codex',
   kind: 'command',
   name: 'review',
   description: 'Review changes',

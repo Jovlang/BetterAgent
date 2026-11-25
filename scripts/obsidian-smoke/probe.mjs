@@ -1,24 +1,15 @@
-/* global window, AbortController, setTimeout */
+/* global window, setTimeout */
 // Installed only in the temporary smoke vault, never bundled with Claudian.
 import { apiVersion, Component, ItemView, Plugin } from 'obsidian';
 import { chooseForkTarget } from '../../src/features/chat/tabs/forking/ForkTargetModal';
-import { ObsidianPiExtensionUIRenderer } from '../../src/providers/pi/ui/ObsidianPiExtensionUIRenderer';
 
 export default class SmokeProbe extends Plugin {
   onload() {
-    this.aborters = [];
-    const renderer = new ObsidianPiExtensionUIRenderer(this.app);
     window.__claudianSmokeProbe = {
       hostVersion: apiVersion,
       result: undefined,
       fork: () => {
         window.__claudianSmokeProbe.pending = chooseForkTarget(this.app).then(result => { window.__claudianSmokeProbe.result = result; });
-      },
-      pi: method => {
-        const controller = new AbortController(); this.aborters.push(controller);
-        window.__claudianSmokeProbe.pending = renderer[method]({
-          id: `smoke-${method}`, title: `Pi smoke ${method}`, options: ['First', 'Second'], defaultValue: 'Smoke text', prefill: 'Smoke editor',
-        }, controller.signal).then(result => { window.__claudianSmokeProbe.result = result; });
       },
       lifecycle: async () => {
         const component = new Component();
@@ -45,7 +36,6 @@ export default class SmokeProbe extends Plugin {
     };
   }
   onunload() {
-    for (const controller of this.aborters) controller.abort();
     delete window.__claudianSmokeProbe;
   }
 }

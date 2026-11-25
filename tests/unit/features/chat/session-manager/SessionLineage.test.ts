@@ -3,7 +3,7 @@ import { lineageChildrenLabel } from '@/features/chat/session-manager/SessionLin
 
 function child(id: string, kind: ConversationOriginKind): ConversationMeta {
   return {
-    id, providerId: 'claude', title: id, createdAt: 1, lastActivityAt: 1, messageCount: 0, preview: '',
+    id, providerId: 'codex', title: id, createdAt: 1, lastActivityAt: 1, messageCount: 0, preview: '',
     origin: { kind, conversationId: 'parent' },
   };
 }

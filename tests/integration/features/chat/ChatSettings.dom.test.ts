@@ -49,17 +49,11 @@ function createSettings({ id, populate }: typeof modelCatalogCases[number], adve
   populate(settings);
   const config = settings.providerConfigs[id]!;
   const levels = advertisesHigh ? ['low', 'medium', 'high'] : ['low', 'medium'];
-  if (id === 'claude') (config.discoveredModels as Array<Record<string, unknown>>)[0].supportedEffortLevels = levels;
   if (id === 'codex' && !advertisesHigh) Object.assign((config.discoveredModels as Array<Record<string, unknown>>)[0], {
     supportedReasoningEfforts: levels.map(value => ({ value, description: value })), defaultReasoningEffort: 'medium',
   });
-  if (id === 'pi') (config.discoveredModels as Array<Record<string, unknown>>)[0].thinkingLevels = ['off', ...levels];
-  if (id === 'opencode') config.thinkingOptionsByModel = {
-    'anthropic/selected': [{ value: 'default', label: 'Default' }, ...levels.map(value => ({ value, label: formatReasoningValueLabel(value) }))],
-  };
   settings.savedProviderModel = { [id]: 'old-model' };
-  settings.savedProviderEffort = { [id]: id === 'opencode' ? 'low' : 'high' };
-  if (id === 'opencode') config.preferredThinkingByModel = { 'anthropic/selected': 'high' };
+  settings.savedProviderEffort = { [id]: 'high' };
   return settings;
 }
 
@@ -75,7 +69,7 @@ async function createChatHarness(settings: ClaudianSettings, id: ProviderId, sel
   const sessions: FakeSideSession[] = [];
   const persist = vi.fn(async () => undefined);
   const settingsCoordinator = new SettingsCoordinator(settings, persist);
-  vi.spyOn(ProviderRegistry, 'createExecutionBackend').mockImplementation((_host, providerId = 'claude') => ({
+  vi.spyOn(ProviderRegistry, 'createExecutionBackend').mockImplementation((_host, providerId = 'codex') => ({
     providerId,
     createSession: config => {
       const session = new FakeSideSession(config);
@@ -204,7 +198,7 @@ it.each(modelCatalogCases.flatMap(entry => [true, false].map(advertisesHigh => (
       expect(getChatSettingsSnapshot(settings, id, selected).reasoning).toBe('high');
       expect(settings).not.toHaveProperty('reasoning');
       const permissionButton = within(tab.dom.inputComposerEl).queryByRole('button', { name: /^Permission mode:/ });
-      expect(permissionButton !== null).toBe(id !== 'pi');
+      expect(permissionButton).not.toBeNull();
       for (const reasoning of ['high', 'low']) {
         if (reasoning !== 'high') await selectReasoning(tab, reasoning);
         await expectSubmission(tab, sessions, getChatSettingsSnapshot(settings, id, selected).model, reasoning);
@@ -252,7 +246,7 @@ it.each(['en', 'zh-CN'] as const)('defaults Codex to automatic review and persis
   }
 });
 
-it.each(['claude', 'codex'] as const)('shows and submits the %s fail-closed mode for an unknown session permission', async id => {
+it.each(['codex'] as const)('shows and submits the %s fail-closed mode for an unknown session permission', async id => {
   const entry = modelCatalogCases.find(candidate => candidate.id === id)!;
   const { createTab, sessions, tabs, plugin } = (await createChatHarness(createSettings(entry), id, entry.selected));
   try {
@@ -306,21 +300,6 @@ it('keeps permission and service tier independent across sessions and parent mod
     expect(reopened.session.runtime).toBe(runtime);
     await expectSubmission(reopened, sessions, model, 'high');
     expect(sessions.at(-1)?.requests.at(-1)?.configuration).toMatchObject({ permissionMode: 'yolo', serviceTier: 'fast' });
-  } finally {
-    for (const tab of tabs) await destroyTab(tab);
-  }
-});
-
-it('displays and submits High for a saved OpenCode Default preference', async () => {
-  const entry = modelCatalogCases.find(({ id }) => id === 'opencode')!;
-  const settings = createSettings(entry);
-  settings.savedProviderEffort.opencode = 'default';
-  settings.providerConfigs.opencode!.preferredThinkingByModel = { 'anthropic/selected': 'default' };
-  const { createTab, sessions, tabs } = (await createChatHarness(settings, entry.id, entry.selected));
-  try {
-    const tab = await createTab();
-    expect(reasoningStops(tab)).not.toContain('Default');
-    await expectSubmission(tab, sessions, entry.selected, 'high');
   } finally {
     for (const tab of tabs) await destroyTab(tab);
   }
@@ -510,7 +489,7 @@ it.each([true, false])('seeds tabs from committed reasoning while a save is pend
 });
 
 test.each(['provider switch', 'switch back', 'closing'] as const)('queued toolbar changes retain their session only across closing (%s)', async transition => {
-  const entry = modelCatalogCases.find(entry => entry.id === 'claude')!;
+  const entry = modelCatalogCases.find(entry => entry.id === 'codex')!;
   const settings = createSettings(entry);
   const { plugin, createTab } = (await createChatHarness(settings, entry.id, entry.selected));
   const tab = await createTab(true);

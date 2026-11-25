@@ -3,7 +3,7 @@ import '@/providers';
 
 import { axe } from '@test/helpers/accessibility';
 import { deferred } from '@test/helpers/ChatInputHarness';
-import { claudeCatalogFixture } from '@test/helpers/claudeModels';
+import { codexCatalogFixture } from '@test/helpers/codexModels';
 import { DEFAULT_CLAUDIAN_SETTINGS } from '@test/helpers/defaultSettings';
 import { triggerResize } from '@test/helpers/dom/ResizeObserver';
 import { approvalDecisionOptions } from '@test/helpers/features/chat/approvalDecisionOptions';
@@ -31,13 +31,13 @@ async function setup(poolOptions: RuntimePoolFixtureOptions = {}) {
   Object.assign(app.vault.adapter, { basePath: '/vault' });
   const backend = new FakeSideBackend();
   vi.spyOn(ProviderRegistry, 'createExecutionBackend').mockReturnValue(backend);
-  ProviderWorkspaceRegistry.setServices('claude', {});
+  ProviderWorkspaceRegistry.setServices('codex', {});
   const settings: ClaudianSettings = Object.assign(structuredClone(DEFAULT_CLAUDIAN_SETTINGS), {
     model: 'claude-sonnet-4-5', permissionMode: 'normal', effortLevel: 'high', excludedTags: [],
-    providerConfigs: { claude: claudeCatalogFixture(['claude-sonnet-4-5'], ['low', 'high']) },
+    providerConfigs: { codex: codexCatalogFixture(['claude-sonnet-4-5'], ['low', 'high']) },
   });
   const conversation = {
-    id: 'conversation', providerId: 'claude', selectedModel: settings.model, sessionId: 'native',
+    id: 'conversation', providerId: 'codex', selectedModel: settings.model, sessionId: 'native',
     title: 'Conversation', messages: [], createdAt: testDate().getTime(), lastActivityAt: testDate().getTime(),
   } as Conversation;
   let nativeHistory: Conversation['messages'] = [];
@@ -77,7 +77,7 @@ it('reattaches a held blank draft session, with its selections, to the next pres
   const h = (await setup());
   const first = await h.attach({ blank: true });
   const runtime = first.session.runtime;
-  runtime.providerSelections.set('claude', { permissionMode: 'yolo', serviceTier: 'default' });
+  runtime.providerSelections.set('codex', { permissionMode: 'yolo', serviceTier: 'default' });
   const hold = h.pool.holdDraft(runtime);
   await destroyTab(first);
   await new Promise<void>(resolve => setImmediate(resolve));
@@ -92,7 +92,7 @@ it('reattaches a held blank draft session, with its selections, to the next pres
   hold.release();
 
   expect(second.session.runtime).toBe(runtime);
-  expect(runtime.providerSelections.get('claude')?.permissionMode).toBe('yolo');
+  expect(runtime.providerSelections.get('codex')?.permissionMode).toBe('yolo');
   await destroyTab(second);
 });
 
@@ -688,7 +688,7 @@ it('replaces the provider session on reopen when a busy session skipped its rele
     { id: 'user', role: 'user', content: 'Parent task', timestamp: testDate().getTime() },
     { id: 'answer', role: 'assistant', content: 'Parent answer', assistantMessageId: 'checkpoint', timestamp: testDate().getTime() },
   ];
-  vi.spyOn(ProviderRegistry.getConversationHistoryService('claude'), 'buildForkProviderState').mockResolvedValue({});
+  vi.spyOn(ProviderRegistry.getConversationHistoryService('codex'), 'buildForkProviderState').mockResolvedValue({});
   s.continueElsewhere();
   native.revision = 'after external turn';
   const finishRead = gate.holdNext();
@@ -724,7 +724,7 @@ it('does not absorb external main history changes when only a side chat settles'
     { id: 'user', role: 'user', content: 'Parent task', timestamp: testDate().getTime() },
     { id: 'answer', role: 'assistant', content: 'Parent answer', assistantMessageId: 'checkpoint', timestamp: testDate().getTime() },
   ];
-  vi.spyOn(ProviderRegistry.getConversationHistoryService('claude'), 'buildForkProviderState').mockResolvedValue({});
+  vi.spyOn(ProviderRegistry.getConversationHistoryService('codex'), 'buildForkProviderState').mockResolvedValue({});
   const requested = s.h.backend.nextRequest(() => true);
   const sending = s.first.controllers.sideChatController.handleCommandSubmission('Explore the answer', []);
   await requested;
@@ -803,7 +803,7 @@ it.each(['unviewed', 'attached'] as const)('does not retry failed history cleanu
   const failure = new Error('History storage unavailable');
   const onError = vi.fn();
   const h = await setup({ retainedDetachedSessions: 1, onError, releaseHistory: async () => { throw failure; } });
-  const identity = { conversationId: 'other', providerId: 'claude', draftModel: null } as const;
+  const identity = { conversationId: 'other', providerId: 'codex', draftModel: null } as const;
   let other;
   if (kind === 'attached') {
     const first = h.pool.acquire(identity, { reveal() {} });
@@ -813,7 +813,7 @@ it.each(['unviewed', 'attached'] as const)('does not retry failed history cleanu
   } else {
     other = h.pool.ensure(identity);
   }
-  const runtime = h.pool.ensure({ conversationId: 'conversation', providerId: 'claude', draftModel: null });
+  const runtime = h.pool.ensure({ conversationId: 'conversation', providerId: 'codex', draftModel: null });
   const model = await runtime.ensureModel();
   runtime.notifyChanged();
   await new Promise<void>(resolve => setImmediate(resolve));
@@ -835,14 +835,14 @@ it.each(['detach', 'reattach'] as const)('keeps history cleanup ownership across
     if (++attempts === 1) { entered.resolve(); await finish.promise; }
     return released;
   } });
-  const runtime = h.pool.ensure({ conversationId: 'conversation', providerId: 'claude', draftModel: null });
+  const runtime = h.pool.ensure({ conversationId: 'conversation', providerId: 'codex', draftModel: null });
   const model = await runtime.ensureModel();
   let shutdown: Promise<void> | undefined;
   let drained = false;
   try {
     runtime.notifyChanged();
     await entered.promise;
-    const other = h.pool.acquire({ conversationId: action === 'reattach' ? 'conversation' : 'other', providerId: 'claude', draftModel: null }, { reveal() {} });
+    const other = h.pool.acquire({ conversationId: action === 'reattach' ? 'conversation' : 'other', providerId: 'codex', draftModel: null }, { reveal() {} });
     // A reserved attachment owns its model even if history released before it was acquired.
     if (action === 'reattach') finish.resolve();
     else h.pool.release(other.attachment);
@@ -911,7 +911,7 @@ it.each([
   await enteredCleanup.promise;
   expect(h.pool.get('conversation')).toBeNull();
   expect(h.pool.getAll()).not.toContain(first.session.runtime);
-  const other = h.pool.ensure({ conversationId: 'other', providerId: 'claude', draftModel: null });
+  const other = h.pool.ensure({ conversationId: 'other', providerId: 'codex', draftModel: null });
   const otherCancelled = deferred<void>();
   const finishOther = deferred<void>();
   const work = other.turns.run(async signal => {
@@ -1039,7 +1039,7 @@ it('keeps a detached parent while its side chat is still resolving the source', 
     { id: 'user', role: 'user', content: 'Parent task', timestamp: testDate().getTime() },
     { id: 'answer', role: 'assistant', content: 'Parent answer', assistantMessageId: 'checkpoint', timestamp: testDate().getTime() },
   ];
-  const history = ProviderRegistry.getConversationHistoryService('claude');
+  const history = ProviderRegistry.getConversationHistoryService('codex');
   const resolving = deferred<void>();
   const coordinator = first.executionCoordinator;
   const resolve = coordinator.resolveForkSource.bind(coordinator);
@@ -1106,7 +1106,7 @@ it('fences a detached side queue synchronously before the plugin shutdown drain'
     { id: 'user', role: 'user', content: 'Parent task', timestamp: testDate().getTime() },
     { id: 'answer', role: 'assistant', content: 'Parent answer', assistantMessageId: 'checkpoint', timestamp: testDate().getTime() },
   ];
-  vi.spyOn(ProviderRegistry.getConversationHistoryService('claude'), 'buildForkProviderState').mockResolvedValue({});
+  vi.spyOn(ProviderRegistry.getConversationHistoryService('codex'), 'buildForkProviderState').mockResolvedValue({});
   const sending = first.controllers.sideChatController.handleCommandSubmission('First child request', []);
   await waitFor(() => expect(h.backend.sessions[0]?.requests).toHaveLength(1));
   const child = first.controllers.sideChatController.runtime!;
@@ -1163,7 +1163,7 @@ it('does not republish a draft that finishes conversation creation during shutdo
     await new Promise<void>(resolve => setImmediate(resolve));
     expect(h.pool.getAll()).toEqual([]);
   } finally {
-    creating.resolve({ id: 'created-during-shutdown', providerId: 'claude', sessionId: null, title: 'Created', messages: [], createdAt: testDate().getTime(), lastActivityAt: testDate().getTime() });
+    creating.resolve({ id: 'created-during-shutdown', providerId: 'codex', sessionId: null, title: 'Created', messages: [], createdAt: testDate().getTime(), lastActivityAt: testDate().getTime() });
     await Promise.all([sending, shutdown]);
   }
   expect(tab.session.runtime.conversationId).toBe('created-during-shutdown');
@@ -1445,7 +1445,7 @@ it('copies the parent session selections into a new side chat after another sess
     settings.permissionMode = 'manual'; settings.serviceTier = 'fast';
   });
   await updateSessionReasoning(runtime, h.plugin, 'low');
-  const other = h.pool.ensure({ conversationId: 'other-conversation', providerId: 'claude', draftModel: null });
+  const other = h.pool.ensure({ conversationId: 'other-conversation', providerId: 'codex', draftModel: null });
   await updateSessionProviderSettings(other, h.plugin, settings => {
     settings.permissionMode = 'yolo'; settings.serviceTier = 'default';
   });
@@ -1453,14 +1453,14 @@ it('copies the parent session selections into a new side chat after another sess
   expect(getSessionSettingsSnapshot(runtime, h.plugin)).toMatchObject({
     permissionMode: 'manual', reasoning: 'low', serviceTier: 'fast',
   });
-  vi.spyOn(ProviderRegistry.getConversationHistoryService('claude'), 'buildForkProviderState').mockResolvedValue({});
+  vi.spyOn(ProviderRegistry.getConversationHistoryService('codex'), 'buildForkProviderState').mockResolvedValue({});
   const sending = tab.controllers.sideChatController.handleCommandSubmission('Explore independently', []);
   await waitFor(() => expect(h.backend.sessions[0]?.requests).toHaveLength(1));
   const configuration = h.backend.latest.requests[0].configuration;
   h.backend.latest.complete();
   await sending;
   expect(configuration).toMatchObject({ permissionMode: 'manual', reasoning: 'low', serviceTier: 'fast' });
-  expect(getChatSettingsSnapshot(h.plugin.settings, 'claude', 'claude-sonnet-4-5')).toMatchObject({
+  expect(getChatSettingsSnapshot(h.plugin.settings, 'codex', 'claude-sonnet-4-5')).toMatchObject({
     permissionMode: 'yolo', reasoning: 'high', serviceTier: 'default',
   });
   await updateSessionProviderSettings(runtime, h.plugin, settings => {
@@ -1523,7 +1523,7 @@ it.each(['main', 'side'] as const)('keeps native requested permission changes fo
       { id: 'parent-user', role: 'user', content: 'Parent task', timestamp: testDate().getTime() },
       { id: 'parent-answer', role: 'assistant', content: 'Parent answer', assistantMessageId: 'checkpoint', timestamp: testDate().getTime() },
     ];
-    vi.spyOn(ProviderRegistry.getConversationHistoryService('claude'), 'buildForkProviderState').mockResolvedValue({});
+    vi.spyOn(ProviderRegistry.getConversationHistoryService('codex'), 'buildForkProviderState').mockResolvedValue({});
     sending = tab.controllers.sideChatController.handleCommandSubmission('Explore independently', []);
   } else {
     tab.controllers.drafts.restore('main', { content: 'First request' });
@@ -1531,7 +1531,7 @@ it.each(['main', 'side'] as const)('keeps native requested permission changes fo
   }
   await waitFor(() => expect(h.backend.sessions[0]?.requests).toHaveLength(1));
   h.backend.latest.emitOutput({ type: 'permission_mode_changed', permissionMode: 'yolo',
-    snapshot: { providerId: 'claude', revision: 1, status: 'executing' } });
+    snapshot: { providerId: 'codex', revision: 1, status: 'executing' } });
   await waitFor(() => expect(within(tab.dom.inputComposerEl).getByRole('button', { name: 'Permission mode: YOLO' })).toBeDefined());
   h.backend.latest.complete();
   await sending;

@@ -10,8 +10,6 @@ import { type ApplicationDomains, startApplication } from '@/app/startup/Applica
 import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
 import { ProviderSettingsCoordinator } from '@/core/providers/ProviderSettingsCoordinator';
 import { isVersionedRuntimeInputFingerprint } from '@/core/providers/settings/RuntimeInputFingerprint';
-import * as sdkSession from '@/providers/claude/history/ClaudeHistoryStore';
-import { getClaudeProviderSettings } from '@/providers/claude/settings';
 import { getCodexProviderSettings } from '@/providers/codex/settings';
 
 // Provider history readers touch the filesystem through Node's fs.
@@ -88,16 +86,6 @@ describe('startApplication', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.clearAllMocks();
-    vi.spyOn(sdkSession, 'locateSDKSession').mockImplementation(async (_vaultPath, sessionId) => ({
-      availability: 'available',
-      sessionPath: `/test/claude-project/${sessionId}.jsonl`,
-    }));
-    vi.spyOn(sdkSession, 'locateSDKSessions').mockImplementation(async (_vaultPath, sessionIds) => new Map(
-      sessionIds.map(sessionId => [sessionId, {
-        availability: 'available' as const,
-        sessionPath: `/test/claude-project/${sessionId}.jsonl`,
-      }]),
-    ));
     mockApp = createApp();
     plugin = createPlugin();
   });
@@ -157,7 +145,7 @@ describe('startApplication', () => {
       mockApp.vault.adapter.read.mockImplementation(async (path: string) => {
         if (path === '.claudian/claudian-settings.json') {
           return JSON.stringify({
-            providerConfigs: { claude: { environmentVariables: 'ANTHROPIC_MODEL=custom-model' } },
+            providerConfigs: { codex: { environmentVariables: 'OPENAI_MODEL=custom-model' } },
             lastEnvHash: '',
           });
         }
@@ -188,12 +176,12 @@ describe('startApplication', () => {
     // A stale top-level mode must not reach the saved preference through any startup step that saves.
     it.each([
       {
-        name: 'a malformed Claude mode while applying environment configuration',
+        name: 'a malformed Codex mode while applying environment configuration',
         settingsFile: {
-          settingsProvider: 'claude', permissionMode: 'yolo', savedProviderPermissionMode: { claude: false },
-          providerConfigs: { claude: { environmentHash: 'old-hash', environmentVariables: 'ANTHROPIC_MODEL=custom-model' } },
+          settingsProvider: 'codex', permissionMode: 'yolo', savedProviderPermissionMode: { codex: false },
+          providerConfigs: { codex: { environmentHash: 'old-hash', environmentVariables: 'OPENAI_MODEL=custom-model' } },
         },
-        providerId: 'claude', expected: 'manual',
+        providerId: 'codex', expected: 'normal',
       },
       {
         name: 'a saved Codex mode while qualifying the model ID',
@@ -227,12 +215,11 @@ describe('startApplication', () => {
 
   describe('session metadata', () => {
     it('leaves retired-provider conversation files untouched during a Codex-only metadata scan', async () => {
-      vi.spyOn(ProviderRegistry, 'getRegisteredProviderIds').mockReturnValue(['codex']);
       const adapter = mockApp.vault.adapter;
-      const files = new Map(['codex', 'claude', 'opencode', 'pi'].map(providerId => [
+      const files = new Map(['codex', 'claude', 'opencode', 'pi', 'implicit'].map(providerId => [
         `.claudian/sessions/${providerId}-history.meta.json`,
         JSON.stringify({
-          id: `${providerId}-history`, providerId, title: providerId,
+          id: `${providerId}-history`, ...(providerId === 'implicit' ? {} : { providerId }), title: providerId,
           createdAt: testDate().getTime(), lastActivityAt: testDate().getTime(),
           sessionId: `native-${providerId}`,
         }),
@@ -247,7 +234,7 @@ describe('startApplication', () => {
       const domains = await loadApplicationWithMetadata();
 
       expect(domains.conversations.getCachedConversation('codex-history')?.sessionId).toBe('native-codex');
-      for (const providerId of ['claude', 'opencode', 'pi']) {
+      for (const providerId of ['claude', 'opencode', 'pi', 'implicit']) {
         const path = `.claudian/sessions/${providerId}-history.meta.json`;
         expect(domains.conversations.getCachedConversation(`${providerId}-history`)).toBeFalsy();
         expect(adapter.write).not.toHaveBeenCalledWith(path, expect.anything());
@@ -317,11 +304,11 @@ describe('startApplication', () => {
       );
     });
 
-    it('should preserve Claude metadata during startup when local native history is missing', async () => {
+    it('should preserve Codex metadata during startup when local native history is missing', async () => {
       const timestamp = Date.now();
       const sessionMeta = JSON.stringify({
         id: 'conv-stale-1',
-        providerId: 'claude',
+        providerId: 'codex',
         title: 'Stale Chat',
         createdAt: timestamp,
         lastActivityAt: timestamp,
@@ -360,7 +347,7 @@ describe('startApplication', () => {
     it('should load saved conversations from metadata files', async () => {
       const timestamp = Date.now();
       const sessionMeta = JSON.stringify({
-        id: 'conv-saved-1',
+        id: 'conv-saved-1', providerId: 'codex',
         title: 'Saved Chat',
         createdAt: timestamp,
         lastActivityAt: timestamp,
@@ -405,55 +392,6 @@ describe('startApplication', () => {
       expect(loaded?.title).toBe('Saved Chat');
     });
 
-    it('keeps session IDs when the provider base URL changes', async () => {
-      const timestamp = Date.now();
-      const sessionMeta = JSON.stringify({
-        id: 'conv-saved-1',
-        title: 'Saved Chat',
-        createdAt: timestamp,
-        lastActivityAt: timestamp,
-        sessionId: 'saved-session',
-      });
-
-      mockApp.vault.adapter.exists.mockImplementation(async (path: string) => {
-        return path === '.claudian/claudian-settings.json' ||
-          path === '.claudian/sessions' ||
-          path === '.claudian/sessions/conv-saved-1.meta.json';
-      });
-      mockApp.vault.adapter.list.mockImplementation(async (path: string) => {
-        if (path === '.claudian/sessions') {
-          return { files: ['.claudian/sessions/conv-saved-1.meta.json'], folders: [] };
-        }
-        return { files: [], folders: [] };
-      });
-      mockApp.vault.adapter.read.mockImplementation(async (path: string) => {
-        if (path === '.claudian/claudian-settings.json') {
-          // All these fields are now in claudian-settings.json
-          return JSON.stringify({
-            providerConfigs: { claude: { environmentHash: 'old-hash', environmentVariables: 'ANTHROPIC_BASE_URL=https://api.example.com' } },
-          });
-        }
-        if (path === '.claudian/sessions/conv-saved-1.meta.json') {
-          return sessionMeta;
-        }
-        return '';
-      });
-
-      // data.json is minimal (already migrated)
-      plugin.loadData.mockResolvedValue({});
-
-      const domains = await loadApplicationWithMetadata();
-
-      const loaded = await domains.conversations.getConversationById('conv-saved-1');
-      // The changed environment reached reconciliation and replaced the runtime fingerprint.
-      expect(getClaudeProviderSettings(domains.settings.getCommittedSettings()).environmentHash).not.toBe('old-hash');
-      expect(loaded?.sessionId).toBe('saved-session');
-      expect(mockApp.vault.adapter.write).not.toHaveBeenCalledWith(
-        '.claudian/sessions/conv-saved-1.meta.json',
-        expect.any(String),
-      );
-    });
-
     it('should ignore legacy activeConversationId when no sessions exist', async () => {
       // No sessions exist
       mockApp.vault.adapter.exists.mockResolvedValue(false);
@@ -469,13 +407,13 @@ describe('startApplication', () => {
       expect(domains.conversations.getConversationList()).toHaveLength(0);
     });
 
-    it('should load messages from previousProviderSessionIds when present', async () => {
+    it('retains older opaque provider state when reading metadata', async () => {
       const timestamp = Date.now();
 
       // Setup conversation with previousProviderSessionIds
       const sessionMeta = JSON.stringify({
         type: 'meta',
-        id: 'conv-multi-session',
+        id: 'conv-multi-session', providerId: 'codex',
         title: 'Multi Session Chat',
         createdAt: timestamp,
         lastActivityAt: timestamp,
@@ -527,7 +465,7 @@ describe('startApplication', () => {
       await vault.write('.claudian/projects/launch-project.md', 'Keep this project memory.');
       await vault.write('.claudian/projects/broken.json', '{"id": "broken"');
       await vault.write('.claudian/sessions/conv-member.meta.json', JSON.stringify({
-        id: 'conv-member', title: 'Member', createdAt: timestamp, lastActivityAt: timestamp,
+        id: 'conv-member', providerId: 'codex', title: 'Member', createdAt: timestamp, lastActivityAt: timestamp,
         sessionId: null, projectId: 'project-a',
       }));
       plugin.app.vault = vault.app.vault;

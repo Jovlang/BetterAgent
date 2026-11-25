@@ -114,7 +114,7 @@ export async function createFixture(overrides: ChatInputFixtureOptions = {}) {
   const queueIndicator = document.createElement('div');
   state.queueIndicatorEl = queueIndicator;
   let id = 0;
-  const providerId = dependencyOverrides.getTabProviderId?.() ?? 'claude';
+  const providerId = dependencyOverrides.getTabProviderId?.() ?? 'codex';
   const native = nativeSession ?? new FakeSession(providerId, 'session-1');
   native.respond.mockImplementation(run => {
     run.emit({ type: 'turn_started', accepted: true });
@@ -171,7 +171,7 @@ export async function createFixture(overrides: ChatInputFixtureOptions = {}) {
     generateId: () => `id-${++id}`,
     getSettings: () => ({ model: 'claude-model', reasoning: 'high', permissionMode: 'normal', serviceTier: 'standard' }),
     getExecutionCoordinator: () => coordinator,
-    getTabProviderId: () => 'claude',
+    getTabProviderId: () => 'codex',
     ensureExecutionInitialized: vi.fn(async () => {
       await coordinator.bindConversation(state.currentConversationId
         ? { conversationId: state.currentConversationId, providerId } : null);

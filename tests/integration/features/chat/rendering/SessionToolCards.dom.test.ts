@@ -18,7 +18,7 @@ const listResult = (extra: Record<string, unknown> = {}) => JSON.stringify({
   sessions: [
     { sessionId: CALLER, title: 'list the recent sessions, send a test msg to the l...', provider: 'deepseek', status: 'running', active: true, self: true },
     { sessionId: RECIPIENT, title: 'hi', provider: 'deepseek', status: 'idle', active: false },
-    { sessionId: 'conv-1791775526480-y16u643yx', title: 'Fact-check four pipeline target clinical data c...', provider: 'claude', status: 'awaiting-user', active: false },
+    { sessionId: 'conv-1791775526480-y16u643yx', title: 'Fact-check four pipeline target clinical data c...', provider: 'codex', status: 'awaiting-user', active: false },
   ],
   truncated: true,
   ...extra,
@@ -86,7 +86,7 @@ it('notes the provider catalog without listing it, and tolerates listings withou
   try {
     const legacy = JSON.stringify({
       sessions: [{ sessionId: RECIPIENT, title: 'hi', provider: 'deepseek' }],
-      providers: [{ provider: 'claude', default: true, models: [
+      providers: [{ provider: 'codex', default: true, models: [
         { id: 'claude-sonnet-4-5', default: true, reasoning: { options: ['low', 'high'], default: 'high' } },
         { id: 'claude-haiku-4-5' },
       ] }],

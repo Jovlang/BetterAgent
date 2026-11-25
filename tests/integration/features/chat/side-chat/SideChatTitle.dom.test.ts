@@ -1,13 +1,13 @@
 /** @vitest-environment jsdom */
 import '@/providers';
 
-import { claudeCatalogFixture } from '@test/helpers/claudeModels';
+import { codexCatalogFixture } from '@test/helpers/codexModels';
 import { createHarness, releaseSideChatHarnesses, startSideChat } from '@test/helpers/features/chat/SideChatDOMHarness';
 import { screen, waitFor } from '@testing-library/dom';
 
 import { ProviderWorkspaceRegistry } from '@/core/providers/ProviderWorkspaceRegistry';
 
-beforeEach(() => ProviderWorkspaceRegistry.setServices('claude', {}));
+beforeEach(() => ProviderWorkspaceRegistry.setServices('codex', {}));
 afterEach(async () => {
   await releaseSideChatHarnesses();
   ProviderWorkspaceRegistry.clear();
@@ -17,7 +17,7 @@ it('generates a side title from its initial prompt without blocking chat or chan
   const harness = await createHarness({ settings: {
     enableAutoTitleGeneration: true,
     titleGenerationModel: 'haiku',
-    providerConfigs: { claude: claudeCatalogFixture(['haiku']) },
+    providerConfigs: { codex: codexCatalogFixture(['haiku']) },
   } });
   const titles = {
     get sessions() {
@@ -71,7 +71,7 @@ it('retains the initial prompt fallback if the title request fails', async () =>
   const harness = await createHarness({ settings: {
     enableAutoTitleGeneration: true,
     titleGenerationModel: 'haiku',
-    providerConfigs: { claude: claudeCatalogFixture(['haiku']) },
+    providerConfigs: { codex: codexCatalogFixture(['haiku']) },
   } });
   const titles = {
     get sessions() {
@@ -91,7 +91,7 @@ it('cancels a discarded side title without disturbing its replacement', async ()
   const harness = await createHarness({ settings: {
     enableAutoTitleGeneration: true,
     titleGenerationModel: 'haiku',
-    providerConfigs: { claude: claudeCatalogFixture(['haiku']) },
+    providerConfigs: { codex: codexCatalogFixture(['haiku']) },
   } });
   const titles = {
     get sessions() {
@@ -118,7 +118,7 @@ it('keeps the prompt title without a provider request until a title model is sel
   const harness = await createHarness({ settings: {
     enableAutoTitleGeneration: true,
     titleGenerationModel: '',
-    providerConfigs: { claude: claudeCatalogFixture(['haiku']) },
+    providerConfigs: { codex: codexCatalogFixture(['haiku']) },
   } });
   const { started } = await startSideChat(harness, 'Explore storage. Consider a log.');
   harness.backend.latest.complete();

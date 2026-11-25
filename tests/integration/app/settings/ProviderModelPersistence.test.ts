@@ -7,10 +7,9 @@ import { ClaudianSettingsStorage } from '@/app/settings/ClaudianSettingsStorage'
 import { SettingsCoordinator } from '@/app/settings/SettingsCoordinator';
 import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
 import type { VaultFileAdapter } from '@/core/storage/VaultFileAdapter';
-import { getClaudeProviderSettings } from '@/providers/claude/settings';
 import { getCodexProviderSettings } from '@/providers/codex/settings';
-import { getOpencodeProviderSettings } from '@/providers/opencode/settings';
-import { getPiProviderSettings } from '@/providers/pi/settings';
+
+
 
 it.each(cases)('$id persists selected metadata without saving the available catalog', async ({ id, populate, read }) => {
   const settings = structuredClone(DEFAULT_CLAUDIAN_SETTINGS);
@@ -39,15 +38,8 @@ it.each(cases)('$id keeps an unavailable saved selection unchanged', ({ id: prov
   settings.model = selected;
   populate(settings);
   const current = settings.providerConfigs[providerId]!;
-  current.visibleModels = [...current.visibleModels as string[], 'missing-model'];
-  if (providerId === 'pi') current.visibleModels = ['pi:anthropic/missing-model'];
-  if (providerId === 'codex') current.visibleModels = ['missing-model'];
-  const decoded = {
-    claude: getClaudeProviderSettings,
-    codex: getCodexProviderSettings,
-    opencode: getOpencodeProviderSettings,
-    pi: getPiProviderSettings,
-  }[providerId](settings);
+  current.visibleModels = ['missing-model'];
+  const decoded = getCodexProviderSettings(settings);
   expect(decoded.visibleModels).toEqual(current.visibleModels);
   expect(settings.model).toBe(selected);
 });
@@ -84,14 +76,14 @@ it.each(cases)('$id keeps runtime catalog and selection intact when persistence 
 });
 
 it('materializes legacy implicit selections before a new catalog arrives', async () => {
-  for (const id of ['claude', 'codex'] as const) {
+  for (const id of ['codex'] as const) {
     const settings = structuredClone(DEFAULT_CLAUDIAN_SETTINGS);
     cases.find(entry => entry.id === id)!.populate(settings);
     settings.providerConfigs[id]!.visibleModels = null;
     const normalized = structuredClone(settings);
     ProviderRegistry.getSettingsStorageAdapter(id).normalizeStored?.(normalized, settings);
     expect(Array.isArray(normalized.providerConfigs[id]!.visibleModels)).toBe(true);
-    expect(normalized.providerConfigs[id]!.visibleModels).toEqual(id === 'claude' ? ['haiku', 'sonnet', 'opus', 'fable'] : id === 'codex' ? ['gpt-5.5', 'unselected-catalog-entry'] : ['selected', 'unselected-catalog-entry']);
+    expect(normalized.providerConfigs[id]!.visibleModels).toEqual(['gpt-5.5', 'unselected-catalog-entry']);
   }
 });
 
@@ -110,13 +102,8 @@ it.each(cases)('$id removes deselected aliases, preferences and saved effort pro
   populate(settings);
   const config = settings.providerConfigs[id]!;
   const selectedId = (config.visibleModels as string[])[0];
-  const removedId = id === 'pi' ? 'pi:anthropic/unselected-catalog-entry' : 'unselected-catalog-entry';
+  const removedId = 'unselected-catalog-entry';
   config.modelAliases = { [selectedId]: 'Keep alias', [removedId]: 'Remove alias' };
-  if (id === 'pi' || id === 'opencode') config.preferredThinkingByModel = { [selectedId]: 'high', [removedId]: 'medium' };
-  if (id === 'opencode') config.thinkingOptionsByModel = {
-    [selectedId]: [{ label: 'High', value: 'high' }],
-    [removedId]: [{ label: 'Medium', value: 'medium' }],
-  };
   const ui = ProviderRegistry.getChatUIConfig(id);
   const removedSelection = ui.normalizeAvailableModelSelection?.(removedId, settings) ?? removedId;
   settings.savedProviderModel = { [id]: removedSelection };
@@ -164,19 +151,6 @@ it('cleans stale projections for every provider together when loading saved sett
     expect(read(restored).length).toBeGreaterThan(0);
   }
   expect(content).not.toContain('unselected-catalog-entry');
-});
-
-it('preserves the alias of a Claude model selected through its resolved identity', async () => {
-  const settings = structuredClone(DEFAULT_CLAUDIAN_SETTINGS);
-  settings.providerConfigs.claude = { enabled: true, visibleModels: ['claude-sonnet-resolved'],
-    discoveredModels: [{ value: 'sonnet', resolvedModel: 'claude-sonnet-resolved', label: 'Sonnet', description: '' }],
-    modelAliases: { sonnet: 'My Sonnet', removed: 'Remove' } };
-  let content = '';
-  await new ClaudianSettingsStorage({
-    exists: async () => false,
-    write: async (_path: string, value: string) => { content = value; },
-  } as unknown as VaultFileAdapter, DEFAULT_CLAUDIAN_SETTINGS).save(settings);
-  expect(JSON.parse(content).providerConfigs.claude.modelAliases).toEqual({ sonnet: 'My Sonnet' });
 });
 
 it.each(cases.flatMap(entry => [false, true].map(unavailable => ({ ...entry, unavailable }))))(

@@ -46,7 +46,10 @@ export interface ProviderCapabilities {
   reasoningControl: 'effort' | 'none';
 }
 
-export const DEFAULT_CHAT_PROVIDER_ID = 'claude' as const satisfies ProviderId;
+/** Decode-only owner of older persisted records that did not specify a provider. */
+export const LEGACY_IMPLICIT_PROVIDER_ID = 'claude' as const satisfies ProviderId;
+
+export const DEFAULT_CHAT_PROVIDER_ID = 'codex' as const satisfies ProviderId;
 
 export function resolveRegisteredDefaultProviderId(providerIds: readonly ProviderId[]): ProviderId {
   return providerIds.includes(DEFAULT_CHAT_PROVIDER_ID)

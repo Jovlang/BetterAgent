@@ -8,9 +8,9 @@ import { Notice } from 'obsidian';
 import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
 import { type ChatExecutionCoordinator } from '@/features/chat/execution/ChatExecutionCoordinator';
 import { createQueuedMessage } from '@/features/chat/state/chatTurnRequest';
-import { claudeProviderRegistration } from '@/providers/claude/registration';
+import { codexProviderRegistration } from '@/providers/codex/registration';
 
-const nativeCapabilities = ProviderRegistry.getCapabilities('claude');
+const nativeCapabilities = ProviderRegistry.getCapabilities('codex');
 beforeEach(() => {
   vi.spyOn(ProviderRegistry, 'getCapabilities').mockReturnValue({ ...nativeCapabilities, supportsTurnSteer: true });
 });
@@ -22,7 +22,7 @@ describe('TurnQueue', () => {
     vi.clearAllMocks();
     vi.mocked(ProviderRegistry.getCapabilities).mockReturnValue({
       ...nativeCapabilities,
-      providerId: 'claude',
+      providerId: 'codex',
       supportsFork: true,
       supportsNativeHistory: true,
       supportsTurnSteer: true,
@@ -54,13 +54,13 @@ describe('TurnQueue', () => {
     const fixture = await createFixture();
     const projection = deferred<string>();
     const resolving = deferred<void>();
-    ProviderRegistry.register('claude', { ...claudeProviderRegistration, resolveExecutionWorkingDirectory: () => {
+    ProviderRegistry.register('codex', { ...codexProviderRegistration, resolveExecutionWorkingDirectory: () => {
       resolving.resolve();
       return projection.promise;
     } });
     onTestFinished(() => {
       projection.resolve('/vault');
-      ProviderRegistry.register('claude', claudeProviderRegistration);
+      ProviderRegistry.register('codex', codexProviderRegistration);
     });
     const started = fixture.controller.sendMessage({ content: 'First' });
     await resolving.promise;

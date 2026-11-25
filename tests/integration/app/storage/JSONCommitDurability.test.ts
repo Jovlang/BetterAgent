@@ -58,7 +58,7 @@ it('keeps committed settings reloadable when a transactional save writes only a 
 it('keeps committed conversation metadata available after a torn save', async () => {
   const store = new ConversationPersistenceStore(vault.files, DEVICE_KEY);
   const metadata: SessionMetadata = {
-    id: 'conversation-durable', providerId: 'claude', title: 'Committed',
+    id: 'conversation-durable', providerId: 'codex', title: 'Committed',
     createdAt: testDate().getTime(), lastActivityAt: testDate().getTime(),
   };
   await store.saveMetadata(metadata);

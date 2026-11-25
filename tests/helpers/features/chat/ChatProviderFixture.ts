@@ -2,9 +2,10 @@ import { FakeSession } from '@test/helpers/ChatExecutionHarness';
 
 import type { ProviderExecutionBackend, ProviderSessionConfig } from '@/core/execution';
 import { RuntimeCommandCatalog } from '@/core/providers/commands/RuntimeCommandCatalog';
+import { getProviderConfig, setProviderConfig } from '@/core/providers/providerConfig';
 import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
 import { ProviderWorkspaceRegistry } from '@/core/providers/ProviderWorkspaceRegistry';
-import type { ProviderCapabilities, ProviderChatUIConfig, ProviderCommandLoader, ProviderConversationHistoryService, ProviderId, ProviderModelPolicy, ProviderUIOption, ProviderWorkspaceRegistration, ProviderWorkspaceServices } from '@/core/providers/types';
+import type { ProviderCapabilities, ProviderChatUIConfig, ProviderCommandLoader, ProviderConversationHistoryService, ProviderId, ProviderModelPolicy, ProviderModule, ProviderUIOption, ProviderWorkspaceRegistration, ProviderWorkspaceServices } from '@/core/providers/types';
 import { BUILT_IN_PROVIDER_MODULES } from '@/providers';
 
 export interface ChatTestProviderOptions {
@@ -19,7 +20,8 @@ export interface ChatTestProviderOptions {
 
 /** Real registries and provider policies; only provider replies/catalog inputs cross a controlled boundary. */
 export function registerChatTestProvider(providerId: ProviderId, options: ChatTestProviderOptions = {}) {
-  const base = BUILT_IN_PROVIDER_MODULES.find(provider => provider.id === providerId)!;
+  const base = BUILT_IN_PROVIDER_MODULES[0];
+  const isBuiltIn = providerId === base.id;
   const sessions: FakeSession[] = [];
   const createSession = vi.fn((config: ProviderSessionConfig) => {
     const session = new FakeSession(providerId, `${providerId}-session-${sessions.length + 1}`);
@@ -65,15 +67,25 @@ export function registerChatTestProvider(providerId: ProviderId, options: ChatTe
   };
   const workspace: ProviderWorkspaceServices = { commandCatalog: catalog, commandLoader, ...options.workspace };
   const initialize = vi.fn<ProviderWorkspaceRegistration['initialize']>(options.initialize ?? (async () => workspace));
-  ProviderRegistry.register(providerId, {
+  const registration = {
     ...base,
+    id: providerId,
+    workspace: { initialize },
+    displayName: isBuiltIn ? base.displayName : providerId,
+    isEnabled: settings => isBuiltIn ? base.isEnabled(settings) : getProviderConfig(settings, providerId).enabled !== false,
+    setEnabled: (settings, enabled) => {
+      if (isBuiltIn) base.setEnabled?.(settings, enabled);
+      else setProviderConfig(settings, providerId, { ...getProviderConfig(settings, providerId), enabled });
+    },
+    settingsStorage: isBuiltIn ? base.settingsStorage : { normalizeStored: () => false },
     modelPolicy,
     chatUIConfig: { ...base.chatUIConfig, ...modelPolicy, ...options.chatUIConfig },
-    capabilities: { ...base.capabilities, ...options.capabilities },
+    capabilities: { ...base.capabilities, providerId, ...options.capabilities },
     createExecutionBackend: () => backend,
     createSubagentHistoryService: undefined,
     historyService: history,
-  });
+  } satisfies ProviderModule;
+  ProviderRegistry.register(providerId, registration);
   ProviderWorkspaceRegistry.register(providerId, { initialize });
   let disposed = false;
   const dispose = async () => {

@@ -33,7 +33,7 @@ describe('inline-edit.css', () => {
   }
 
   it('spins in the Obsidian accent rather than the provider brand', () => {
-    const spinner = mountComposer('claude').querySelector<HTMLElement>('.claudian-inline-spinner')!;
+    const spinner = mountComposer('codex').querySelector<HTMLElement>('.claudian-inline-spinner')!;
 
     expect(window.getComputedStyle(spinner).borderTopColor).toBe('var(--interactive-accent)');
   });

@@ -4,7 +4,7 @@ import { ChatState } from '@/features/chat/state/ChatState';
 import type { QueuedMessage } from '@/features/chat/state/types';
 import { TurnCoordinator } from '@/features/chat/turns/TurnCoordinator';
 import { TurnSteering } from '@/features/chat/turns/TurnSteering';
-import { claudeProviderRegistration } from '@/providers/claude/registration';
+import { codexProviderRegistration } from '@/providers/codex/registration';
 
 const FAILED_TO_STEER = 'Failed to steer the queued message. It is still available.';
 const UNCONFIRMED = 'Steer delivery could not be confirmed. The message was not requeued to avoid sending it twice.';
@@ -15,9 +15,9 @@ async function createHarness() {
   const turns = new TurnCoordinator();
   const state = new ChatState({}, undefined, turns);
   state.currentConversationId = 'conversation-1';
-  await coordinator.bindConversation({ conversationId: 'conversation-1', providerId: 'claude' });
+  await coordinator.bindConversation({ conversationId: 'conversation-1', providerId: 'codex' });
   await coordinator.prepare();
-  const native = execution.backends.get('claude')!.sessions[0];
+  const native = execution.backends.get('codex')!.sessions[0];
   const active = turns.run(async signal => {
     turns.beginResponse();
     await coordinator.execute(createSubmission(), signal);
@@ -34,7 +34,7 @@ async function createHarness() {
   const steering = new TurnSteering({
     state, turns,
     getExecutionCoordinator: () => coordinator,
-    getCapabilities: () => ({ ...claudeProviderRegistration.capabilities, supportsTurnSteer: true }),
+    getCapabilities: () => ({ ...codexProviderRegistration.capabilities, supportsTurnSteer: true }),
     toQueuedChatTurn: message => ({ displayContent: message.content, request: { ...message.turnRequest } }),
     createSubmission: (displayContent, request) => createSubmission({
       submissionId: `submission-${displayContent}`,

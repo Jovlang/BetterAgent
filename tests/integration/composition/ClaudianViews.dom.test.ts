@@ -7,9 +7,9 @@ import { testDate } from '@test/helpers/testClock';
 import { within } from '@testing-library/dom';
 
 import { registerProviderModules } from '@/core/providers/registerProviderModules';
-import { claudeProviderRegistration } from '@/providers/claude/registration';
+import { codexProviderRegistration } from '@/providers/codex/registration';
 
-registerProviderModules([claudeProviderRegistration]);
+registerProviderModules([codexProviderRegistration]);
 installChatWorkspaceHooks();
 
 describe('toggle chat view hotkey', () => {

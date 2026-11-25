@@ -1,4 +1,5 @@
 import { DEFAULT_REASONING_VALUE } from '../../core/providers/reasoning';
+import { DEFAULT_CHAT_PROVIDER_ID } from '../../core/providers/types';
 import type { ClaudianSettings, ProviderConfigMap } from '../../core/types/settings';
 
 /**
@@ -13,9 +14,9 @@ export function createDefaultClaudianSettings(providerConfigs: ProviderConfigMap
 export const DEFAULT_CLAUDIAN_SETTINGS: ClaudianSettings = {
   userName: '',
 
-  permissionMode: 'auto',
+  permissionMode: 'normal',
 
-  model: 'haiku',
+  model: '',
   effortLevel: DEFAULT_REASONING_VALUE,
   serviceTier: 'default',
   enableAutoTitleGeneration: true,
@@ -41,7 +42,7 @@ export const DEFAULT_CLAUDIAN_SETTINGS: ClaudianSettings = {
 
   providerConfigs: {},
 
-  settingsProvider: 'claude',
+  settingsProvider: DEFAULT_CHAT_PROVIDER_ID,
   lastSelectedChatModel: null,
   inlineEditModel: null,
   savedProviderModel: {},

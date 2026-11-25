@@ -10,13 +10,12 @@ import {
 } from '@/app/settings/ClaudianSettingsStorage';
 import { getInstallationKey } from '@/core/device/InstallationKey';
 import type { VaultFileAdapter } from '@/core/storage/VaultFileAdapter';
-import { getClaudeProviderSettings } from '@/providers/claude/settings';
 import {
   getCodexProviderSettings,
   updateCodexProviderSettings,
 } from '@/providers/codex/settings';
-import { getOpencodeProviderSettings } from '@/providers/opencode/settings';
-import { getPiProviderSettings } from '@/providers/pi/settings';
+
+
 
 const originalPlatform = process.platform;
 
@@ -236,18 +235,6 @@ describe('ClaudianSettingsStorage', () => {
       });
     });
 
-    it('ignores retired placement and flat provider settings', async () => {
-      mockAdapter.exists.mockResolvedValue(true);
-      mockAdapter.read.mockResolvedValue(JSON.stringify({ openInMainTab: true, claudeCliPath: '/retired', codexCliPath: '/retired', environmentVariables: 'ANTHROPIC_API_KEY=retired\nHTTP_PROXY=retired', hiddenSlashCommands: ['retired'] }));
-      const result = await storage.load();
-      expect(result.chatViewPlacement).toBe(DEFAULT_SETTINGS.chatViewPlacement);
-      expect(getClaudeProviderSettings(result).cliPath).toBe('');
-      expect(getCodexProviderSettings(result).cliPath).toBe('');
-      expect(getClaudeProviderSettings(result).environmentVariables).toBe('');
-      expect(result.sharedEnvironmentVariables).toBe('');
-      expect(result.hiddenCommands).toEqual([]);
-    });
-
     it('normalizes invalid chatViewPlacement values', async () => {
       mockAdapter.exists.mockResolvedValue(true);
       mockAdapter.read.mockResolvedValue(JSON.stringify({
@@ -325,25 +312,6 @@ describe('ClaudianSettingsStorage', () => {
       }
     });
 
-    it('normalizes claude provider CLI paths from loaded data', async () => {
-      mockAdapter.exists.mockResolvedValue(true);
-      mockAdapter.read.mockResolvedValue(JSON.stringify({
-        providerConfigs: {
-          claude: {
-            cliPathsByHost: {
-          'host-a': '/custom/path-a',
-          'host-b': '/custom/path-b',
-        }
-        }
-        },
-      }));
-
-      const result = await storage.load();
-
-      expect(getClaudeProviderSettings(result).cliPathsByHost['host-a']).toBe('/custom/path-a');
-      expect(getClaudeProviderSettings(result).cliPathsByHost['host-b']).toBe('/custom/path-b');
-    });
-
     it('normalizes codex provider CLI paths from loaded data', async () => {
       mockAdapter.exists.mockResolvedValue(true);
       mockAdapter.read.mockResolvedValue(JSON.stringify({
@@ -361,92 +329,6 @@ describe('ClaudianSettingsStorage', () => {
 
       expect(getCodexProviderSettings(result).cliPathsByHost['host-a']).toBe('/custom/codex-a');
       expect(getCodexProviderSettings(result).cliPathsByHost['host-b']).toBe('/custom/codex-b');
-    });
-
-    it('preserves hostname-scoped provider settings without assigning them to the current device', async () => {
-      Object.defineProperty(process, 'platform', { value: 'win32' });
-      mockAdapter.exists.mockResolvedValue(true);
-      mockAdapter.read.mockResolvedValue(JSON.stringify({
-        lastSelectedChatModel: null,
-        providerConfigs: {
-          claude: {
-            cliPathsByHost: {
-              'host-a': '/custom/claude-a',
-              'host-b': '/custom/claude-b',
-            },
-          },
-          codex: {
-            cliPathsByHost: {
-              'host-a': '/custom/codex-a',
-              'host-b': '/custom/codex-b',
-            },
-            installationMethodsByHost: {
-              'host-a': 'wsl',
-              'host-b': 'native-windows',
-            },
-            wslDistroOverridesByHost: {
-              'host-a': 'Ubuntu',
-              'host-b': 'Debian',
-            },
-          },
-          opencode: {
-            cliPathsByHost: {
-              'host-a': '/custom/opencode-a',
-              'host-b': '/custom/opencode-b',
-            },
-          },
-          pi: {
-            cliPathsByHost: {
-              'host-a': '/custom/pi-a',
-              'host-b': '/custom/pi-b',
-            },
-          },
-        },
-      }));
-
-      const result = await storage.load();
-      const claudeSettings = getClaudeProviderSettings(result);
-      const codexSettings = getCodexProviderSettings(result);
-      const opencodeSettings = getOpencodeProviderSettings(result);
-      const piSettings = getPiProviderSettings(result);
-      const persistedOpencodeConfig = result.providerConfigs.opencode as Record<string, unknown>;
-      const persistedPiConfig = result.providerConfigs.pi as Record<string, unknown>;
-
-      expect(claudeSettings.cliPathsByHost).toEqual({
-        'host-a': '/custom/claude-a',
-        'host-b': '/custom/claude-b',
-      });
-      expect(codexSettings.cliPathsByHost).toEqual({
-        'host-a': '/custom/codex-a',
-        'host-b': '/custom/codex-b',
-      });
-      expect(codexSettings.installationMethod).toBe('native-windows');
-      expect(codexSettings.installationMethodsByHost).toEqual({
-        'host-a': 'wsl',
-        'host-b': 'native-windows',
-      });
-      expect(codexSettings.wslDistroOverride).toBe('');
-      expect(codexSettings.wslDistroOverridesByHost).toEqual({
-        'host-a': 'Ubuntu',
-        'host-b': 'Debian',
-      });
-      expect(opencodeSettings.cliPathsByHost).toEqual({
-        'host-a': '/custom/opencode-a',
-        'host-b': '/custom/opencode-b',
-      });
-      expect(piSettings.cliPathsByHost).toEqual({
-        'host-a': '/custom/pi-a',
-        'host-b': '/custom/pi-b',
-      });
-      expect(persistedOpencodeConfig.cliPathsByHost).toEqual({
-        'host-a': '/custom/opencode-a',
-        'host-b': '/custom/opencode-b',
-      });
-      expect(persistedPiConfig.cliPathsByHost).toEqual({
-        'host-a': '/custom/pi-a',
-        'host-b': '/custom/pi-b',
-      });
-      expect(mockAdapter.write).toHaveBeenCalledTimes(1);
     });
 
     it('clears Codex Windows installation settings on non-Windows hosts during normalization', async () => {
@@ -788,30 +670,6 @@ describe('ClaudianSettingsStorage', () => {
       expect(writtenContent.providerConfigs.codex.selectedModels).toEqual([TEST_CODEX_CATALOG[1]]);
       expect(writtenContent.providerConfigs.codex.visibleModels).toEqual(['gpt-5.4-mini']);
       expect(getCodexProviderSettings(settings).discoveredModels).toEqual(TEST_CODEX_CATALOG);
-    });
-
-    it('persists an env-seeded Claude selection once so it survives removing the model keys', async () => {
-      mockAdapter.exists.mockResolvedValue(true);
-      mockAdapter.read.mockResolvedValue(JSON.stringify({
-        providerConfigs: {
-          claude: {
-            customModels: 'manual-model',
-            environmentVariables: 'ANTHROPIC_MODEL=env-model\nANTHROPIC_DEFAULT_OPUS_MODEL=env-opus',
-            visibleModels: null,
-          },
-        },
-      }));
-
-      const loaded = await storage.load();
-
-      expect(getClaudeProviderSettings(loaded).visibleModels).toEqual(['env-model', 'env-opus', 'manual-model']);
-      const persisted = JSON.parse(mockAdapter.write.mock.calls.at(-1)![1]);
-      expect(persisted.providerConfigs.claude.visibleModels).toEqual(['env-model', 'env-opus', 'manual-model']);
-
-      persisted.providerConfigs.claude.environmentVariables = '';
-      mockAdapter.read.mockResolvedValue(JSON.stringify(persisted));
-      expect(getClaudeProviderSettings(await storage.load()).visibleModels)
-        .toEqual(['env-model', 'env-opus', 'manual-model']);
     });
 
     it('preserves Codex model aliases and catalog across restart', async () => {

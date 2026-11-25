@@ -41,7 +41,7 @@ async function createTab(linkedContentPath?: string): Promise<AssembledTabRuntim
     getAbstractFileByPath: (path: string) => (path === note.path ? note : null),
   });
   const conversation = {
-    id: 'conversation-1', providerId: 'claude', selectedModel: 'claude-sonnet-4-5',
+    id: 'conversation-1', providerId: 'codex', selectedModel: 'claude-sonnet-4-5',
     sessionId: 'main-session', messages: harness.tab.state.messages,
     ...(linkedContentPath ? { linkedContentPath } : {}),
   } as Conversation;
@@ -57,7 +57,7 @@ async function createTab(linkedContentPath?: string): Promise<AssembledTabRuntim
     getCommittedSettings: () => plugin.settings,
     settings: {
       model: 'claude-sonnet-4-5', effortLevel: 'high', permissionMode: 'normal',
-      providerConfigs: { claude: { enabled: true, visibleModels: ['claude-sonnet-4-5'],
+      providerConfigs: { codex: { enabled: true, visibleModels: ['claude-sonnet-4-5'],
         discoveredModels: [{ value: 'claude-sonnet-4-5', label: 'Sonnet', supportedEffortLevels: ['low', 'high'] }] } },
     },
     getActiveEnvironmentVariables: () => '',
@@ -100,7 +100,7 @@ it('attaches localized queued follow-ups above the input and preserves composer 
     expect(box.queryByRole('button', { name: 'Discard queued message' })).toBeNull();
 
     vi.spyOn(ProviderRegistry, 'getCapabilities').mockReturnValue({
-      ...ProviderRegistry.getCapabilities('claude'), supportsTurnSteer: true,
+      ...ProviderRegistry.getCapabilities('codex'), supportsTurnSteer: true,
     });
     // A real provider handoff gives the coordinator the active execution that admits steering.
     const handoff = backend.nextRequest(() => true);

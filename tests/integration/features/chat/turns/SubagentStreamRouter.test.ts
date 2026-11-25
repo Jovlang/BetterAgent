@@ -31,7 +31,7 @@ function createHarness() {
   };
   harness.historyRecovery = {
     subagentManager,
-    getProviderId: () => 'claude',
+    getProviderId: () => 'codex',
     getProviderSessionId: () => harness.providerSessionId,
     loadSubagentFinalResult: vi.fn().mockResolvedValue(null),
     loadSubagentToolCalls: vi.fn().mockResolvedValue([]),
@@ -42,7 +42,7 @@ function createHarness() {
     state,
     subagentManager,
     getMessagesEl: () => messagesEl,
-    getProviderId: () => 'claude',
+    getProviderId: () => 'codex',
     asyncSubagentHistoryRecovery: new AsyncSubagentHistoryRecovery(harness.historyRecovery),
     tools: { flush: vi.fn(), flushBefore: vi.fn(), detach: vi.fn(), remove: vi.fn() },
     indicator: harness.indicator,
@@ -108,61 +108,6 @@ describe('SubagentStreamRouter', () => {
   });
 
   describe('handleAsyncSubagentCompletion', () => {
-    it('recovers transcript-backed async subagent tools and final result', async () => {
-      const completedSubagent: SubagentInfo = {
-        agentId: 'agent-1',
-        asyncStatus: 'completed',
-        id: 'task-1',
-        description: 'Background task',
-        mode: 'async',
-        status: 'completed',
-        isExpanded: false, toolCalls: [],
-      };
-      const completion = {
-        type: 'async_subagent_completion' as const,
-        providerSessionId: 'session-1',
-        taskId: 'agent-1',
-        toolUseId: 'task-1',
-        status: 'completed' as const,
-        result: 'Final result',
-      };
-      harness.subagentManager.handleAsyncSubagentCompletion.mockReturnValueOnce(completedSubagent);
-      harness.subagentManager.getByTaskId.mockReturnValue(completedSubagent);
-      vi.mocked(harness.historyRecovery.loadSubagentToolCalls).mockResolvedValueOnce([{
-        id: 'nested-tool',
-        input: { path: 'README.md' },
-        isExpanded: false,
-        name: 'Read',
-        status: 'completed',
-      }]);
-      vi.mocked(harness.historyRecovery.loadSubagentFinalResult)
-        .mockResolvedValueOnce('Recovered final result');
-
-      await expect(harness.router.handleAsyncSubagentCompletion(completion)).resolves.toBe(true);
-
-      expect(harness.subagentManager.handleAsyncSubagentCompletion).toHaveBeenCalledWith(completion);
-      expect(harness.historyRecovery.loadSubagentToolCalls).toHaveBeenCalledWith({
-        providerId: 'claude',
-        providerSessionId: 'session-1',
-        subagentId: 'agent-1',
-      });
-      expect(harness.historyRecovery.loadSubagentFinalResult).toHaveBeenCalledWith({
-        providerId: 'claude',
-        providerSessionId: 'session-1',
-        subagentId: 'agent-1',
-      });
-      expect(completedSubagent.toolCalls).toEqual([
-        expect.objectContaining({
-          id: 'nested-tool',
-          input: { path: 'README.md' },
-        }),
-      ]);
-      expect(completedSubagent).toMatchObject({
-        result: 'Recovered final result',
-      });
-      expect(harness.subagentManager.refreshAsyncSubagent).toHaveBeenCalledWith(completedSubagent);
-      expect(harness.indicator.show).toHaveBeenCalled();
-    });
 
     it('bounds final-result retries and fences a replaced provider session', async () => {
       const completedSubagent: SubagentInfo = {
@@ -192,51 +137,6 @@ describe('SubagentStreamRouter', () => {
       expect(harness.historyRecovery.loadSubagentFinalResult).toHaveBeenCalledTimes(1);
       expect(completedSubagent.result).toBe('Notification fallback');
       expect(harness.subagentManager.refreshAsyncSubagent).not.toHaveBeenCalled();
-    });
-
-    it('does not schedule transcript retries when the provider has no recovery service', async () => {
-      const completedSubagent: SubagentInfo = {
-        agentId: 'agent-1',
-        asyncStatus: 'completed',
-        description: 'Background task',
-        id: 'task-1',
-        mode: 'async',
-        result: 'Notification result',
-        status: 'completed',
-        isExpanded: false, toolCalls: [],
-      };
-      harness.subagentManager.handleAsyncSubagentCompletion.mockReturnValueOnce(completedSubagent);
-      harness.subagentManager.getByTaskId.mockReturnValue(completedSubagent);
-      vi.mocked(harness.historyRecovery.loadSubagentToolCalls).mockResolvedValue(undefined);
-      vi.mocked(harness.historyRecovery.loadSubagentFinalResult).mockResolvedValue(undefined);
-
-      await harness.router.handleAsyncSubagentCompletion({
-        providerSessionId: 'session-1',
-        status: 'completed',
-        taskId: 'agent-1',
-        toolUseId: 'task-1',
-        type: 'async_subagent_completion',
-      });
-      await vi.advanceTimersByTimeAsync(10_000);
-
-      expect(harness.historyRecovery.loadSubagentToolCalls).toHaveBeenCalledTimes(1);
-      expect(harness.historyRecovery.loadSubagentFinalResult).not.toHaveBeenCalled();
-      expect(completedSubagent.result).toBe('Notification result');
-      expect(harness.subagentManager.refreshAsyncSubagent).not.toHaveBeenCalled();
-    });
-
-    it('reports an unmatched normalized async completion without provider-native recovery', async () => {
-      await expect(harness.router.handleAsyncSubagentCompletion({
-        type: 'async_subagent_completion',
-        providerSessionId: 'session-1',
-        taskId: 'agent-missing',
-        toolUseId: 'task-missing',
-        status: 'completed',
-      })).resolves.toBe(false);
-
-      expect(harness.subagentManager.handleAsyncSubagentCompletion).toHaveBeenCalledTimes(1);
-      expect(harness.historyRecovery.loadSubagentToolCalls).not.toHaveBeenCalled();
-      expect(harness.indicator.show).not.toHaveBeenCalled();
     });
   });
 });

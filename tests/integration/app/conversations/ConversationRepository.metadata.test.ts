@@ -7,9 +7,9 @@ import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
 import { ProviderSettingsCoordinator } from '@/core/providers/ProviderSettingsCoordinator';
 import { registerProviderModules } from '@/core/providers/registerProviderModules';
 import type { Conversation, SessionMetadata, SubagentInfo, UsageInfo } from '@/core/types';
-import { claudeProviderRegistration } from '@/providers/claude/registration';
+import { codexProviderRegistration } from '@/providers/codex/registration';
 
-registerProviderModules([claudeProviderRegistration]);
+registerProviderModules([codexProviderRegistration]);
 
 const DEVICE_KEY = `device-${'a'.repeat(64)}`;
 let vault: DesktopVault;
@@ -40,7 +40,7 @@ async function persistMetadata(conversation: Conversation): Promise<SessionMetad
     it('extracts subagent data from Agent toolCalls', async () => {
       const conversation: Conversation = {
         id: 'conv-subagent',
-        providerId: 'claude',
+        providerId: 'codex',
         title: 'Subagent Test',
         createdAt: testDate().getTime(),
         lastActivityAt: testDate({ milliseconds: 1000 }).getTime(),
@@ -104,7 +104,7 @@ async function persistMetadata(conversation: Conversation): Promise<SessionMetad
         ],
       };
       const conversation: Conversation = {
-        id: 'images', providerId: 'claude', title: 'Scans', createdAt: now, lastActivityAt: now, sessionId: 'native',
+        id: 'images', providerId: 'codex', title: 'Scans', createdAt: now, lastActivityAt: now, sessionId: 'native',
         messages: [{ id: 'msg', role: 'assistant', content: '', timestamp: now,
           toolCalls: [{ id: subagent.id, name: 'Agent', input: {}, status: 'completed', subagent }],
         }],
@@ -126,7 +126,7 @@ async function persistMetadata(conversation: Conversation): Promise<SessionMetad
     it('returns undefined subagentData when no subagents present', async () => {
       const conversation: Conversation = {
         id: 'conv-no-subagent',
-        providerId: 'claude',
+        providerId: 'codex',
         title: 'No Subagent',
         createdAt: testDate().getTime(),
         lastActivityAt: testDate({ milliseconds: 1000 }).getTime(),
@@ -145,7 +145,7 @@ async function persistMetadata(conversation: Conversation): Promise<SessionMetad
     it('ignores Agent toolCalls without linked subagent', async () => {
       const conversation: Conversation = {
         id: 'conv-task-subagent',
-        providerId: 'claude',
+        providerId: 'codex',
         title: 'Task Subagent Test',
         createdAt: testDate().getTime(),
         lastActivityAt: testDate({ milliseconds: 1000 }).getTime(),
@@ -179,7 +179,7 @@ async function persistMetadata(conversation: Conversation): Promise<SessionMetad
     it('includes resumeAtMessageId when set', async () => {
       const conversation: Conversation = {
         id: 'conv-rewind',
-        providerId: 'claude',
+        providerId: 'codex',
         title: 'Rewind Test',
         createdAt: testDate().getTime(),
         lastActivityAt: testDate({ milliseconds: 1000 }).getTime(),
@@ -196,7 +196,7 @@ async function persistMetadata(conversation: Conversation): Promise<SessionMetad
     it('omits resumeAtMessageId when not set', async () => {
       const conversation: Conversation = {
         id: 'conv-no-rewind',
-        providerId: 'claude',
+        providerId: 'codex',
         title: 'No Rewind',
         createdAt: testDate().getTime(),
         lastActivityAt: testDate({ milliseconds: 1000 }).getTime(),
@@ -212,11 +212,11 @@ async function persistMetadata(conversation: Conversation): Promise<SessionMetad
 
   describe('public metadata persistence - projections', () => {
     it('does not fall back to unsanitized state when the provider rejects it', async () => {
-      const service = ProviderRegistry.getConversationHistoryService('claude');
+      const service = ProviderRegistry.getConversationHistoryService('codex');
       const sanitizer = vi.spyOn(service, 'buildPersistedProviderState').mockReturnValue(undefined);
       const conversation: Conversation = {
         id: 'conv-rejected-provider-state',
-        providerId: 'claude',
+        providerId: 'codex',
         title: 'Rejected state',
         createdAt: testDate().getTime(),
         lastActivityAt: testDate().getTime(),
@@ -242,7 +242,7 @@ async function persistMetadata(conversation: Conversation): Promise<SessionMetad
 
       const conversation: Conversation = {
         id: 'conv-convert',
-        providerId: 'claude',
+        providerId: 'codex',
         title: 'Convert Test',
         createdAt: testDate().getTime(),
         lastActivityAt: testDate({ milliseconds: 900 }).getTime(),
@@ -275,7 +275,7 @@ async function persistMetadata(conversation: Conversation): Promise<SessionMetad
     it('includes forkSource when set', async () => {
       const conversation: Conversation = {
         id: 'conv-fork',
-        providerId: 'claude',
+        providerId: 'codex',
         title: 'Fork Test',
         createdAt: testDate().getTime(),
         lastActivityAt: testDate({ milliseconds: 1000 }).getTime(),
@@ -295,7 +295,7 @@ async function persistMetadata(conversation: Conversation): Promise<SessionMetad
     it('omits forkSource when not set', async () => {
       const conversation: Conversation = {
         id: 'conv-no-fork',
-        providerId: 'claude',
+        providerId: 'codex',
         title: 'No Fork',
         createdAt: testDate().getTime(),
         lastActivityAt: testDate({ milliseconds: 1000 }).getTime(),

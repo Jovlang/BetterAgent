@@ -23,7 +23,7 @@ class RejectingCleanupSession extends FakeAuxiliarySession {
 }
 
 class RejectingCleanupBackend implements ProviderExecutionBackend {
-  readonly providerId = 'claude' as const;
+  readonly providerId = 'codex' as const;
   readonly session = new RejectingCleanupSession();
 
   createSession(_config: ProviderSessionConfig): RejectingCleanupSession {

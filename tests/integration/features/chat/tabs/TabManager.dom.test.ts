@@ -2,7 +2,7 @@
 import '@/providers';
 
 import { axe } from '@test/helpers/accessibility';
-import { claudeCatalogFixture } from '@test/helpers/claudeModels';
+import { codexCatalogFixture } from '@test/helpers/codexModels';
 import { approvalDecisionOptions } from '@test/helpers/features/chat/approvalDecisionOptions';
 import { createChatFeatureHost } from '@test/helpers/features/chat/ChatFeatureHostFixture';
 import { createSessionRuntimePool } from '@test/helpers/features/chat/SessionRuntimePoolHarness';
@@ -39,7 +39,7 @@ async function setup() {
   ProviderWorkspaceRegistry.setServices('claude', {});
   const settings: Partial<ClaudianSettings> = {
     model: 'claude-sonnet-4-5', permissionMode: 'normal', effortLevel: 'high', excludedTags: [],
-    providerConfigs: { claude: claudeCatalogFixture(['claude-sonnet-4-5'], ['low', 'high']) },
+    providerConfigs: { claude: codexCatalogFixture(['claude-sonnet-4-5'], ['low', 'high']) },
   };
   const conversation: Conversation = {
     id: 'conversation', providerId: 'claude', selectedModel: 'claude-sonnet-4-5', sessionId: 'native',

@@ -13,7 +13,7 @@ import type { ChatMessage, Conversation } from '@/core/types';
 function createConversation(id = 'conversation-1'): Conversation {
   return {
     id,
-    providerId: 'claude',
+    providerId: 'codex',
     title: 'Conversation',
     createdAt: 1,
     lastActivityAt: 1,
@@ -120,14 +120,14 @@ describe('ConversationRepository persistence queue and binding fences', () => {
     const { repository } = createRepository(conversation, persistence);
     repository.registerExecutionBinding(conversation.id, 'binding-1', 4);
     const revision1: ProviderSessionSnapshot = {
-      providerId: 'claude',
+      providerId: 'codex',
       revision: 1,
       providerSessionId: 'native-1',
       providerState: { cursor: 1 },
       status: 'executing',
     };
     const revision2: ProviderSessionSnapshot = {
-      providerId: 'claude',
+      providerId: 'codex',
       revision: 2,
       providerSessionId: 'native-2',
       providerState: { cursor: 2 },
@@ -235,7 +235,7 @@ describe('ConversationRepository persistence queue and binding fences', () => {
     const { repository } = createRepository(conversation, persistence);
     repository.registerExecutionBinding(conversation.id, 'binding-1', 3);
     const snapshot: ProviderSessionSnapshot = {
-      providerId: 'claude',
+      providerId: 'codex',
       revision: 1,
       providerSessionId: 'native-1',
       status: 'idle',
@@ -302,7 +302,7 @@ describe('ConversationRepository persistence queue and binding fences', () => {
       'binding-1',
       3,
       {
-        providerId: 'claude',
+        providerId: 'codex',
         revision: 1,
         providerStateDeletes: [
           'consumedSeed',
@@ -351,7 +351,7 @@ describe('ConversationRepository persistence queue and binding fences', () => {
       'binding-1',
       3,
       {
-        providerId: 'claude',
+        providerId: 'codex',
         revision: 1,
         providerSessionId: 'native-after-seed',
         providerStateDeletes: ['consumedSeed'],
@@ -376,7 +376,7 @@ describe('ConversationRepository persistence queue and binding fences', () => {
       'binding-1',
       3,
       {
-        providerId: 'claude',
+        providerId: 'codex',
         revision: 2,
         providerStateDeletes: ['activeCursor'],
         status: 'invalidated',
@@ -418,7 +418,7 @@ describe('ConversationRepository persistence queue and binding fences', () => {
       'binding-1',
       3,
       {
-        providerId: 'claude',
+        providerId: 'codex',
         revision: 1,
         providerStateDeletes: ['consumedSeed'],
         status: 'idle',
@@ -446,7 +446,7 @@ describe('ConversationRepository persistence queue and binding fences', () => {
       'old-binding',
       1,
       {
-        providerId: 'claude',
+        providerId: 'codex',
         revision: 1,
         providerSessionId: 'stale-native',
         status: 'idle',
@@ -489,7 +489,7 @@ describe('ConversationRepository deletion persistence', () => {
       'binding-1',
       4,
       {
-        providerId: 'claude',
+        providerId: 'codex',
         revision: 1,
         providerSessionId: 'superseded-during-delete',
         status: 'executing',
@@ -500,7 +500,7 @@ describe('ConversationRepository deletion persistence', () => {
       'binding-1',
       4,
       {
-        providerId: 'claude',
+        providerId: 'codex',
         revision: 2,
         providerSessionId: 'native-during-delete',
         providerState: { cursor: 2 },
@@ -512,7 +512,7 @@ describe('ConversationRepository deletion persistence', () => {
       'binding-1',
       5,
       {
-        providerId: 'claude',
+        providerId: 'codex',
         revision: 3,
         providerSessionId: 'wrong-generation-during-delete',
         status: 'idle',
@@ -533,7 +533,7 @@ describe('ConversationRepository deletion persistence', () => {
       'binding-1',
       4,
       {
-        providerId: 'claude',
+        providerId: 'codex',
         revision: 3,
         providerSessionId: 'native-after-rollback',
         status: 'idle',
@@ -544,7 +544,7 @@ describe('ConversationRepository deletion persistence', () => {
       'binding-1',
       5,
       {
-        providerId: 'claude',
+        providerId: 'codex',
         revision: 4,
         providerSessionId: 'wrong-generation',
         status: 'idle',
@@ -568,7 +568,7 @@ describe('ConversationRepository deletion persistence', () => {
       'old-binding',
       4,
       {
-        providerId: 'claude',
+        providerId: 'codex',
         revision: 2,
         providerSessionId: 'obsolete-native',
         status: 'idle',
@@ -591,7 +591,7 @@ describe('ConversationRepository deletion persistence', () => {
       'new-binding',
       5,
       {
-        providerId: 'claude',
+        providerId: 'codex',
         revision: 1,
         providerSessionId: 'replacement-native',
         status: 'idle',
@@ -618,7 +618,7 @@ describe('ConversationRepository deletion persistence', () => {
       'binding-1',
       4,
       {
-        providerId: 'claude',
+        providerId: 'codex',
         revision: 2,
         providerSessionId: 'released-native',
         status: 'idle',
@@ -636,7 +636,7 @@ describe('ConversationRepository deletion persistence', () => {
       'binding-1',
       4,
       {
-        providerId: 'claude',
+        providerId: 'codex',
         revision: 3,
         providerSessionId: 'released-native-later',
         status: 'idle',
@@ -660,7 +660,7 @@ describe('ConversationRepository deletion persistence', () => {
       'binding-1',
       4,
       {
-        providerId: 'claude',
+        providerId: 'codex',
         revision: 2,
         providerSessionId: 'must-stay-deleted',
         status: 'idle',
@@ -678,7 +678,7 @@ describe('ConversationRepository deletion persistence', () => {
       'binding-1',
       4,
       {
-        providerId: 'claude',
+        providerId: 'codex',
         revision: 3,
         providerSessionId: 'must-stay-deleted-later',
         status: 'idle',
@@ -738,7 +738,7 @@ describe('ConversationRepository deletion persistence', () => {
       'binding',
       1,
       {
-        providerId: 'claude',
+        providerId: 'codex',
         revision: 1,
         providerSessionId: 'late-native',
         status: 'idle',

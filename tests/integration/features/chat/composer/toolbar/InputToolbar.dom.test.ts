@@ -11,7 +11,6 @@ import type { ProviderPermissionModeOption } from '@/core/providers/types';
 import { createInputToolbar } from '@/features/chat/composer/toolbar/InputToolbar';
 import type { ToolbarCallbacks } from '@/features/chat/composer/toolbar/types';
 import { setLocale, t } from '@/i18n/i18n';
-import { claudeChatUIConfig } from '@/providers/claude/ui/ClaudeChatUIConfig';
 import { codexChatUIConfig } from '@/providers/codex/ui/CodexChatUIConfig';
 
 // The visibility utility from styles, so role queries skip controls the toolbar hides.
@@ -405,7 +404,7 @@ describe('model button', () => {
     const { ui } = renderToolbar({
       serviceTiers: FAST_TIER,
       models: [
-        { value: 'sonnet', label: 'Sonnet', providerId: 'claude', providerLabel: 'Claude' },
+        { value: 'sonnet', label: 'Sonnet', providerId: 'codex', providerLabel: 'Claude' },
         { value: 'pi-model', label: 'Pi Model', providerId: 'pi', providerLabel: 'Pi' },
       ],
     });
@@ -457,7 +456,7 @@ describe('model button', () => {
     uiConfig.getModelOptions.mockImplementation(() => [
       { value: 'gpt-new', label: 'GPT New', group: 'Codex' },
       { value: 'gpt-fast', label: 'GPT Fast', group: 'Codex' },
-      { value: 'claude', label: 'Claude', group: 'Claude' },
+      { value: 'codex', label: 'Claude', group: 'Claude' },
     ]);
     settings.model = 'gpt-new';
     fireEvent.click(ui.getByRole('button', { name: /^Model: Sonnet/ }));
@@ -560,7 +559,7 @@ describe('permission button', () => {
   it('lists every Claude permission mode with its description and alerts only on YOLO', async () => {
     const { callbacks, ui } = renderToolbar({
       settings: { permissionMode: 'auto' },
-      permissionModes: claudeChatUIConfig.getPermissionModeOptions?.() ?? undefined,
+      permissionModes: codexChatUIConfig.getPermissionModeOptions?.() ?? undefined,
     });
     const button = ui.getByRole('button', { name: 'Permission mode: Auto' });
     expect(button.classList.contains('claudian-toolbar-chip--alert')).toBe(false);
@@ -587,7 +586,7 @@ describe('permission button', () => {
   });
 
   it.each([
-    ['Claude', claudeChatUIConfig, 'auto'],
+    ['Claude', codexChatUIConfig, 'auto'],
     ['Codex', codexChatUIConfig, 'auto-review'],
   ] as const)('names the %s permission modes in English under another locale', (_provider, config, mode) => {
     const english = config.getPermissionModeOptions!({})!;
@@ -610,7 +609,7 @@ describe('permission button', () => {
   it('shows no mode rather than guessing one when the setting matches no option', () => {
     const { settings, toolbar, ui } = renderToolbar({
       settings: { permissionMode: 'manual' },
-      permissionModes: claudeChatUIConfig.getPermissionModeOptions?.() ?? undefined,
+      permissionModes: codexChatUIConfig.getPermissionModeOptions?.() ?? undefined,
     });
     expect(ui.getByRole('button', { name: 'Permission mode: Manual' })).toBeDefined();
     settings.permissionMode = 'retired-mode';
@@ -699,7 +698,7 @@ describe('localized model menu', () => {
 
   it('opens model options directly when only one provider offers models', () => {
     const { ui } = renderToolbar({
-      models: [{ value: 'sonnet', label: 'Sonnet', providerId: 'claude', providerLabel: 'Claude Code' }],
+      models: [{ value: 'sonnet', label: 'Sonnet', providerId: 'codex', providerLabel: 'Claude Code' }],
     });
     fireEvent.click(ui.getByRole('button', { name: modelButtonName('Sonnet', 'High') }));
     const dialog = within(ui.getByRole('dialog', { name: t('chat.modelPicker.options') }));

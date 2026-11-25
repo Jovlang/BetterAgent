@@ -1,5 +1,5 @@
 import { StartupProfiler } from '../../core/performance/StartupProfiler';
-import { DEFAULT_CHAT_PROVIDER_ID, type ProviderId } from '../../core/providers/types';
+import { LEGACY_IMPLICIT_PROVIDER_ID, type ProviderId } from '../../core/providers/types';
 import type { Conversation, SessionMetadata } from '../../core/types';
 import type {
   SessionMetadataReader,
@@ -234,13 +234,13 @@ export class SessionMetadataLoader {
   }
 
   private isSupported(meta: SessionMetadata): boolean {
-    return this.options.supportsProvider?.(meta.providerId ?? DEFAULT_CHAT_PROVIDER_ID) ?? true;
+    return this.options.supportsProvider?.(meta.providerId ?? LEGACY_IMPLICIT_PROVIDER_ID) ?? true;
   }
 
   createShell(meta: SessionMetadata): Conversation {
     return {
       id: meta.id,
-      providerId: meta.providerId ?? DEFAULT_CHAT_PROVIDER_ID,
+      providerId: meta.providerId ?? LEGACY_IMPLICIT_PROVIDER_ID,
       title: meta.title,
       createdAt: meta.createdAt,
       lastActivityAt: meta.lastActivityAt,

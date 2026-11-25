@@ -11,7 +11,7 @@ import { ProviderWorkspaceRegistry } from '@/core/providers/ProviderWorkspaceReg
 import type { ProviderChatUIConfig, ProviderId, ProviderModelPolicy, ProviderRegistration, ProviderSettingsStorageAdapter } from '@/core/providers/types';
 import { InlineEditSessionOwner } from '@/features/inline-edit/InlineEditSessionOwner';
 import { InlineEditModal, InlineEditSession } from '@/features/inline-edit/ui/InlineEditModal';
-import { CLAUDE_PROVIDER_ICON } from '@/shared/icons';
+import { OPENAI_PROVIDER_ICON } from '@/shared/icons';
 
 const cleanups: Array<() => Promise<void>> = [];
 /** The registry cannot unregister, so fake providers stay enabled only in the test that registered them. */
@@ -67,7 +67,7 @@ export function registerFakeInlineEditProvider(
       providerId, supportsEphemeralSessions: true, supportsProviderCommands: true, reasoningControl: 'effort',
       supportsNativeHistory: false, supportsRewind: false, supportsFork: false, supportsImageAttachments: false,
     },
-    chatUIConfig: { ...fakeModelPolicy, getProviderIcon: () => CLAUDE_PROVIDER_ICON, ...ui },
+    chatUIConfig: { ...fakeModelPolicy, getProviderIcon: () => OPENAI_PROVIDER_ICON, ...ui },
     modelPolicy: fakeModelPolicy,
     settingsStorage: { normalizeStored: () => false },
     createExecutionBackend: () => backend,

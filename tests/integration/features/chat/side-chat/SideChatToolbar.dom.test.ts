@@ -22,7 +22,7 @@ it('refreshes destination settings when the side panel collapses, expands, and i
   const app = new App();
   Object.assign(app.vault.adapter, { basePath: '/vault' });
   const conversation = {
-    id: 'conversation-1', providerId: 'claude', selectedModel: 'claude-sonnet-4-5',
+    id: 'conversation-1', providerId: 'codex', selectedModel: 'claude-sonnet-4-5',
     sessionId: 'main-session', messages: harness.tab.state.messages,
   } as Conversation;
   const pool = createSessionRuntimePool(() => plugin);
@@ -37,8 +37,8 @@ it('refreshes destination settings when the side panel collapses, expands, and i
     getCommittedSettings: () => plugin.settings,
     settings: {
       model: 'claude-opus-4-6', effortLevel: 'medium', permissionMode: 'manual',
-      savedProviderModel: { claude: 'claude-opus-4-6' }, savedProviderEffort: { claude: 'medium' },
-      providerConfigs: { claude: { enabled: true, visibleModels: ['claude-sonnet-4-5', 'claude-opus-4-6'],
+      savedProviderModel: { codex: 'claude-opus-4-6' }, savedProviderEffort: { codex: 'medium' },
+      providerConfigs: { codex: { enabled: true, visibleModels: ['claude-sonnet-4-5', 'claude-opus-4-6'],
         discoveredModels: [
           { value: 'claude-sonnet-4-5', label: 'Sonnet', supportedEffortLevels: ['low', 'high'] },
           { value: 'claude-opus-4-6', label: 'Opus', supportedEffortLevels: ['medium', 'high'] },
@@ -111,9 +111,9 @@ it('refreshes destination settings when the side panel collapses, expands, and i
 
 it('side usage must carry the side model when native usage omits model', async () => {
   const harness = await createHarness({ settings: {
-    model: 'claude-opus-4-6', settingsProvider: 'claude',
-    savedProviderModel: { claude: 'claude-opus-4-6' },
-    providerConfigs: { claude: { enabled: true, visibleModels: ['claude-sonnet-4-5', 'claude-opus-4-6'] } },
+    model: 'claude-opus-4-6', settingsProvider: 'codex',
+    savedProviderModel: { codex: 'claude-opus-4-6' },
+    providerConfigs: { codex: { enabled: true, visibleModels: ['claude-sonnet-4-5', 'claude-opus-4-6'] } },
   } });
   const { started } = await startSideChat(harness);
   harness.backend.latest.complete();

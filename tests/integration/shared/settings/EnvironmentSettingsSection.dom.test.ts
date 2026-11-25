@@ -27,7 +27,7 @@ it.each([
   globalThis.structuredClone ??= value => deserialize(serialize(value));
   const initialSettings = {
     sharedEnvironmentVariables: initial,
-    providerConfigs: { claude: { environmentVariables: providerInitial ?? 'ANTHROPIC_MODEL=before' } },
+    providerConfigs: { codex: { environmentVariables: providerInitial ?? 'ANTHROPIC_MODEL=before' } },
     envSnippets: [{ id: 'snippet', name: 'Saved configuration', description: '', scope: legacy ? undefined : 'shared' as const, envVars: inserted }],
   };
   let saved = '';

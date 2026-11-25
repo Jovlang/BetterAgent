@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { Prec, StateEffect } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { axe } from '@test/helpers/accessibility';
-import { claudeCatalogFixture } from '@test/helpers/claudeModels';
+import { codexCatalogFixture } from '@test/helpers/codexModels';
 import { createFeatureHostFixture } from '@test/helpers/FeatureHostFixture';
 import { createChatFeatureHost } from '@test/helpers/features/chat/ChatFeatureHostFixture';
 import { createClaudianView } from '@test/helpers/features/chat/ClaudianViewHarness';
@@ -56,12 +56,12 @@ async function createView(provisional = false, options: { managed?: boolean; dra
   const settings = {
     model: 'claude-sonnet-4-5', effortLevel: 'high', permissionMode: 'manual',
     enableAutoTitleGeneration: false, excludedTags: [], mediaFolder: '', systemPrompt: '', userName: '',
-    providerConfigs: { claude: {
-      ...claudeCatalogFixture(['claude-sonnet-4-5'], ['low', 'high']), promptSuggestions: true,
+    providerConfigs: { codex: {
+      ...codexCatalogFixture(['claude-sonnet-4-5'], ['low', 'high']), promptSuggestions: true,
     } },
   } as unknown as ClaudianSettings;
   const conversation = {
-    id: 'conversation-1', providerId: 'claude', selectedModel: 'claude-sonnet-4-5',
+    id: 'conversation-1', providerId: 'codex', selectedModel: 'claude-sonnet-4-5',
     sessionId: 'main-session', messages: [], title: 'Existing conversation',
     createdAt: testDate().getTime(), lastActivityAt: testDate().getTime(),
   } as unknown as Conversation;
@@ -102,7 +102,7 @@ async function createView(provisional = false, options: { managed?: boolean; dra
   });
   await tab.session.runtime.model.hydrate();
   if (!options.draft) {
-    await tab.executionCoordinator.bindConversation({ conversationId: conversation.id, providerId: 'claude' });
+    await tab.executionCoordinator.bindConversation({ conversationId: conversation.id, providerId: 'codex' });
     await tab.executionCoordinator.prepare();
   }
   vi.spyOn(tab.dom.messagesEl, 'getClientRects').mockImplementation(() =>
@@ -310,12 +310,12 @@ it.each(['loading', 'empty', 'ready', 'error'] as const)(
         keydown: event => { editorKeys.push(event.key); return false; },
       }))) });
       view.tab.ui.composerDropdown.setProviderCatalog({
-        providerId: 'claude', triggerChars: ['/'], builtInPrefix: '/', commandPrefix: '/', skillPrefix: '/',
+        providerId: 'codex', triggerChars: ['/'], builtInPrefix: '/', commandPrefix: '/', skillPrefix: '/',
       }, discovery);
       type(view, 'First paragraph\n/zxy');
       await waitFor(() => expect(discovery.getSnapshot().status).toBe('loading'));
       const command = (name: string): ProviderCommandEntry => ({
-        id: name, name, providerId: 'claude', kind: 'command', content: '', scope: 'runtime', source: 'sdk',
+        id: name, name, providerId: 'codex', kind: 'command', content: '', scope: 'runtime', source: 'sdk',
         isEditable: false, isDeletable: false, displayPrefix: '/', insertPrefix: '/',
       });
       const result: ProviderCommandDiscoveryResult<ProviderCommandEntry> = status === 'ready'
@@ -541,8 +541,8 @@ it('keeps IME suppression until compositionend despite input and identity resets
     view.tab.dom.inputEl.focus();
     view.tab.dom.inputEl.value = '';
     fireEvent.input(view.tab.dom.inputEl);
-    view.tab.session.runtime.selectDraft('claude', 'different-draft-model');
-    view.tab.session.runtime.selectDraft('claude', 'claude-sonnet-4-5');
+    view.tab.session.runtime.selectDraft('codex', 'different-draft-model');
+    view.tab.session.runtime.selectDraft('codex', 'claude-sonnet-4-5');
     expect(key(view, 'ArrowUp', { isComposing: false }).inputPrevented).toBe(false);
     expect(view.tab.dom.inputEl.value).toBe('');
     fireEvent.compositionEnd(textbox(view));

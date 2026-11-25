@@ -17,7 +17,7 @@ type WithoutScope<T> = T extends unknown ? Omit<T, 'scope'> : never;
 
 /** Narrow provider boundary with controllable snapshots and session-level events. */
 export class FakeSideSession implements ProviderExecutionSession {
-  readonly providerId = 'claude' as const;
+  readonly providerId = 'codex' as const;
   readonly sessionInstanceId = randomUUID();
   readonly requests: ProviderExecutionRequest[] = [];
   disposeCalls = 0;
@@ -151,7 +151,7 @@ export class FakeSideSession implements ProviderExecutionSession {
 }
 
 export class FakeSideBackend implements ProviderExecutionBackend {
-  readonly providerId = 'claude' as const;
+  readonly providerId = 'codex' as const;
   readonly sessions: FakeSideSession[] = [];
   private readonly requestListeners = new Set<(request: ProviderExecutionRequest) => void>();
 

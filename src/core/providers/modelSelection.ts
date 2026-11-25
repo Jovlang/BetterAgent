@@ -1,5 +1,6 @@
 import type { ProviderId } from './types';
 
+// Keep legacy prefixes recognizable without registering their providers.
 const PROVIDER_MODEL_SELECTION_PREFIXES: Partial<Record<ProviderId, string>> = {
   antigravity: 'antigravity/',
   claude: 'claude-code/',

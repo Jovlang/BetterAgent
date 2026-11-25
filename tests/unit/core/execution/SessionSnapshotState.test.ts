@@ -6,12 +6,12 @@ import {
 describe('SessionSnapshotState', () => {
   it('advances one revision per status change and clears invalidation on recovery', () => {
     const state = new SessionSnapshotState({
-      providerId: 'claude',
+      providerId: 'codex',
       readProviderSessionId: () => 'native-1',
       sessionInstanceId: 'session-1',
     });
 
-    expect(state.getSnapshot()).toEqual({ providerId: 'claude', providerSessionId: 'native-1', revision: 0, status: 'idle' });
+    expect(state.getSnapshot()).toEqual({ providerId: 'codex', providerSessionId: 'native-1', revision: 0, status: 'idle' });
     state.setStatus('executing');
     state.invalidate({ message: 'gone', reason: 'process-exited', recoverable: true });
     const invalidated = state.getSnapshot();
@@ -23,13 +23,13 @@ describe('SessionSnapshotState', () => {
       revision: 2,
       status: 'invalidated',
     });
-    expect(state.getSnapshot()).toEqual({ providerId: 'claude', providerSessionId: 'native-1', revision: 4, status: 'idle' });
+    expect(state.getSnapshot()).toEqual({ providerId: 'codex', providerSessionId: 'native-1', revision: 4, status: 'idle' });
     expect(state.invalidation).toBeUndefined();
   });
 
   it('settles activity to idle or executing while keeping an invalidation once work ends', () => {
     const state = new SessionSnapshotState({
-      providerId: 'claude',
+      providerId: 'codex',
       readProviderSessionId: () => null,
       sessionInstanceId: 'session-1',
     });

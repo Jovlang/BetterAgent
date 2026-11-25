@@ -15,7 +15,7 @@ const ACTIVE_TARGET = 'claudian-session-drop-target--active';
 function conversation(id: string, overrides: Partial<ConversationMeta> = {}): ConversationMeta {
   const at = testDate({ hours: -1 }).getTime();
   return {
-    id, providerId: 'claude', title: `${id} session`, createdAt: at, lastActivityAt: at, messageCount: 1, preview: '',
+    id, providerId: 'codex', title: `${id} session`, createdAt: at, lastActivityAt: at, messageCount: 1, preview: '',
     ...overrides,
   };
 }

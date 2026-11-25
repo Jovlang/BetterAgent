@@ -34,3 +34,23 @@ export const TEST_CODEX_CATALOG: CodexDiscoveredModel[] = [
     isDefault: false,
   },
 ];
+
+/** Codex model catalog fixture for tests whose subject assumes discovery has completed. */
+export function codexCatalogFixture(
+  ids = ['haiku', 'sonnet', 'opus', 'fable'],
+  supportedEffortLevels?: string[],
+) {
+  return {
+    enabled: true,
+    visibleModels: [...ids],
+    discoveredModels: ids.map(value => ({
+      model: value,
+      displayName: value,
+      description: 'Test model',
+      inputModalities: ['text', 'image'],
+      supportedReasoningEfforts: (supportedEffortLevels ?? ['low', 'medium', 'high']).map(value => ({ value, description: '' })),
+      defaultReasoningEffort: 'high',
+      isDefault: value === ids[0],
+    })),
+  };
+}

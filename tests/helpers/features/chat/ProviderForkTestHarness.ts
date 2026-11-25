@@ -1,6 +1,5 @@
 import * as path from 'node:path';
 
-import { claudeCatalogFixture } from '@test/helpers/claudeModels';
 import { createChatFeatureHost } from '@test/helpers/features/chat/ChatFeatureHostFixture';
 
 import { ConversationRepository } from '@/app/conversations/ConversationRepository';
@@ -18,12 +17,8 @@ import type { AssembledTabRuntime } from '@/features/chat/tabs/types';
 export async function createForkTestEnvironment() {
   const plugin = await createChatFeatureHost({
     settings: {
-      model: 'claude-sonnet-4-5', permissionMode: 'normal', mediaFolder: 'media',
+      model: 'gpt-5', permissionMode: 'normal', mediaFolder: 'media',
       providerConfigs: {
-        claude: claudeCatalogFixture(['claude-sonnet-4-5']),
-        pi: { enabled: true, visibleModels: ['pi:anthropic/claude-sonnet-4'], discoveredModels: [{
-          encodedId: 'pi:anthropic/claude-sonnet-4', id: 'claude-sonnet-4', provider: 'anthropic', label: 'Sonnet', input: ['text'],
-        }] },
         codex: { enabled: true, visibleModels: ['gpt-5'], discoveredModels: [{ model: 'gpt-5', displayName: 'GPT-5', description: '', supportedReasoningEfforts: [{ value: 'medium', description: '' }], defaultReasoningEffort: 'medium', inputModalities: ['text'], isDefault: true }] },
       },
     },
@@ -34,7 +29,7 @@ export async function createForkTestEnvironment() {
   const { app, settings } = plugin;
   const root = host.workingDirectory!;
   const adapter = plugin.storage.getAdapter();
-  settings.providerConfigs.claude!.environmentVariables = `CLAUDE_CONFIG_DIR=${path.join(root, 'claude')}`;
+  settings.providerConfigs.codex!.environmentVariables = `CODEX_HOME=${path.join(root, 'codex')}`;
   host.getResolvedProviderCliPath = vi.fn(async providerId => `/bin/${providerId}`);
   const lifecycleRegistry = host.executionLifecycleRegistry;
   const repository = new ConversationRepository({
@@ -79,7 +74,7 @@ export async function createForkTestEnvironment() {
       submissionId: user.id,
       timestamp: user.timestamp, rawDisplayText: text, canonicalText: text, images: [],
       conversationHistory: history, messages: { user, assistant },
-      configuration: { model: { claude: 'claude-sonnet-4-5', codex: 'gpt-5', pi: 'pi:anthropic/claude-sonnet-4', opencode: 'opencode:test/model' }[chat.conversation.providerId], permissionMode: 'normal', systemInstructions: { kind: 'explicit', purpose: 'title', instructions: 'Answer the user.' } },
+      configuration: { model: 'gpt-5', permissionMode: 'normal', systemInstructions: { kind: 'explicit', purpose: 'title', instructions: 'Answer the user.' } },
       toolPolicy: { kind: 'provider-default' },
     }).catch(error => { throw new Error(JSON.stringify(error.cause ?? error), { cause: error }); });
     if (result.status !== expectedStatus) throw new Error(JSON.stringify(result));

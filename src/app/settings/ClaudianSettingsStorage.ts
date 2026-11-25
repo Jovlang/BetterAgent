@@ -13,6 +13,7 @@ import {
   getSharedEnvironmentVariables
 } from '../../core/providers/providerEnvironment';
 import { ProviderRegistry } from '../../core/providers/ProviderRegistry';
+import { LEGACY_IMPLICIT_PROVIDER_ID } from '../../core/providers/types';
 import type { VaultFileAdapter } from '../../core/storage/VaultFileAdapter';
 import {
   CHAT_VIEW_PLACEMENTS,
@@ -350,9 +351,8 @@ function migrateLegacyChatModelSelection(
 ): StoredChatModelSelection | null {
   const registeredProviderIds = new Set(ProviderRegistry.getRegisteredProviderIds());
   const storedProviderId = trimStoredString(stored.settingsProvider);
-  const providerId = registeredProviderIds.has(storedProviderId)
-    ? storedProviderId
-    : 'claude';
+  // Implicit legacy selections were Claude models; do not adopt them as Codex IDs.
+  const providerId = storedProviderId || LEGACY_IMPLICIT_PROVIDER_ID;
   if (!registeredProviderIds.has(providerId)) {
     return null;
   }

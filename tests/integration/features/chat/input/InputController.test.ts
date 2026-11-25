@@ -8,7 +8,7 @@ import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
 import type { ToolCallInfo } from '@/core/types';
 import { t } from '@/i18n/i18n';
 
-const nativeCapabilities = ProviderRegistry.getCapabilities('claude');
+const nativeCapabilities = ProviderRegistry.getCapabilities('codex');
 beforeEach(() => {
   vi.spyOn(ProviderRegistry, 'getCapabilities').mockReturnValue({ ...nativeCapabilities, supportsTurnSteer: true });
   vi.spyOn(ProviderRegistry, 'formatQuestionReply');
@@ -101,7 +101,7 @@ describe('InputController admission', () => {
     vi.clearAllMocks();
     vi.mocked(ProviderRegistry.getCapabilities).mockReturnValue({
       ...nativeCapabilities,
-      providerId: 'claude',
+      providerId: 'codex',
       supportsFork: true,
       supportsNativeHistory: true,
       supportsTurnSteer: true,

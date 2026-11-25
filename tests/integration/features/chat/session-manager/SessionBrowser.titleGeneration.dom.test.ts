@@ -3,7 +3,7 @@
 import '@/providers';
 
 import { axe } from '@test/helpers/accessibility';
-import { claudeCatalogFixture } from '@test/helpers/claudeModels';
+import { codexCatalogFixture } from '@test/helpers/codexModels';
 import { createSessionBrowserHost } from '@test/helpers/features/chat/SessionBrowserTestHarness';
 import { fireEvent, waitFor, within } from '@testing-library/dom';
 import { Notice } from 'obsidian';
@@ -15,12 +15,12 @@ import { SessionBrowser } from '@/features/chat/session-manager/SessionBrowser';
 
 async function setup(status?: Conversation['titleGenerationStatus'], enabled = true) {
   const conversation: Conversation = {
-    id: 'conversation', providerId: 'claude', sessionId: null, title: 'Fallback title', createdAt: 1, lastActivityAt: 2,
+    id: 'conversation', providerId: 'codex', sessionId: null, title: 'Fallback title', createdAt: 1, lastActivityAt: 2,
     titleGenerationStatus: status, messages: [{ id: 'message', role: 'user', content: 'Explain the code', timestamp: 1 }],
   };
   const initialSettings = {
     enableAutoTitleGeneration: enabled, titleGenerationModel: 'haiku',
-    providerConfigs: { claude: claudeCatalogFixture(['haiku']) },
+    providerConfigs: { codex: codexCatalogFixture(['haiku']) },
   };
   const generateTitle = vi.fn(async (id, _text, callback) => callback(id, { success: true, title: 'Code explained' }));
   const completeConversationTitleGeneration = vi.fn(async (_id, _expectedTitle, title) => {
@@ -89,7 +89,7 @@ it('does not offer generation when automatic titles are disabled', async () => {
 it('leaves pending and exposes retry when provider initialization fails', async () => {
   const fixture = await setup();
   const service = new RoutedTitleGenerationService({
-    resolveProviderId: () => 'claude',
+    resolveProviderId: () => 'codex',
     initializeProvider: async () => { throw new Error('Initialization failed'); },
     createService: () => { throw new Error('Execution must not start'); },
   });

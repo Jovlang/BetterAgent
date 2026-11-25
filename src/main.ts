@@ -1,8 +1,6 @@
-import { StartupProfiler } from './core/performance/StartupProfiler';
-import { registerProviderModules } from './core/providers/registerProviderModules';
-import { codexProviderRegistration } from './providers/codex/registration';
+import './providers';
 
-registerProviderModules([codexProviderRegistration]);
+import { StartupProfiler } from './core/performance/StartupProfiler';
 
 StartupProfiler.finishModuleEvaluation();
 

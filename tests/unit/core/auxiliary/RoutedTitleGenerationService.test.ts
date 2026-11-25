@@ -6,7 +6,7 @@ function setup(initializeProvider = vi.fn().mockResolvedValue(undefined)) {
     generateTitle: vi.fn(async (id, _message, callback) => callback(id, { success: true, title: 'Generated title' })),
   };
   const service = new RoutedTitleGenerationService({
-    resolveProviderId: () => 'claude',
+    resolveProviderId: () => 'codex',
     initializeProvider,
     createService: () => native,
   });

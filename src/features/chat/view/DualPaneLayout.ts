@@ -8,6 +8,8 @@ const MIN_SESSION_SIDEBAR_WIDTH = 180;
 const SESSION_RESIZER_WIDTH = 5;
 const SESSION_RESIZE_KEYBOARD_STEP = 16;
 
+type HistoryVisibility = 'closed' | 'manual' | 'automatic';
+
 // Each Obsidian leaf owns a history panel and disclosure button.
 let nextHistoryPanelId = 0;
 
@@ -24,7 +26,6 @@ export interface DualPaneLayoutElements {
     chatPanelEl: HTMLElement;
     toggleEl: HTMLButtonElement;
     backEl: HTMLButtonElement;
-    searchEl: HTMLButtonElement;
   };
 }
 
@@ -36,6 +37,7 @@ export interface DualPaneLayoutHooks {
   onEnterWide(): void;
   /** The session sidebar should render its current state. */
   renderSidebar(): void;
+  focusHistorySearch?(): void;
   /** End transient sidebar interactions when it is hidden. */
   onHideSidebar(): void;
   /** Releases the viewer slot (retaining what must survive) before compact controls return. */
@@ -57,6 +59,7 @@ export class DualPaneLayout {
   private resizeObserver: ResizeObserver | null = null;
   private resizeCleanup: (() => void) | null = null;
   private sidebarWidth: number | null = null;
+  private historyVisibility: HistoryVisibility = 'closed';
 
   constructor(
     private readonly hooks: DualPaneLayoutHooks,
@@ -81,10 +84,10 @@ export class DualPaneLayout {
     }
     if (history) {
       sidebarEl.id = `claudian-history-panel-${++nextHistoryPanelId}`;
-      sidebarEl.hidden = true;
+      containerEl.addClass('claudian-chat-body--compact');
+      this.setHistoryVisibility('closed');
       history.toggleEl.setAttribute('aria-controls', sidebarEl.id);
-      history.toggleEl.setAttribute('aria-expanded', 'false');
-      history.toggleEl.addEventListener('click', () => this.setHistoryVisible(sidebarEl.hasAttribute('hidden')));
+      history.toggleEl.addEventListener('click', () => this.setHistoryVisible(!this.historyVisible));
       history.backEl.addEventListener('click', () => this.closeHistory());
     }
 
@@ -95,7 +98,7 @@ export class DualPaneLayout {
   }
 
   get historyVisible(): boolean {
-    return !!this.elements?.history && !this.elements.sidebarEl.hidden;
+    return this.historyVisibility !== 'closed';
   }
 
   closeHistory(narrowOnly = false): boolean {
@@ -108,17 +111,43 @@ export class DualPaneLayout {
   }
 
   setHistoryVisible(visible: boolean): void {
-    const elements = this.elements;
-    if (!elements?.history || visible === this.historyVisible) return;
-    elements.sidebarEl.hidden = !visible;
-    elements.history.toggleEl.setAttribute('aria-expanded', String(visible));
+    if (!this.elements?.history || visible === this.historyVisible) return;
+    this.setHistoryVisibility(visible ? 'manual' : 'closed');
     this.updateHistoryPresentation();
     if (visible) {
       this.hooks.renderSidebar();
-      if (!elements.history.backEl.hidden) elements.history.backEl.focus();
+      this.hooks.focusHistorySearch?.();
     } else {
       this.hooks.onHideSidebar();
     }
+  }
+
+  private setHistoryVisibility(visibility: HistoryVisibility): void {
+    const elements = this.elements;
+    if (!elements?.history) return;
+    this.historyVisibility = visibility;
+    elements.sidebarEl.hidden = !this.historyVisible;
+    elements.history.toggleEl.setAttribute('aria-expanded', String(this.historyVisible));
+  }
+
+  private updateResponsiveHistory(width: number): void {
+    const elements = this.elements;
+    if (!elements?.history) return;
+    const { containerEl, sidebarEl, history } = elements;
+    const wasCompact = containerEl.classList.contains('claudian-chat-body--compact');
+    const isCompact = width <= WIDE_SESSION_LAYOUT_MIN_WIDTH;
+    containerEl.toggleClass('claudian-chat-body--compact', isCompact);
+
+    if (wasCompact && !isCompact && !this.historyVisible) {
+      // A resize can expose history, but must not interrupt typing in the composer.
+      this.setHistoryVisibility('automatic');
+    } else if (isCompact && this.historyVisibility === 'automatic') {
+      const hadHistoryFocus = sidebarEl.contains(sidebarEl.ownerDocument.activeElement);
+      this.setHistoryVisibility('closed');
+      this.hooks.onHideSidebar();
+      if (hadHistoryFocus) history.toggleEl.focus({ preventScroll: true });
+    }
+    this.updateHistoryPresentation();
   }
 
   private updateHistoryPresentation(): void {
@@ -130,10 +159,9 @@ export class DualPaneLayout {
     const focused = elements.containerEl.ownerDocument.activeElement;
     history.chatPanelEl.toggleAttribute('inert', replacesChat);
     history.backEl.hidden = !replacesChat;
-    history.searchEl.hidden = !replacesChat;
     if (replacesChat && (focused === history.toggleEl || history.chatPanelEl.contains(focused))) {
       history.backEl.focus();
-    } else if (!replacesChat && (focused === history.backEl || focused === history.searchEl)) {
+    } else if (!replacesChat && focused === history.backEl) {
       history.toggleEl.focus();
     }
   }
@@ -177,11 +205,7 @@ export class DualPaneLayout {
     // A hidden view reports zero width. Select the viewer on first mount, but don't
     // rearrange its history when the host hides the already-mounted chat.
     if (width <= 0 && (!singleViewer || this.requestedWide)) return;
-    const history = this.elements?.history;
-    if (history) {
-      containerEl.toggleClass('claudian-chat-body--compact', width < WIDE_SESSION_LAYOUT_MIN_WIDTH);
-      this.updateHistoryPresentation();
-    }
+    this.updateResponsiveHistory(width);
     const renderSidebar = options.renderSidebar ?? true;
     const settings = this.hooks.getSettings();
 

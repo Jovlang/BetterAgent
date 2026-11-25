@@ -32,6 +32,8 @@ import type { ZenModeSlots, ZenModeSource, ZenPresentationPort } from '@/feature
 import { t } from '@/i18n/i18n';
 import { VaultMentionDataProvider } from '@/shared/mention/VaultMentionDataProvider';
 
+const MOUSE_BACK_BUTTON = 3;
+
 type LoadableView = {
   containerEl?: HTMLElement;
   load: () => Promise<void> | void;
@@ -124,6 +126,7 @@ export class ClaudianView extends ItemView implements ZenModeSource {
           .catch(() => new Notice(t('chat.tabNavigation.showWideFailed')));
       },
       renderSidebar: () => this.sessions.renderSidebar(),
+      focusHistorySearch: () => this.sessions.focusSearch(),
       onHideSidebar: () => this.sessions.leaveWide(),
       releaseViewerSlot: () => this.tabManager?.viewerSlot.release(),
     }, options);
@@ -431,13 +434,12 @@ export class ClaudianView extends ItemView implements ZenModeSource {
 
     const resizerEl = singleViewer ? undefined : containerEl.createDiv({ cls: 'claudian-session-resizer' });
     const sidebarEl = containerEl.createDiv({ cls: 'claudian-session-sidebar' });
-    this.sessions.mountSidebar(sidebarEl, controls?.historyHeader);
+    this.sessions.mountSidebar(sidebarEl, controls?.backEl);
     const history = controls
       ? {
           chatPanelEl,
           toggleEl: controls.toggleEl,
-          backEl: controls.historyHeader[0],
-          searchEl: controls.historyHeader[1],
+          backEl: controls.backEl,
         }
       : undefined;
     return { containerEl, resizerEl, sidebarEl, history };
@@ -445,7 +447,7 @@ export class ClaudianView extends ItemView implements ZenModeSource {
 
   private buildComposerActions(): {
     actions: HTMLButtonElement[];
-    historyHeader: readonly [HTMLButtonElement, HTMLButtonElement];
+    backEl: HTMLButtonElement;
     toggleEl: HTMLButtonElement;
   } {
     const button = (icon: string, label: string): HTMLButtonElement => {
@@ -464,11 +466,6 @@ export class ClaudianView extends ItemView implements ZenModeSource {
         .catch(() => new Notice(t('chat.tabNavigation.startConversationFailed')));
     });
     const toggleEl = button('history', t('chat.tabNavigation.historyToggle'));
-    const search = button('search', t('chat.tabNavigation.searchSessions'));
-    search.addEventListener('click', () => {
-      this.layout.setHistoryVisible(true);
-      this.sessions.focusSearch();
-    });
     const more = button('ellipsis', t('chat.tabNavigation.moreActions'));
     more.setAttribute('aria-haspopup', 'menu');
     bindMenuToggle(more, event => {
@@ -478,12 +475,10 @@ export class ClaudianView extends ItemView implements ZenModeSource {
       return menu;
     });
 
-    const actions = [newChat, toggleEl, search, more];
+    const actions = [newChat, toggleEl, more];
     for (const action of actions) action.addClass('claudian-composer-action');
     const backEl = button('arrow-left', t('chat.tabNavigation.backToConversation'));
-    const historySearch = button('search', t('chat.tabNavigation.searchSessions'));
-    historySearch.addEventListener('click', () => this.sessions.focusSearch());
-    return { actions, historyHeader: [backEl, historySearch], toggleEl };
+    return { actions, backEl, toggleEl };
   }
 
   /**
@@ -701,6 +696,22 @@ export class ClaudianView extends ItemView implements ZenModeSource {
 
   private wireEventHandlers(): void {
     const activeDocument = this.containerEl.ownerDocument;
+    const viewWindow = activeDocument.defaultView;
+
+    if (this.options?.singleViewer && viewWindow) {
+      const handleMouseBack = (event: PointerEvent): void => {
+        const container = this.viewContainerEl;
+        if (event.button !== MOUSE_BACK_BUTTON || !this.layout.historyVisible
+          || !container || !event.composedPath().includes(container)) return;
+
+        // Consume both phases before Obsidian can handle the button as workspace Back.
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        if (event.type === 'pointerup') this.layout.closeHistory();
+      };
+      this.registerDomEvent(viewWindow, 'pointerdown', handleMouseBack, true);
+      this.registerDomEvent(viewWindow, 'pointerup', handleMouseBack, true);
+    }
 
     // Document-level click to close dropdowns
     this.registerDomEvent(activeDocument, 'click', (event) => {

@@ -48,7 +48,7 @@ interface SearchSession {
   /** IME composition in progress; Escape and rendering wait for it. */
   composing: boolean;
   /** List scroll positions to restore when filtering ends. */
-  readonly restoreState: SessionSearchScrollState;
+  restoreState: SessionSearchScrollState | undefined;
   /** Search starts every group and section expanded, matching projects included. */
   readonly collapse: SessionGroupCollapse;
   fieldEl: HTMLElement | null;
@@ -58,7 +58,7 @@ interface SearchSession {
 export class SessionSidebar {
   private sidebarEl: HTMLElement | null = null;
   private surfaceEl: HTMLElement | null = null;
-  private headerControls?: readonly [HTMLElement, HTMLElement];
+  private archiveLabelEl?: HTMLElement;
   private newButtonEl: HTMLElement | null = null;
   private groupToggleButtonEl: HTMLElement | null = null;
   private themeEvent: EventRef | null = null;
@@ -66,7 +66,7 @@ export class SessionSidebar {
   private renderAbortController: AbortController | null = null;
   private dirty = true;
 
-  /** The active search; null while the sidebar lists sessions normally. */
+  /** Flat history keeps its search mounted; the legacy list creates one on demand. */
   #search: SearchSession | null = null;
   private searchDismissCleanup: (() => void) | null = null;
   private readonly collapse: SessionGroupCollapse;
@@ -82,9 +82,15 @@ export class SessionSidebar {
   }
 
   /** Builds the sidebar surface inside `sidebarEl`. */
-  mount(sidebarEl: HTMLElement, headerControls?: readonly [HTMLElement, HTMLElement]): void {
+  mount(sidebarEl: HTMLElement, backEl?: HTMLButtonElement): void {
     this.sidebarEl = sidebarEl;
-    this.headerControls = headerControls;
+    if (this.deps.flatHistory) {
+      const header = sidebarEl.createDiv({ cls: 'claudian-history-panel-header' });
+      if (backEl) header.append(backEl);
+      this.archiveLabelEl = header.createSpan({ cls: 'claudian-history-panel-archive-label' });
+      this.#search = this.createSearchSession();
+      this.buildSearchField(header, this.#search);
+    }
     const trackEl = sidebarEl.createDiv({ cls: 'claudian-sidebar-surface-track' });
     this.surfaceEl = trackEl.createDiv({ cls: 'claudian-session-surface' });
     this.syncThemeBackground();
@@ -102,10 +108,7 @@ export class SessionSidebar {
     // The whole surface waits, since its list render clears the controls built around it.
     if (this.deps.shared.browser.deferWhileSortingProjects(() => this.render())) return;
 
-    const focusedHeaderControl = this.headerControls?.find(
-      control => control === control.ownerDocument.activeElement,
-    );
-    const previousSearchInput = this.#search?.inputEl ?? null;
+    const previousSearchInput = this.deps.flatHistory ? null : this.#search?.inputEl ?? null;
     const shouldRestoreSearchFocus = previousSearchInput?.ownerDocument.activeElement
       === previousSearchInput;
     const searchSelection = previousSearchInput && shouldRestoreSearchFocus ? {
@@ -120,25 +123,25 @@ export class SessionSidebar {
 
     this.deps.shared.profileListRender(() => {
       this.newButtonEl = null;
-      if (this.#search) {
+      if (this.#search && !this.deps.flatHistory) {
         this.#search.fieldEl = null;
         this.#search.inputEl = null;
       }
+      if (this.deps.flatHistory && this.#search?.inputEl) {
+        this.labelSearchInput(this.#search.inputEl);
+      }
       this.groupToggleButtonEl = null;
       this.renderList(surfaceEl, abortController.signal);
-      this.buildHeaderActions(surfaceEl);
-      if (shouldRestoreSearchFocus) {
-        this.focusSearchInput(searchSelection);
-      } else {
-        focusedHeaderControl?.focus({ preventScroll: true });
-      }
+      if (!this.deps.flatHistory) this.buildHeaderActions(surfaceEl);
+      if (shouldRestoreSearchFocus) this.focusSearchInput(searchSelection);
       this.dirty = false;
     });
   }
 
   /** Leaving the wide layout ends search and rendering. */
   leave(): void {
-    this.closeSearch();
+    if (this.deps.flatHistory) this.discardSearch();
+    else this.closeSearch();
     this.cancelRendering();
     this.dirty = true;
   }
@@ -146,14 +149,27 @@ export class SessionSidebar {
   /** Closes an active search for Escape; returns whether there was one. */
   dismissSearch(): boolean {
     if (!this.#search) return false;
-    this.closeSearch();
+    if (this.deps.flatHistory) {
+      if (!this.#search.query) return false;
+      if (this.#search.inputEl) this.#search.inputEl.value = '';
+      this.updateSearchQuery('');
+    } else {
+      this.closeSearch();
+    }
     return true;
   }
 
   /** Drops search without rendering or restoring scroll, for a switch to another list. */
   discardSearch(): void {
     this.clearSearchDismissHandlers();
-    this.#search = null;
+    if (this.deps.flatHistory && this.#search) {
+      this.#search.query = '';
+      this.#search.composing = false;
+      this.#search.restoreState = undefined;
+      if (this.#search.inputEl) this.#search.inputEl.value = '';
+    } else {
+      this.#search = null;
+    }
   }
 
   refreshNewAvailability(): void {
@@ -197,11 +213,8 @@ export class SessionSidebar {
       scrollLayout: flat ? 'list' : 'sections',
       showInlinePinAction: true,
       flatHistory: flat,
-      historyHeaderControls: this.headerControls,
       onRequestInlineRename: (request) => {
-        if (this.#search) {
-          this.closeSearch();
-        }
+        this.dismissSearch();
         beginInlineRenameNextFrame(container, request);
       },
       ...archiveScopeOptions(isArchiveView),
@@ -221,7 +234,6 @@ export class SessionSidebar {
       showPinnedSection: !flat && !isArchiveView,
       pinnedLinkedContentPaths: flat ? undefined : new Set(plugin.settings.pinnedLinkedContentPaths ?? []),
       showArchivedSection: !flat && isArchiveView,
-      ...(flat ? { historyHeaderLabel: t(isArchiveView ? 'chat.tabNavigation.archive' : 'chat.tabNavigation.history') } : {}),
       isGroupCollapsed: (groupKey: string, defaultCollapsed?: boolean) => (
         this.getDisplayedCollapse().isCollapsed(groupKey, defaultCollapsed)
       ),
@@ -260,12 +272,7 @@ export class SessionSidebar {
   private buildHeaderActions(container: HTMLElement): void {
     const header = container.querySelector<HTMLElement>('.claudian-session-list-header');
     const list = container.querySelector<HTMLElement>('.claudian-history-list');
-    if (!list) return;
-    if (this.deps.flatHistory) {
-      if (this.#search) this.buildSearchField(container, list, this.#search);
-      return;
-    }
-    if (!header) return;
+    if (!header || !list) return;
 
     const { shared } = this.deps;
     const isArchiveView = shared.isArchiveView();
@@ -289,7 +296,7 @@ export class SessionSidebar {
     this.newButtonEl = newControl;
 
     if (this.#search) {
-      this.buildSearchField(container, list, this.#search);
+      this.buildSearchField(container, this.#search, list);
     } else {
       const searchControl = container.createDiv({ cls: 'claudian-session-search-control' });
       searchControl.setAttribute('role', 'button');
@@ -346,22 +353,18 @@ export class SessionSidebar {
     this.refreshNewAvailability();
   }
 
-  private buildSearchField(container: HTMLElement, list: HTMLElement, search: SearchSession): void {
+  private buildSearchField(container: HTMLElement, search: SearchSession, before?: HTMLElement): void {
     const searchField = container.createDiv({ cls: 'claudian-session-search-field' });
     const searchIcon = searchField.createSpan({ cls: 'claudian-session-nav-icon' });
     setIcon(searchIcon, 'search');
-    const label = t(this.deps.shared.isArchiveView()
-      ? 'chat.tabNavigation.searchArchived'
-      : 'chat.tabNavigation.searchSessions');
     const searchInput = searchField.createEl('input', {
       cls: 'claudian-session-search-input',
       attr: {
         type: 'search',
         autocomplete: 'off',
-        placeholder: label,
-        'aria-label': label,
       },
     });
+    this.labelSearchInput(searchInput);
     searchInput.value = search.query;
     bindSessionSearchInput(searchInput, search, query => this.updateSearchQuery(query));
     searchInput.addEventListener('keydown', (event) => {
@@ -370,12 +373,35 @@ export class SessionSidebar {
         event.stopPropagation();
         return;
       }
-      event.preventDefault();
-      this.closeSearch();
+      if (this.dismissSearch()) event.preventDefault();
     });
-    container.insertBefore(searchField, list);
+    if (before) container.insertBefore(searchField, before);
     search.fieldEl = searchField;
     search.inputEl = searchInput;
+  }
+
+  private labelSearchInput(input: HTMLInputElement): void {
+    const archive = this.deps.shared.isArchiveView();
+    const label = t(archive ? 'chat.tabNavigation.searchArchived' : 'chat.tabNavigation.searchSessions');
+    if (input.placeholder !== label) {
+      input.placeholder = label;
+      input.setAttribute('aria-label', label);
+    }
+    const archiveLabel = archive ? t('chat.tabNavigation.archive') : '';
+    if (this.archiveLabelEl && this.archiveLabelEl.textContent !== archiveLabel) {
+      this.archiveLabelEl.textContent = archiveLabel;
+    }
+  }
+
+  private createSearchSession(restoreState?: SessionSearchScrollState): SearchSession {
+    return {
+      collapse: new SessionGroupCollapse({ projectsStartExpanded: true }),
+      composing: false,
+      fieldEl: null,
+      inputEl: null,
+      query: '',
+      restoreState,
+    };
   }
 
   activateSearch(): void {
@@ -384,14 +410,7 @@ export class SessionSidebar {
       return;
     }
 
-    this.#search = {
-      collapse: new SessionGroupCollapse({ projectsStartExpanded: true }),
-      composing: false,
-      fieldEl: null,
-      inputEl: null,
-      query: '',
-      restoreState: this.captureSearchScrollState(),
-    };
+    this.#search = this.createSearchSession(this.captureSearchScrollState());
     this.dirty = true;
     this.render();
     this.focusSearchInput();
@@ -402,6 +421,9 @@ export class SessionSidebar {
     const search = this.#search;
     if (!search) return;
     const wasFiltering = this.isSearchFiltering();
+    if (this.deps.flatHistory && !wasFiltering && query.trim()) {
+      search.restoreState = this.captureSearchScrollState();
+    }
     search.query = query;
     this.dirty = true;
     this.render();

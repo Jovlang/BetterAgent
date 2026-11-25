@@ -24,7 +24,7 @@ Open the BetterAgent interface from the ribbon icon or command palette. Everythi
 
 **MCP Servers** — Connect external tools through each coding agent's native CLI-managed MCP configuration.
 
-**Conversation History** — Use the **History** or **Search** icon next to Linked content below the composer to find a conversation. History opens beside the chat in wider panes and replaces it in narrow panes; **Back** returns to the same conversation and draft. Find **Archive** under **More** in the same row.
+**Conversation History** — Open **History** next to Linked content below the composer to search for a conversation. History opens automatically beside the chat when the pane is wider than 600 px. In narrow panes it replaces the chat when opened manually; **Back** returns to the same conversation and draft. Find **Archive** under **More** in the same row.
 
 **Plugin API (experimental)** — Let other Obsidian plugins send prompts to sessions, stop them and read their replies. See the [Plugin API guide](docs/plugin-api.md).
 

@@ -364,7 +364,8 @@ describe('ClaudianView provider and presentation wiring', () => {
     expect(getComputedStyle(history).display).toBe('none');
     const footer = within(tab.dom.infoRowEl);
     expect(footer.getByText('brief.pdf')).toBeTruthy();
-    const actionNames = ['New chat', 'Conversation history', 'Search sessions', 'More chat actions'];
+    const actionNames = ['New chat', 'Conversation history', 'More chat actions'];
+    expect(footer.queryByRole('button', { name: 'Search sessions' })).toBeNull();
     for (const name of actionNames) {
       const button = footer.getByRole('button', { name });
       expect(button.parentElement).toBe(tab.dom.infoRowEl);
@@ -377,15 +378,22 @@ describe('ClaudianView provider and presentation wiring', () => {
     expect(getComputedStyle(history).display).toBe('flex');
     expect(chat.hasAttribute('inert')).toBe(true);
     expect(getComputedStyle(chat).visibility).toBe('hidden');
+    // The floating transcript navigation sets its own visibility, so hide the whole chat as a layer.
+    expect(getComputedStyle(chat).opacity).toBe('0');
+    expect(document.activeElement).toBe(within(history).getByRole('searchbox', { name: 'Search sessions' }));
+    expect(within(history).queryByText('History', { exact: true })).toBeNull();
+    expect(within(history).queryByRole('button', { name: 'Search sessions' })).toBeNull();
     expect(within(history).getAllByText('brief.pdf')).toHaveLength(2);
     expect(within(history).getByRole('button', { name: 'two brief.pdf' })).toBeTruthy();
-    expect(within(history).getByRole('button', { name: 'Actions for two' })).toBeTruthy();
+    const rowActions = within(history).getByRole('button', { name: 'Actions for two' });
+    expect(getComputedStyle(rowActions.parentElement!).opacity).toBe('0');
     expect(within(history).queryByRole('button', { name: 'Archive' })).toBeNull();
 
     resize(800);
     expect(history.hidden).toBe(false);
     expect(chat.hasAttribute('inert')).toBe(false);
     expect(getComputedStyle(chat).visibility).toBe('visible');
+    expect(within(history).getByRole('searchbox', { name: 'Search sessions' })).toBeTruthy();
     resize(350);
     expect(chat.hasAttribute('inert')).toBe(true);
     fireEvent.click(within(contentEl).getByRole('button', { name: 'Back to conversation' }));
@@ -397,10 +405,11 @@ describe('ClaudianView provider and presentation wiring', () => {
     expect(tab.dom.inputEl.value).toBe('Unsent draft');
     expect(tab.dom.messagesEl.scrollTop).toBe(120);
 
-    fireEvent.click(footer.getByRole('button', { name: 'Search sessions' }));
+    fireEvent.click(historyToggle);
     const search = within(history).getByRole('searchbox', { name: 'Search sessions' });
     expect(document.activeElement).toBe(search);
     fireEvent.input(search, { target: { value: 'two' } });
+    expect(within(history).getByRole('searchbox')).toBe(search);
     expect(within(history).queryByText('one')).toBeNull();
     fireEvent.click(within(history).getByRole('button', { name: 'two brief.pdf' }));
     await waitFor(() => expect(history.hidden).toBe(true));
@@ -415,11 +424,88 @@ describe('ClaudianView provider and presentation wiring', () => {
     }).instances.at(-1)!;
     menu.items.find(item => item.title === 'Archive')?.clickHandler?.();
     menu.hide();
+    expect(within(history).getByRole('searchbox', { name: 'Search archived sessions' })).toBe(search);
+    expect(within(history).getByText('Archive', { exact: true })).toBeTruthy();
     expect(within(history).getByText('archived')).toBeTruthy();
     expect(within(history).queryByText('two')).toBeNull();
     fireEvent.click(within(history).getByRole('button', { name: 'Back to conversation' }));
     fireEvent.click(nextFooter.getByRole('button', { name: 'New chat' }));
     await waitFor(() => expect(view.getActiveTab()?.conversationId).toBeNull());
+  });
+
+  it.each([400, 800])('closes history from the mouse Back button at %i px without navigating away', async width => {
+    const { view, manager, contentEl } = await openView({ width, singleViewer: true });
+    await view.openSession('one');
+    const tab = manager.getActiveTab()!;
+    tab.dom.inputEl.value = 'Keep this draft';
+    const toggle = within(tab.dom.infoRowEl).getByRole('button', { name: 'Conversation history' });
+    if (width === 400) fireEvent.click(toggle);
+    const history = contentEl.querySelector<HTMLElement>('.claudian-session-sidebar')!;
+    const search = within(history).getByRole('searchbox');
+    fireEvent.input(search, { target: { value: 'two' } });
+
+    const hostPointerUp = vi.fn();
+    document.addEventListener('pointerup', hostPointerUp, true);
+    onTestFinished(() => document.removeEventListener('pointerup', hostPointerUp, true));
+    const dispatchButton = (target: Element, type: string, button: number): MouseEvent => {
+      const event = new MouseEvent(type, { button, bubbles: true, cancelable: true });
+      fireEvent(target, event);
+      return event;
+    };
+
+    expect(dispatchButton(document.body, 'pointerup', 3).defaultPrevented).toBe(false);
+    expect(dispatchButton(search, 'pointerup', 4).defaultPrevented).toBe(false);
+    expect(hostPointerUp).toHaveBeenCalledTimes(2);
+    expect(history.hidden).toBe(false);
+
+    expect(dispatchButton(search, 'pointerdown', 3).defaultPrevented).toBe(true);
+    expect(history.hidden).toBe(false);
+    expect(dispatchButton(search, 'pointerup', 3).defaultPrevented).toBe(true);
+    expect(hostPointerUp).toHaveBeenCalledTimes(2);
+    expect(history.hidden).toBe(true);
+    expect(document.activeElement).toBe(toggle);
+    expect(view.getActiveTab()).toBe(tab);
+    expect(tab.dom.inputEl.value).toBe('Keep this draft');
+
+    expect(dispatchButton(toggle, 'pointerup', 3).defaultPrevented).toBe(false);
+    expect(hostPointerUp).toHaveBeenCalledTimes(3);
+  });
+
+  it('automatically shows history alongside chat above 600 px without taking composer focus', async () => {
+    const { view, manager, contentEl, resize } = await openView({ width: 601, singleViewer: true });
+    await view.openSession('one');
+    const tab = manager.getActiveTab()!;
+    const chat = tab.dom.messagesEl.closest('.claudian-chat-panel')!;
+    const history = contentEl.querySelector<HTMLElement>('.claudian-session-sidebar')!;
+    const toggle = within(tab.dom.infoRowEl).getByRole('button', { name: 'Conversation history' });
+
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(within(history).getByText('two')).toBeTruthy();
+    expect(chat.hasAttribute('inert')).toBe(false);
+
+    resize(600);
+    expect(history.hidden).toBe(true);
+    expect(chat.hasAttribute('inert')).toBe(false);
+    tab.dom.inputEl.value = 'Keep typing';
+    tab.dom.inputEl.focus();
+    const composerFocus = document.activeElement;
+    expect(tab.dom.inputEl.contains(composerFocus)).toBe(true);
+    tab.dom.messagesEl.scrollTop = 120;
+
+    resize(601);
+    expect(history.hidden).toBe(false);
+    expect(chat.hasAttribute('inert')).toBe(false);
+    expect(document.activeElement).toBe(composerFocus);
+    expect(view.getActiveTab()).toBe(tab);
+    expect(tab.dom.inputEl.value).toBe('Keep typing');
+    expect(tab.dom.messagesEl.scrollTop).toBe(120);
+
+    fireEvent.click(toggle);
+    resize(640);
+    expect(history.hidden).toBe(true);
+    resize(590);
+    resize(640);
+    expect(history.hidden).toBe(false);
   });
 
   it('routes picked sessions and /new through the real viewer only while wide', async () => {

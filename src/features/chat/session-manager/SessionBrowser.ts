@@ -101,7 +101,6 @@ type HistoryRenderOptions = SessionActionOptions & SessionStatusDisplay & Sessio
   showPinnedSection?: boolean;
   showArchivedSection?: boolean;
   historyHeaderLabel?: string;
-  historyHeaderControls?: readonly [HTMLElement, HTMLElement];
   allowConversationSelection?: boolean;
   searchQuery?: string;
   onRequestInlineRename?: (request: {
@@ -321,11 +320,10 @@ export class SessionBrowser {
         options,
       );
     } else {
-      const dropdownHeader = container.createDiv({ cls: 'claudian-history-header' });
-      const controls = options.historyHeaderControls;
-      if (controls) dropdownHeader.append(controls[0]);
-      dropdownHeader.createSpan({ text: options.historyHeaderLabel ?? 'Sessions' });
-      if (controls) dropdownHeader.append(controls[1]);
+      if (!options.flatHistory) {
+        const dropdownHeader = container.createDiv({ cls: 'claudian-history-header' });
+        dropdownHeader.createSpan({ text: options.historyHeaderLabel ?? 'Sessions' });
+      }
       list = container.createDiv({ cls: 'claudian-history-list' });
       sessionList = list;
     }

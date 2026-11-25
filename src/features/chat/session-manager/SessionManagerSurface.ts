@@ -79,8 +79,8 @@ export class SessionManagerSurface {
   }
 
   /** Builds the dual-pane sidebar surface inside `sidebarEl`. */
-  mountSidebar(sidebarEl: HTMLElement, headerControls?: readonly [HTMLElement, HTMLElement]): void {
-    this.sidebar.mount(sidebarEl, headerControls);
+  mountSidebar(sidebarEl: HTMLElement, backEl?: HTMLButtonElement): void {
+    this.sidebar.mount(sidebarEl, backEl);
   }
 
   /** Builds the single-pane history button and its drop-up menu inside `parentEl`. */

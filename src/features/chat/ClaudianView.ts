@@ -61,7 +61,7 @@ export class ClaudianView extends ItemView implements ZenModeSource {
   private readonly layout: DualPaneLayout;
   private readonly presentation: ChatPresentationPlacement;
 
-  constructor(leaf: WorkspaceLeaf, plugin: ChatFeatureHost) {
+  constructor(leaf: WorkspaceLeaf, plugin: ChatFeatureHost, options?: { singleViewer?: boolean }) {
     super(leaf);
     this.plugin = plugin;
     this.mentionDataProvider = new VaultMentionDataProvider(plugin.app);
@@ -119,7 +119,7 @@ export class ClaudianView extends ItemView implements ZenModeSource {
       renderSidebar: () => this.sessions.renderSidebar(),
       onLeaveWideRequested: () => this.sessions.leaveWide(),
       releaseViewerSlot: () => this.tabManager?.viewerSlot.release(),
-    });
+    }, options);
     this.presentation = new ChatPresentationPlacement({
       getActiveTab: () => this.getActiveTab(),
       isWide: () => this.layout.isWide,

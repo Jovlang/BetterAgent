@@ -889,8 +889,8 @@
       "desc": "Automatically show the session manager beside the chat when the view is at least 600 px wide."
     },
     "restoreTabsOnStartup": {
-      "name": "Restore tabs on startup",
-      "desc": "Reopen all tabs in single-pane mode or the last active tab in dual-pane mode."
+      "name": "Restore last conversation on startup",
+      "desc": "Reopen the last active conversation when BetterAgent starts."
     },
     "sessionAutoArchiveAfter": {
       "name": "Auto-archive inactive sessions",

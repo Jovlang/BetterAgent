@@ -35,6 +35,7 @@ const openedViews: Awaited<ReturnType<typeof createClaudianView>>[] = [];
 
 async function createView(options: {
   width?: number;
+  singleViewer?: boolean;
   fixture?: Awaited<ReturnType<typeof createFeatureHostFixture>>;
   host?: Omit<NonNullable<NonNullable<Parameters<typeof createSessionBrowserHost>[0]>['host']>, 'fixture' | 'app'>;
 } = {}) {
@@ -64,7 +65,7 @@ async function createView(options: {
     triggerResize(contentEl, { contentRect, borderBoxSize: [], contentBoxSize: [], devicePixelContentBoxSize: [] });
   };
   contentEl.getBoundingClientRect = () => new DOMRect(0, 0, options.width ?? 400, 0);
-  const view = await createClaudianView({ host: plugin, contentEl });
+  const view = await createClaudianView({ host: plugin, contentEl, singleViewer: options.singleViewer });
   view.load();
   openedViews.push(view);
   const saved: unknown[] = [];
@@ -319,6 +320,35 @@ describe('ClaudianView provider and presentation wiring', () => {
     await Promise.resolve();
     const active = manager.getActiveTab()!;
     expect(contentEl.querySelector('.claudian-active-input-slot')?.contains(active.dom.inputComposerEl)).toBe(true);
+  });
+
+  it('keeps one viewer and its composer when a narrow pane grows and shrinks', async () => {
+    const { view, manager, contentEl, resize } = await openView({
+      width: 400,
+      singleViewer: true,
+      host: { settings: { enableDualPane: false, dualPaneSide: 'left' } },
+    });
+    await view.openSession('one');
+    const tab = manager.getActiveTab()!;
+    const composer = tab.dom.inputComposerEl;
+    const history = contentEl.querySelector('.claudian-session-sidebar');
+    expect(history?.querySelector('.claudian-session-surface')).not.toBeNull();
+    expect(contentEl.classList.contains('claudian-session-viewer-stacked')).toBe(true);
+    expect(contentEl.classList.contains('claudian-session-sidebar-left')).toBe(false);
+    expect(view.getCompactTabManager()).toBeNull();
+    expect(contentEl.querySelector('.claudian-active-input-slot')?.contains(composer)).toBe(true);
+
+    resize(800);
+    expect(contentEl.classList.contains('claudian-session-viewer-stacked')).toBe(false);
+    resize(350);
+    expect(contentEl.classList.contains('claudian-session-viewer-stacked')).toBe(true);
+    expect(view.getActiveTab()).toBe(tab);
+    expect(contentEl.querySelector('.claudian-active-input-slot')?.contains(composer)).toBe(true);
+    expect(contentEl.querySelector('.claudian-session-sidebar')).toBe(history);
+
+    await view.openSession('two');
+    expect(view.getActiveTab()?.conversationId).toBe('two');
+    expect(view.getCompactTabManager()).toBeNull();
   });
 
   it('routes picked sessions and /new through the real viewer only while wide', async () => {

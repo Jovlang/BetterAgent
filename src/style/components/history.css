@@ -65,6 +65,15 @@
   display: block;
 }
 
+.claudian-wide-session-layout.claudian-session-viewer-stacked .claudian-session-sidebar {
+  flex: 0 0 36%;
+  border-block-start: 1px solid var(--background-modifier-border);
+}
+
+.claudian-wide-session-layout.claudian-session-viewer-stacked .claudian-session-resizer {
+  display: none;
+}
+
 .claudian-wide-session-layout .claudian-view-input-nav-row {
   display: none;
 }

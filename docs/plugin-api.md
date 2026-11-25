@@ -65,7 +65,7 @@ Returns non-archived sessions, most recently active first. `limit` is an integer
 
 ### `openSession`
 
-Shows the session the way the session list does: in the viewer of the wide layout, or in a tab of the compact layout, reusing the tab that already shows it. When no chat view exists, one opens at the configured placement. `{ focus: true }` also reveals the chat view and focuses its composer. Without it, BetterAgent does not activate the view itself, but showing a session follows the same path as a click in the session list: a session already open in another tab or view is revealed there, and a pending approval or question takes focus as it does on screen. It rejects when the session does not exist or is archived.
+Shows the session in the chat viewer, reusing it if that session is already open. When no chat view exists, one opens at the configured placement. `{ focus: true }` also reveals the chat view and focuses its composer. Without it, BetterAgent does not activate the view itself, but showing a session follows the same path as a click in the session list: a session already open in another tab or view is revealed there, and a pending approval or question takes focus as it does on screen. It rejects when the session does not exist or is archived.
 
 ### `send`
 

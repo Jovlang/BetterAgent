@@ -889,8 +889,8 @@
       "desc": "Afficher automatiquement le gestionnaire de sessions à côté du chat lorsque la vue mesure au moins 600 px de large."
     },
     "restoreTabsOnStartup": {
-      "name": "Restaurer les onglets au démarrage",
-      "desc": "Rouvrir tous les onglets en mode volet unique, ou uniquement le dernier onglet actif en mode double volet."
+      "name": "Rouvrir la dernière conversation au démarrage",
+      "desc": "Rouvre la dernière conversation active au démarrage de BetterAgent."
     },
     "sessionAutoArchiveAfter": {
       "name": "Archiver automatiquement les sessions inactives",

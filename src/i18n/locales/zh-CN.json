@@ -889,8 +889,8 @@
       "desc": "当视图宽度不小于 600 px 时，自动在聊天面板旁显示会话管理器。"
     },
     "restoreTabsOnStartup": {
-      "name": "启动时恢复标签页",
-      "desc": "单栏模式下重新打开所有标签页，双栏模式下仅重新打开上次活动的标签页。"
+      "name": "启动时恢复上次对话",
+      "desc": "启动 BetterAgent 时重新打开上次使用的对话。"
     },
     "sessionAutoArchiveAfter": {
       "name": "自动归档不活跃会话",

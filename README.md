@@ -28,7 +28,7 @@ Open the BetterAgent interface from the ribbon icon or command palette. Everythi
 
 **MCP Servers** — Connect external tools through each coding agent's native CLI-managed MCP configuration.
 
-**Tabs & Session Management** — Use multiple tabs in [single-pane mode](assets/main-chat-single-pane.png) or a persistent session manager beside the chat in [dual-pane mode](assets/main-chat-dual-pane.png).
+**Conversation History** — Open or resume a conversation from the history next to the chat. In a narrow pane, the same history appears below the chat.
 
 **Plugin API (experimental)** — Let other Obsidian plugins send prompts to sessions, stop them and read their replies. See the [Plugin API guide](docs/plugin-api.md).
 

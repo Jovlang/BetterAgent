@@ -49,7 +49,10 @@ export class DualPaneLayout {
   private resizeCleanup: (() => void) | null = null;
   private sidebarWidth: number | null = null;
 
-  constructor(private readonly hooks: DualPaneLayoutHooks) {}
+  constructor(
+    private readonly hooks: DualPaneLayoutHooks,
+    private readonly options?: { singleViewer?: boolean },
+  ) {}
 
   get isWide(): boolean {
     return this.wide;
@@ -69,6 +72,7 @@ export class DualPaneLayout {
     this.requestedWide = false;
     this.wide = false;
     containerEl.removeClass('claudian-wide-session-layout');
+    containerEl.toggleClass('claudian-session-viewer-stacked', this.options?.singleViewer === true);
     this.update(containerEl.getBoundingClientRect().width, { renderSidebar: false });
   }
 
@@ -106,18 +110,26 @@ export class DualPaneLayout {
 
   private update(width: number, options: { renderSidebar?: boolean } = {}): void {
     const containerEl = this.elements?.containerEl;
-    // A collapsed sidebar or hidden tab reports no width; that is not a narrower layout.
-    if (!containerEl || width <= 0) return;
+    if (!containerEl) return;
+    const singleViewer = this.options?.singleViewer === true;
+    // A hidden view reports zero width. Select the viewer on first mount, but don't
+    // rearrange its history when the host hides the already-mounted chat.
+    if (width <= 0 && (!singleViewer || this.requestedWide)) return;
+    if (singleViewer && width > 0) {
+      containerEl.toggleClass('claudian-session-viewer-stacked', width < WIDE_SESSION_LAYOUT_MIN_WIDTH);
+    }
     const renderSidebar = options.renderSidebar ?? true;
     const settings = this.hooks.getSettings();
 
-    containerEl.toggleClass('claudian-session-sidebar-left', settings?.dualPaneSide === 'left');
+    containerEl.toggleClass('claudian-session-sidebar-left', this.isHistoryOnLeft());
 
-    const shouldUseWideLayout = (settings?.enableDualPane ?? true)
-      && width >= WIDE_SESSION_LAYOUT_MIN_WIDTH;
+    const shouldUseWideLayout = singleViewer || ((settings?.enableDualPane ?? true)
+      && width >= WIDE_SESSION_LAYOUT_MIN_WIDTH);
     if (shouldUseWideLayout === this.requestedWide) {
       if (shouldUseWideLayout && this.wide) {
-        if (this.sidebarWidth !== null) this.setSidebarWidth(this.sidebarWidth);
+        if (this.sidebarWidth !== null && width >= WIDE_SESSION_LAYOUT_MIN_WIDTH) {
+          this.setSidebarWidth(this.sidebarWidth);
+        }
         if (renderSidebar) this.hooks.renderSidebar();
       }
       return;
@@ -175,7 +187,7 @@ export class DualPaneLayout {
     const startWidth = this.sidebarWidth ?? elements.sidebarEl.getBoundingClientRect().width;
 
     const handlePointerMove = (moveEvent: PointerEvent): void => {
-      const direction = this.hooks.getSettings()?.dualPaneSide === 'left' ? 1 : -1;
+      const direction = this.isHistoryOnLeft() ? 1 : -1;
       this.setSidebarWidth(startWidth + direction * (moveEvent.clientX - startX));
     };
     const handlePointerEnd = (): void => this.stopResize();
@@ -205,13 +217,17 @@ export class DualPaneLayout {
 
     event.preventDefault();
     const currentWidth = this.sidebarWidth ?? elements.sidebarEl.getBoundingClientRect().width;
-    const growsToward = this.hooks.getSettings()?.dualPaneSide === 'left'
+    const growsToward = this.isHistoryOnLeft()
       ? 'ArrowRight'
       : 'ArrowLeft';
     const delta = event.key === growsToward
       ? SESSION_RESIZE_KEYBOARD_STEP
       : -SESSION_RESIZE_KEYBOARD_STEP;
     this.setSidebarWidth(currentWidth + delta);
+  }
+
+  private isHistoryOnLeft(): boolean {
+    return !this.options?.singleViewer && this.hooks.getSettings()?.dualPaneSide === 'left';
   }
 
   private setSidebarWidth(requestedWidth: number): void {

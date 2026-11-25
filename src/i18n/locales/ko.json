@@ -889,8 +889,8 @@
       "desc": "보기 너비가 600px 이상이면 채팅 옆에 세션 관리자를 자동으로 표시합니다."
     },
     "restoreTabsOnStartup": {
-      "name": "시작할 때 탭 복원",
-      "desc": "단일 창 모드에서는 모든 탭을, 이중 창 모드에서는 마지막 활성 탭만 다시 엽니다."
+      "name": "시작할 때 마지막 대화 복원",
+      "desc": "BetterAgent를 시작할 때 마지막으로 사용한 대화를 다시 엽니다."
     },
     "sessionAutoArchiveAfter": {
       "name": "비활성 세션 자동 보관",

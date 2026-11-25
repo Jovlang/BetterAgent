@@ -889,8 +889,8 @@
       "desc": "Mostrar automáticamente el gestor de sesiones junto al chat cuando la vista tenga al menos 600 px de ancho."
     },
     "restoreTabsOnStartup": {
-      "name": "Restaurar pestañas al iniciar",
-      "desc": "Volver a abrir todas las pestañas en el modo de panel único o solo la última pestaña activa en el modo de panel doble."
+      "name": "Restaurar la última conversación al iniciar",
+      "desc": "Vuelve a abrir la última conversación activa al iniciar BetterAgent."
     },
     "sessionAutoArchiveAfter": {
       "name": "Archivar automáticamente sesiones inactivas",

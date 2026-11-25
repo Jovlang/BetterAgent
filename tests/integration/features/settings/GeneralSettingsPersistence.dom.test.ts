@@ -18,13 +18,10 @@ afterEach(() => document.body.replaceChildren());
 const cases = [
   ['chatViewPlacement', 'settings.chatViewPlacement.name', 'right-sidebar', 'main-tab'],
   ['chatFontScale', 'settings.chatFontScale.name', 100, 90],
-  ['enableDualPane', 'settings.enableDualPane.name', true, false],
-  ['dualPaneSide', 'settings.dualPaneSide.name', 'right', 'left'],
   ['restoreTabsOnStartup', 'settings.restoreTabsOnStartup.name', true, false],
   ['enableAutoScroll', 'settings.enableAutoScroll.name', true, false],
   ['deferMathRenderingDuringStreaming', 'settings.deferMathRenderingDuringStreaming.name', true, false],
   ['expandFileEditsByDefault', 'settings.expandFileEditsByDefault.name', false, true],
-  ['showTabTitlesByDefault', 'settings.showTabTitlesByDefault.name', true, false],
   ['enableAutoTitleGeneration', 'settings.autoTitle.name', true, false],
   ['titleGenerationModel', 'settings.titleModel.name', '', 'sonnet'],
   ['titleGenerationLocale', 'settings.titleLanguage.name', '', 'zh-CN'],

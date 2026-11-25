@@ -120,7 +120,7 @@ export default class ClaudianPlugin extends Plugin {
 
       this.registerView(
         VIEW_TYPE_CLAUDIAN,
-        (leaf) => new ClaudianView(leaf, this.chatHost)
+        (leaf) => new ClaudianView(leaf, this.chatHost, { singleViewer: true })
       );
       registerFileMenu({
         app: this.app,

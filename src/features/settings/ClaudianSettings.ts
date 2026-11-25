@@ -8,7 +8,6 @@ import type { ProviderId, ProviderSettingsTabRenderHandle } from '@/core/provide
 import type {
   ChatViewPlacement,
   ClaudianSettings,
-  DualPaneSide,
   SessionAutoArchiveAfter,
 } from '@/core/types/settings';
 import { type SkillsSettingsHost, SkillsSettingsTab } from '@/features/agent-skills/SkillsSettingsTab';
@@ -314,44 +313,11 @@ export class ClaudianSettingTab extends PluginSettingTab {
       });
 
     new AccessibleSetting(container)
-      .setName(t('settings.enableDualPane.name'))
-      .setDesc(t('settings.enableDualPane.desc'))
-      .addToggle((toggle) => {
-        bindCommittedControl(toggle, () => this.host.settings.enableDualPane ?? true, async value => {
-          await this.host.mutateSettings(settings => { settings.enableDualPane = value; });
-        }, () => this.update());
-      });
-
-    if (this.host.settings.enableDualPane ?? true) {
-      new AccessibleSetting(container)
-        .setName(t('settings.dualPaneSide.name'))
-        .setDesc(t('settings.dualPaneSide.desc'))
-        .addDropdown((dropdown) => {
-          dropdown
-            .addOption('left', t('settings.dualPaneSide.left'))
-            .addOption('right', t('settings.dualPaneSide.right'));
-          bindCommittedControl(dropdown, () => this.host.settings.dualPaneSide ?? 'right', async value => {
-            await this.host.mutateSettings(settings => { settings.dualPaneSide = value as DualPaneSide; });
-          });
-        });
-
-    }
-
-    new AccessibleSetting(container)
       .setName(t('settings.restoreTabsOnStartup.name'))
       .setDesc(t('settings.restoreTabsOnStartup.desc'))
       .addToggle((toggle) => {
         bindCommittedControl(toggle, () => this.host.settings.restoreTabsOnStartup, async value => {
           await this.host.mutateSettings(settings => { settings.restoreTabsOnStartup = value; });
-        });
-      });
-
-    new AccessibleSetting(container)
-      .setName(t('settings.showTabTitlesByDefault.name'))
-      .setDesc(t('settings.showTabTitlesByDefault.desc'))
-      .addToggle((toggle) => {
-        bindCommittedControl(toggle, () => this.host.settings.showTabTitlesByDefault, async value => {
-          await this.host.mutateSettings(settings => { settings.showTabTitlesByDefault = value; });
         });
       });
 

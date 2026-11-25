@@ -97,21 +97,13 @@ it('renders the declarative settings surface and loads real skills only on first
   expect(h.getAdapter).toHaveBeenCalledTimes(1);
 });
 
-it('persists dual-pane changes before rerendering the available display controls', async () => {
+it('does not offer alternate chat layouts or tab-title controls', async () => {
   const h = await createSettings({ enableDualPane: true });
-  expect(within(h.container).getByText(t('settings.dualPaneSide.name'))).toBeDefined();
-  const initialToggle = within(h.container).getByRole('switch', { name: t('settings.enableDualPane.name') });
-  fireEvent.click(initialToggle);
-  await controlChangeSettled(initialToggle);
-  expect(within(h.container).queryByText(t('settings.dualPaneSide.name'))).toBeNull();
-  expect((await h.storage.load()).enableDualPane).toBe(false);
-  expect(within(h.container).getByRole('switch', { name: t('settings.restoreTabsOnStartup.name') })).toBeDefined();
-  // Query the rerendered control rather than a detached old checkbox.
-  const currentToggle = within(h.container).getByRole('switch', { name: t('settings.enableDualPane.name') });
-  fireEvent.click(currentToggle);
-  await controlChangeSettled(currentToggle);
-  expect(within(h.container).getByText(t('settings.dualPaneSide.name'))).toBeDefined();
-  expect((await h.storage.load()).enableDualPane).toBe(true);
+  const settings = within(h.container);
+  expect(settings.getByRole('switch', { name: t('settings.restoreTabsOnStartup.name') })).toBeDefined();
+  expect(settings.queryByRole('switch', { name: t('settings.enableDualPane.name') })).toBeNull();
+  expect(settings.queryByText(t('settings.dualPaneSide.name'))).toBeNull();
+  expect(settings.queryByRole('switch', { name: t('settings.showTabTitlesByDefault.name') })).toBeNull();
 });
 
 it.each([
@@ -124,16 +116,6 @@ it.each([
   await controlChangeSettled(toggle);
   expect(h.settings[key]).toBe(false);
   expect((await h.storage.load())[key]).toBe(false);
-});
-
-it.each([false, true])('persists the tab-title default, on by default, with automatic title generation %s', async enableAutoTitleGeneration => {
-  const h = await createSettings({ enableAutoTitleGeneration });
-  expect(h.settings.showTabTitlesByDefault).toBe(true);
-  const toggle = within(h.container).getByRole('switch', { name: t('settings.showTabTitlesByDefault.name') });
-  fireEvent.click(toggle);
-  await controlChangeSettled(toggle);
-  expect(h.settings.showTabTitlesByDefault).toBe(false);
-  expect((await h.storage.load()).showTabTitlesByDefault).toBe(false);
 });
 
 it('publishes toggle preferences only after persistence completes', async () => {

@@ -12,6 +12,21 @@
   padding: 4px 6px 6px;
 }
 
+.claudian-input-toolbar > button.claudian-input-toolbar-submit {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 50%;
+}
+
+.claudian-input-toolbar > button.claudian-input-toolbar-submit:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: 1px;
+}
+
 /* Narrow composers keep the model name and drop reasoning and fast-mode details (input box container). */
 @container (max-width: 300px) {
   .claudian-toolbar-chip .claudian-toolbar-chip-secondary {

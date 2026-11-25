@@ -21,6 +21,8 @@
     "none": "Keine"
   },
   "chat": {
+    "sendMessage": "Nachricht senden",
+    "cancelResponse": "Antwort abbrechen",
     "queue": {
       "queued": "In der Warteschlange",
       "steering": "Wird eingesteuert",

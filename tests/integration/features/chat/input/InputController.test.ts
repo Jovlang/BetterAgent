@@ -68,6 +68,34 @@ describe('composer wikilinks', () => {
   });
 });
 
+describe('selection-only composer submissions', () => {
+  it.each(['editor', 'browser'] as const)('sends the %s selection as the prompt without attaching it twice', async source => {
+    const fixture = await createFixture();
+    const selectedText = '  Explain this selection\nand preserve this line.\n';
+    fixture.selectionSources[source].getContext.mockReturnValue(source === 'editor'
+      ? { notePath: 'Note.md', mode: 'selection', selectedText }
+      : { source: 'browser:https://example.invalid', selectedText });
+    fixture.input.value = '   ';
+
+    await fixture.controller.sendMessage();
+
+    expect(fixture.native.requests[0]?.input).toEqual([{ type: 'text', text: selectedText }]);
+    expect(fixture.native.requests[0]?.context?.selections ?? []).toEqual([]);
+  });
+
+  it('keeps a written prompt primary and the selection as context', async () => {
+    const fixture = await createFixture();
+    const selection = { notePath: 'Note.md', mode: 'selection', selectedText: 'Marked passage' };
+    fixture.selectionSources.editor.getContext.mockReturnValue(selection);
+    fixture.input.value = 'Summarize this';
+
+    await fixture.controller.sendMessage();
+
+    expect(fixture.native.requests[0]?.input).toEqual([{ type: 'text', text: 'Summarize this' }]);
+    expect(fixture.native.requests[0]?.context?.selections).toEqual([{ kind: 'editor', selection }]);
+  });
+});
+
 describe('InputController admission', () => {
   beforeEach(() => {
     vi.clearAllMocks();

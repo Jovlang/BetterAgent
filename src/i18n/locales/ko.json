@@ -21,6 +21,8 @@
     "none": "없음"
   },
   "chat": {
+    "sendMessage": "메시지 보내기",
+    "cancelResponse": "응답 취소",
     "queue": {
       "queued": "대기 중",
       "steering": "방향 조정 중",

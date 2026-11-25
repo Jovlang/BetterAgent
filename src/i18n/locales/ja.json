@@ -21,6 +21,8 @@
     "none": "なし"
   },
   "chat": {
+    "sendMessage": "メッセージを送信",
+    "cancelResponse": "応答を中止",
     "queue": {
       "queued": "待機中",
       "steering": "指示を送信中",

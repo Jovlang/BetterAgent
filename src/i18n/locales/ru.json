@@ -21,6 +21,8 @@
     "none": "Нет"
   },
   "chat": {
+    "sendMessage": "Отправить сообщение",
+    "cancelResponse": "Отменить ответ",
     "queue": {
       "queued": "В очереди",
       "steering": "Корректировка хода",

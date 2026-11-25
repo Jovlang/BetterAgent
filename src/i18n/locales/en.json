@@ -21,6 +21,8 @@
     "none": "None"
   },
   "chat": {
+    "sendMessage": "Send message",
+    "cancelResponse": "Cancel response",
     "queue": {
       "queued": "Queued",
       "steering": "Steering",

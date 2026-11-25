@@ -21,6 +21,8 @@
     "none": "無"
   },
   "chat": {
+    "sendMessage": "傳送訊息",
+    "cancelResponse": "取消回覆",
     "queue": {
       "queued": "排隊中",
       "steering": "引導中",

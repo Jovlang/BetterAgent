@@ -294,11 +294,33 @@ export class InputController {
 
     const contentOverride = options?.content;
     const shouldUseInput = contentOverride === undefined;
-    const content = stripLegacySessionMentions(contentOverride ?? composerDraft.content).trim();
+    const submittedContent = contentOverride ?? composerDraft.content;
+    let content = options?.turnRequestOverride ? submittedContent : stripLegacySessionMentions(submittedContent).trim();
     const imageOverride = options?.images;
     const hasImages = imageOverride !== undefined
       ? imageOverride.length > 0
       : (composerDraft.images.length > 0);
+    if (!content && shouldUseInput && !options?.turnRequestOverride) {
+      const selections = this.#resolveSelections(options);
+      const { editorSelection, browserSelection } = selections;
+      const editorText = editorSelection?.mode === 'selection' ? editorSelection.selectedText : undefined;
+      const browserText = browserSelection?.selectedText;
+      const source = editorText?.trim() ? 'editorSelection' : browserText?.trim() ? 'browserSelection' : null;
+      const selectedText = source === 'editorSelection' ? editorText : source === 'browserSelection' ? browserText : undefined;
+      if (source && selectedText) {
+        // The selected text is the submission, not an additional context attachment or a composer command.
+        content = selectedText;
+        selections[source] = null;
+        options = {
+          ...options,
+          turnRequestOverride: {
+            text: selectedText,
+            images: hasImages ? [...(imageOverride ?? composerDraft.images)] : undefined,
+            ...selections,
+          },
+        };
+      }
+    }
     if (!content && !hasImages && !options?.turnRequestOverride?.text.trim()) {
       this.execution.reportDeferredReview();
       return 'rejected';
@@ -380,7 +402,7 @@ export class InputController {
 
     if (destination === 'side' && sideChat) {
       this.execution.reportDeferredReview();
-      const mainOnly = detectMainOnlyBuiltInCommand(content, this.#getActiveProviderId());
+      const mainOnly = options?.turnRequestOverride ? null : detectMainOnlyBuiltInCommand(content, this.#getActiveProviderId());
       if (mainOnly) {
         new Notice(t('chat.sideChat.mainOnlyCommand', { command: mainOnly.name }));
         return 'rejected';
@@ -391,7 +413,7 @@ export class InputController {
       const images = hasImages
         ? [...(imageOverride ?? composerDraft.images)]
         : [];
-      const context = this.#captureSideContext();
+      const context = this.#captureSideContext(options?.turnRequestOverride);
       const previousDraft = shouldUseInput ? this.deps.drafts.consume('side') : null;
       const accepted = await sideChat.submitToSide(
         content,
@@ -444,9 +466,9 @@ export class InputController {
     };
   }
 
-  /** Live selections for a side-chat turn, in capture order. */
-  #captureSideContext(): ProviderExecutionContext {
-    const selections = captureSelectionSnapshots(this.deps.selections.capture());
+  /** Selections for a side-chat turn, in capture order. */
+  #captureSideContext(request?: ChatTurnRequest): ProviderExecutionContext {
+    const selections = captureSelectionSnapshots(request ?? this.deps.selections.capture());
     return selections.length ? { selections } : {};
   }
 

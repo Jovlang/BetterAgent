@@ -21,6 +21,8 @@
     "none": "Aucun"
   },
   "chat": {
+    "sendMessage": "Envoyer le message",
+    "cancelResponse": "Annuler la réponse",
     "queue": {
       "queued": "En file d’attente",
       "steering": "Réorientation en cours",

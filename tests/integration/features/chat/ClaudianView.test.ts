@@ -749,6 +749,27 @@ describe('ClaudianView composer and scoped keys', () => {
     expect(view.appendToActiveInput('text')).toBe(false);
   });
 
+  it('uses one button to send a draft and cancel the resulting turn', async () => {
+    const native = registerChatTestProvider('claude');
+    const { manager } = await openView({ host: { renameConversation: async () => undefined } }, workspaceState());
+    await manager.viewerSlot.show('one');
+    const tab = manager.getActiveTab()!;
+    const composer = within(tab.dom.inputWrapper);
+    const send = composer.getByRole('button', { name: 'Send message' });
+    tab.dom.inputEl.value = 'A button submission';
+    fireEvent.click(send);
+    await waitFor(() => expect(native.sessions[0]?.requests[0]?.input).toEqual([
+      { type: 'text', text: 'A button submission' },
+    ]));
+    const session = native.sessions[0];
+    const stop = composer.getByRole('button', { name: 'Cancel response' });
+    expect(stop).toBe(send);
+    fireEvent.click(stop);
+    expect(session.runs[0].cancelCalls).toBe(1);
+    session.runs[0].complete();
+    await waitFor(() => expect(composer.getByRole('button', { name: 'Send message' })).toBe(send));
+  });
+
   it.each([400, 800])('cancels an active turn once without closing history at %i px', async width => {
     const { view, manager, contentEl } = await openView({ width, singleViewer: true });
     const tab = manager.getActiveTab()!;

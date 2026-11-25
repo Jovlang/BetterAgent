@@ -158,6 +158,7 @@ function assembleTabRuntime(
   core.session.runtime.model.attach(controllerBundle.presentation);
   resourceOwner.register('tab session presentation', () => core.session.runtime.peekModel?.detach(controllerBundle.presentation));
 
+  ui.refreshSubmitButton();
   refreshTabProviderUI(runtime);
   applyProviderUIGating(runtime, options.plugin);
   return runtime;

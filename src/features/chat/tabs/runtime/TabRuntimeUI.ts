@@ -1,4 +1,4 @@
-import { Notice } from 'obsidian';
+import { Notice, setIcon } from 'obsidian';
 
 import { getHiddenCommandSet } from '@/core/providers/commands/hiddenCommands';
 import {
@@ -32,6 +32,7 @@ import type {
   TabRuntimeConstructionContext,
   TabRuntimeCore,
 } from '@/features/chat/tabs/runtime/TabRuntimeConstruction';
+import { cancelSelectedDestinationTurn, hasCancellableSelectedWork } from '@/features/chat/tabs/TabInputEvents';
 import { TabModelSelectionCoordinator } from '@/features/chat/tabs/TabModelSelectionCoordinator';
 import { syncTabProviderServices } from '@/features/chat/tabs/tabProviderLifecycle';
 import { applyProviderUIGating, refreshTabProviderUI, syncComposerDropdownForProvider, updateTabPermissionMode, updateTabServiceTier } from '@/features/chat/tabs/tabProviderUI';
@@ -39,6 +40,7 @@ import type {
   ProviderCatalogInfo,
   TabUIComponents,
 } from '@/features/chat/tabs/types';
+import { t } from '@/i18n/i18n';
 import { getProviderPickerModelOptions } from '@/shared/toolbar/providerPickerModelOptions';
 
 function buildContextManagers(
@@ -106,7 +108,7 @@ function buildInputToolbar(
   options: TabRuntimeConstructionContext,
   runtimeRef: PublishedTabRuntimeRef,
   onUserModified: () => void,
-): ReturnType<typeof createInputToolbar> {
+): ReturnType<typeof createInputToolbar> & { refreshSubmitButton: () => void } {
   const { dom } = core;
   const { plugin } = options;
 
@@ -335,14 +337,38 @@ function buildInputToolbar(
     'tab input toolbar menus',
     () => toolbarComponents.menus.destroy(),
   );
-  return toolbarComponents;
+  const submitButton = inputToolbar.createEl('button', {
+    cls: 'mod-cta claudian-input-toolbar-submit',
+    attr: { type: 'button' },
+  });
+  const refreshSubmitButton = (): void => {
+    const tab = runtimeRef.current();
+    const canCancel = tab !== null && hasCancellableSelectedWork(tab);
+    const label = t(canCancel ? 'chat.cancelResponse' : 'chat.sendMessage');
+    if (submitButton.getAttribute('aria-label') === label) return;
+    submitButton.setAttribute('aria-label', label);
+    submitButton.title = label;
+    setIcon(submitButton, canCancel ? 'square' : 'arrow-up');
+  };
+  const onSubmitClick = (): void => {
+    const tab = runtimeRef.current();
+    if (!tab || !options.isRuntimeLive(tab)) return;
+    if (!cancelSelectedDestinationTurn(tab)) void tab.controllers.inputController.sendMessage();
+  };
+  submitButton.addEventListener('click', onSubmitClick);
+  const unsubscribeSubmitButton = core.session.runtime.subscribe(refreshSubmitButton);
+  options.registerCleanup('tab composer submit button', () => {
+    unsubscribeSubmitButton();
+    submitButton.removeEventListener('click', onSubmitClick);
+  });
+  return { ...toolbarComponents, refreshSubmitButton };
 }
 
 export function buildTabRuntimeUI(
   core: TabRuntimeCore,
   options: TabRuntimeConstructionContext,
   runtimeRef: PublishedTabRuntimeRef,
-): TabUIComponents {
+): TabUIComponents & { refreshSubmitButton: () => void } {
   const { dom } = core;
   const { plugin } = options;
   const onUserModified = (): void => {
@@ -412,5 +438,5 @@ export function buildTabRuntimeUI(
   });
   options.registerCleanup('tab navigation resize observer', () => resizeObserver.disconnect());
   resizeObserver.observe(dom.messagesEl);
-  return ui;
+  return { ...ui, refreshSubmitButton: toolbar.refreshSubmitButton };
 }

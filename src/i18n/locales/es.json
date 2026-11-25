@@ -21,6 +21,8 @@
     "none": "Ninguno"
   },
   "chat": {
+    "sendMessage": "Enviar mensaje",
+    "cancelResponse": "Cancelar respuesta",
     "queue": {
       "queued": "En cola",
       "steering": "Reorientando",

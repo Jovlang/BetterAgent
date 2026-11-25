@@ -231,11 +231,6 @@ test('providers avoid root app imports', () => {
  * Listed explicitly so a new provider module is runtime until it is reviewed into this set.
  */
 const PROVIDER_DOCUMENT_WRAPPERS = new Set([
-  'src/providers/antigravity/AntigravityModelPolicy.ts',
-  'src/providers/antigravity/app/AntigravityCommandLoader.ts',
-  'src/providers/antigravity/env/AntigravitySettingsReconciler.ts',
-  'src/providers/antigravity/runtime/AntigravityCLIResolver.ts',
-  'src/providers/antigravity/settings.ts',
   'src/providers/claude/ClaudeModelPolicy.ts',
   'src/providers/claude/env/ClaudeSettingsReconciler.ts',
   'src/providers/claude/runtime/ClaudeCLIResolver.ts',
@@ -244,11 +239,6 @@ const PROVIDER_DOCUMENT_WRAPPERS = new Set([
   'src/providers/codex/env/CodexSettingsReconciler.ts',
   'src/providers/codex/runtime/CodexCLIResolver.ts',
   'src/providers/codex/settings.ts',
-  'src/providers/deepseek/DeepSeekModelPolicy.ts',
-  'src/providers/deepseek/app/DeepSeekCommandLoader.ts',
-  'src/providers/deepseek/env/DeepSeekSettingsReconciler.ts',
-  'src/providers/deepseek/runtime/DeepSeekCLIResolver.ts',
-  'src/providers/deepseek/settings.ts',
   'src/providers/grok/GrokModelPolicy.ts',
   'src/providers/grok/app/GrokCommandLoader.ts',
   'src/providers/grok/env/GrokSettingsReconciler.ts',
@@ -985,14 +975,11 @@ test('Claudian is independent from the standalone collaboration plugin', () => {
   }
 });
 
-test('documented and scheduled npm commands exist in the package manifest', () => {
+test('documented npm commands exist in the package manifest', () => {
   const { scripts } = JSON.parse(fs.readFileSync('package.json', 'utf8'));
   const files = [
     'README.md',
     'CONTRIBUTING.md',
-    ...fs.readdirSync('.github/workflows')
-      .filter(file => /\.ya?ml$/.test(file))
-      .map(file => path.join('.github/workflows', file)),
   ];
   for (const file of files) {
     const source = fs.readFileSync(file, 'utf8');

@@ -4,7 +4,6 @@ import {
   BUILT_IN_COMMANDS,
   getBuiltInCommandsForDropdown,
 } from '@/core/commands/builtInCommands';
-import { SlashCommandSource } from '@/shared/composer-dropdown/SlashCommandSource';
 
 describe('getBuiltInCommandsForDropdown - provider filtering', () => {
 
@@ -15,16 +14,6 @@ describe('getBuiltInCommandsForDropdown - provider filtering', () => {
     expect(commands.map(c => c.name)).toContain('sessions');
     expect(commands.map(c => c.name)).not.toContain('fast');
     expect(commands.map(c => c.name)).not.toContain('approve');
-  });
-
-  it('offers compact in the Antigravity dropdown alongside its other supported built-ins', () => {
-    const source = new SlashCommandSource({ providerId: 'antigravity' });
-    try {
-      const items = source.load({ atInputStart: true, end: 1, query: '', start: 0, trigger: '/' }, new AbortController().signal);
-      expect(items.map(item => item.label)).toEqual(['/compact', '/new', '/sessions']);
-    } finally {
-      source.destroy();
-    }
   });
 
   it('returns only commands supported by codex capabilities', () => {

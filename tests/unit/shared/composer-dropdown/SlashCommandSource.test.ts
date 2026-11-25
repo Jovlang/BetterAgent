@@ -192,7 +192,7 @@ describe('SlashCommandSource', () => {
     source.destroy();
   });
 
-  it.each(['claude', 'codex', 'pi', 'grok', 'opencode', 'deepseek'])(
+  it.each(['claude', 'codex', 'pi', 'grok', 'opencode'])(
     'offers compact for %s independently of provider discovery', async providerId => {
       const providerDiscovery = discovery({ status: 'idle' });
       const source = new SlashCommandSource({

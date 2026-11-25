@@ -10,7 +10,6 @@ import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
 import type { VaultFileAdapter } from '@/core/storage/VaultFileAdapter';
 import { getClaudeProviderSettings } from '@/providers/claude/settings';
 import { getCodexProviderSettings } from '@/providers/codex/settings';
-import { getDeepSeekProviderSettings } from '@/providers/deepseek/settings';
 import { getGrokProviderSettings } from '@/providers/grok/settings';
 import { getOpencodeProviderSettings } from '@/providers/opencode/settings';
 import { getPiProviderSettings } from '@/providers/pi/settings';
@@ -43,12 +42,10 @@ it.each(cases)('$id keeps an unavailable saved selection unchanged', ({ id: prov
   populate(settings);
   const current = settings.providerConfigs[providerId]!;
   current.visibleModels = [...current.visibleModels as string[], 'missing-model'];
-  if (providerId === 'deepseek') current.visibleModels = ['deepseek:native/missing-model'];
   if (providerId === 'pi') current.visibleModels = ['pi:anthropic/missing-model'];
   if (providerId === 'grok') current.visibleModels = ['missing-model'];
   if (providerId === 'codex') current.visibleModels = ['missing-model'];
   const decoded = {
-    deepseek: getDeepSeekProviderSettings,
     claude: getClaudeProviderSettings,
     codex: getCodexProviderSettings,
     grok: getGrokProviderSettings,
@@ -81,9 +78,7 @@ it.each(cases)('$id does not restore removed models from an older selected snaps
   expect(unavailable.providerConfigs[id]!.visibleModels).toEqual(selected);
   expect(read(unavailable)).toEqual([]);
   const options = ProviderRegistry.getChatUIConfig(id).getModelOptions(unavailable);
-  const unavailableOption = expect.objectContaining({ value: (selected as string[])[0], label: expect.stringContaining('unavailable') });
-  const expectedOptions = id === 'deepseek' ? [unavailableOption] : [];
-  expect(options).toEqual(expectedOptions);
+  expect(options).toEqual([]);
 });
 
 it.each(cases)('$id keeps runtime catalog and selection intact when persistence fails', async ({ id, populate, read }) => {
@@ -237,20 +232,4 @@ it('keeps xHigh for an explicitly selected Grok model while its capabilities are
   const restored = await storage.load();
   expect(getGrokProviderSettings(restored).preferredReasoningByModel)
     .toEqual({ 'temporarily-unavailable': 'xhigh' });
-});
-
-it('keeps a prefixed Antigravity selection and its projections on save', async () => {
-  const settings = structuredClone(DEFAULT_CLAUDIAN_SETTINGS);
-  settings.providerConfigs.antigravity = { enabled: true, visibleModels: ['gemini-4-argon'] };
-  settings.savedProviderModel = { antigravity: 'antigravity/gemini-4-argon' };
-  settings.savedProviderEffort = { antigravity: 'high' };
-  let content = '';
-  const storage = new ClaudianSettingsStorage({
-    exists: async () => Boolean(content), read: async () => content,
-    write: async (_path: string, value: string) => { content = value; }, delete: async () => undefined,
-  } as unknown as VaultFileAdapter, DEFAULT_CLAUDIAN_SETTINGS);
-  await storage.save(settings);
-  const saved = JSON.parse(content);
-  expect(saved.savedProviderModel.antigravity).toBe('antigravity/gemini-4-argon');
-  expect(saved.savedProviderEffort.antigravity).toBe('high');
 });

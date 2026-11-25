@@ -20,13 +20,11 @@ import { getClaudeModelOptions, getClaudeSupportedEffortLevels } from '@/provide
 import { createClaudeModels, discoverClaudeModels } from '@/providers/claude/runtime/ClaudeModels';
 import { getClaudeModelSource, updateClaudeProviderSettings } from '@/providers/claude/settings';
 import { updateCodexProviderSettings } from '@/providers/codex/settings';
-import { updateDeepSeekProviderSettings } from '@/providers/deepseek/settings';
 import { updateGrokProviderSettings } from '@/providers/grok/settings';
 import { updateOpencodeProviderSettings } from '@/providers/opencode/settings';
 import { updatePiProviderSettings } from '@/providers/pi/settings';
 
 const update = {
-  deepseek: updateDeepSeekProviderSettings,
   claude: updateClaudeProviderSettings, codex: updateCodexProviderSettings,
   grok: updateGrokProviderSettings, opencode: updateOpencodeProviderSettings, pi: updatePiProviderSettings,
 };
@@ -256,7 +254,6 @@ it.each(cases)('$id detects missing effort fields in an otherwise present select
   const { host } = await makeHost();
   populate(host.settings);
   const config = host.settings.providerConfigs[id]!;
-  if (id === 'deepseek') delete (config.discoveredModels as Array<Record<string, unknown>>)[0].reasoning;
   if (id === 'codex') delete (config.discoveredModels as Array<Record<string, unknown>>)[0].supportedReasoningEfforts;
   if (id === 'pi') delete (config.discoveredModels as Array<Record<string, unknown>>)[0].thinkingLevels;
   expect(ProviderRegistry.getSettingsStorageAdapter(id).needsReasoningMetadata!(host.settings)).toBe(true);

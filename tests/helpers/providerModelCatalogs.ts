@@ -6,8 +6,6 @@ import { assertClaudeModelAvailable } from '@/providers/claude/runtime/ClaudeMod
 import { getClaudeProviderSettings, updateClaudeProviderSettings } from '@/providers/claude/settings';
 import { assertCodexModelAvailable } from '@/providers/codex/runtime/CodexModelAvailability';
 import { getCodexProviderSettings, updateCodexProviderSettings } from '@/providers/codex/settings';
-import { assertDeepSeekModelAvailable } from '@/providers/deepseek/runtime/DeepSeekModels';
-import { getDeepSeekProviderSettings, updateDeepSeekProviderSettings } from '@/providers/deepseek/settings';
 import { assertGrokModelAvailable } from '@/providers/grok/runtime/GrokModelAvailability';
 import { getGrokProviderSettings, updateGrokProviderSettings } from '@/providers/grok/settings';
 import { assertOpencodeModelAvailable } from '@/providers/opencode/runtime/OpencodeModelAvailability';
@@ -18,7 +16,6 @@ import { getPiProviderSettings, updatePiProviderSettings } from '@/providers/pi/
 const availabilityGuards = {
   claude: assertClaudeModelAvailable,
   codex: assertCodexModelAvailable,
-  deepseek: assertDeepSeekModelAvailable,
   grok: assertGrokModelAvailable,
   opencode: assertOpencodeModelAvailable,
   pi: assertPiModelAvailable,
@@ -83,15 +80,5 @@ export const modelCatalogCases = [
       ] });
     },
     read: (settings: Record<string, unknown>) => getPiProviderSettings(settings).discoveredModels,
-  },
-  {
-    id: 'deepseek' as const, selected: 'deepseek:native/selected',
-    populate(settings: Record<string, unknown>) {
-      updateDeepSeekProviderSettings(settings, { enabled: true, visibleModels: ['deepseek:native/selected'], discoveredModels: [
-        { encodedId: 'deepseek:native/selected', id: 'selected', provider: 'native', label: 'Selected label', reasoning: [{ id: 'low', name: 'Low' }, { id: 'high', name: 'High' }] },
-        { encodedId: 'deepseek:native/unselected-catalog-entry', id: 'unselected-catalog-entry', provider: 'native', label: 'Unselected', reasoning: [] },
-      ] });
-    },
-    read: (settings: Record<string, unknown>) => getDeepSeekProviderSettings(settings).discoveredModels,
   },
 ];

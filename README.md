@@ -97,10 +97,8 @@ src/
 │   ├── auxiliary/               # Shared provider auxiliary services
 │   └── ...                      # bootstrap, commands, rpc, security, storage, tools, types
 ├── providers/
-│   ├── antigravity/             # Antigravity CLI ACP adaptor, transcript history, models
 │   ├── claude/                  # Claude Agent SDK adaptor, native history, plugins
 │   ├── codex/                   # Codex shared app-server adaptor, JSON-RPC, JSONL history
-│   ├── deepseek/                # DeepSeek Harness native Remote adaptor, presets, and history
 │   ├── grok/                    # Grok Build ACP adaptor, native history, models, and tools
 │   ├── opencode/                # OpenCode HTTP adaptor, shared server
 │   ├── pi/                      # Pi RPC adaptor, model discovery, JSONL history

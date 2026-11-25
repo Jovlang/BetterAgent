@@ -12,7 +12,6 @@ import { updateClaudeProviderSettings } from '@/providers/claude/settings';
 const titleCases = modelCatalogCases.map(provider => ({
   ...provider,
   forms: {
-    deepseek: ['deepseek:native/selected', 'deepseek:native/selected'],
     claude: ['sonnet', 'claude-code/sonnet'],
     codex: ['gpt-5.5', 'openai-codex/gpt-5.5'],
     grok: ['selected', 'grok/selected'],

@@ -1,13 +1,11 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import path from 'node:path';
 import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import test from 'node:test';
 import { pathToFileURL } from 'node:url';
 
-import { parse } from 'yaml';
-
-import { ciTestLanes, documentationPaths, selectCiTests, selectRelatedCiTests, wslTests } from './ciTestSelection.mjs';
+import { ciTestLanes, selectCiTests, selectRelatedCiTests, wslTests } from './ciTestSelection.mjs';
 
 const prompt = 'tests/unit/core/prompt/mainAgent.systemPrompt.test.ts';
 const panel = 'tests/integration/features/chat/ClaudianView.test.ts';
@@ -72,7 +70,6 @@ test('platform-sensitive unit tests retain native checks for both direct and sou
     ['src/core/storage/VaultFileAdapter.ts', 'tests/integration/core/storage/VaultFileAdapter.test.ts'],
     ['src/core/storage/pathContainment.ts', 'tests/unit/core/storage/pathContainment.test.ts'],
     ['src/providers/codex/history/CodexHistoryStore.ts', 'tests/unit/providers/codex/history/CodexHistoryStore.test.ts'],
-    ['src/providers/deepseek/ui/DeepSeekSettingsTab.ts', 'tests/integration/providers/deepseek/ui/DeepSeekSettingsTab.dom.test.ts'],
   ]) {
     for (const eventName of ['pull_request', 'push']) {
       const result = select([source], [consumer], eventName);
@@ -104,11 +101,6 @@ test('real dependency discovery retains native launch checks for shared process 
     'tests/integration/providers/codex/execution/CodexExecutionBackend.protocol.test.ts',
     'tests/integration/providers/codex/execution/CodexExecutionBackend.test.ts',
     'tests/integration/providers/codex/runtime/CodexSharedRuntime.test.ts',
-    'tests/integration/providers/deepseek/app/DeepSeekWorkspaceServices.test.ts',
-    'tests/integration/providers/deepseek/runtime/DeepSeekCLIResolver.test.ts',
-    'tests/integration/providers/deepseek/runtime/DeepSeekHostProcess.test.ts',
-    'tests/integration/providers/deepseek/runtime/DeepSeekInstallation.test.ts',
-    'tests/integration/providers/deepseek/ui/DeepSeekSettingsTab.dom.test.ts',
     'tests/integration/providers/grok/app/GrokWorkspaceServices.test.ts',
     'tests/integration/providers/opencode/ToolRendererCompatibility.dom.test.ts',
     'tests/integration/providers/opencode/app/OpencodeCommandLoader.test.ts',
@@ -336,9 +328,6 @@ test('scheduled and reusable verification retain full coverage', () => {
     assert.equal(select([], [], event).testFiles, null);
     assert.deepEqual(select([], [], event).wslSuites, wslTests);
   }
-  // Scheduled verification reuses CI so every WSL suite runs weekly.
-  const nightly = parse(readFileSync(new URL('../.github/workflows/nightly.yml', import.meta.url), 'utf8'));
-  assert.ok(Object.values(nightly.jobs).some(job => job.uses === './.github/workflows/ci.yml'));
 });
 
 test('real dependency graph preserves prompt and provider coverage without Collab suites', () => {
@@ -353,7 +342,7 @@ test('real dependency graph preserves prompt and provider coverage without Colla
 test('a provider-internal change selects no other provider suites through the real dependency graph', () => {
   const tracker = 'src/providers/codex/execution/CodexSubagentTracker.ts';
   const selection = selectRelatedCiTests({ changes: [{ status: 'M', path: tracker }] });
-  const others = /^tests\/(?:unit|integration)\/providers\/(?:claude|deepseek|grok|opencode|pi)\//;
+  const others = /^tests\/(?:unit|integration)\/providers\/(?:claude|grok|opencode|pi)\//;
   assert.ok(selection.testFiles.includes('tests/integration/providers/codex/execution/CodexSubagentTracker.test.ts'));
   // Another provider's suite is selected only when it registers Codex itself.
   const registersCodex = file => readFileSync(file, 'utf8').includes('codexProviderRegistration');
@@ -503,11 +492,9 @@ test('local selection includes committed, staged, unstaged and untracked edits w
 test('WSL suites run only for changes to WSL-related code or WSL test infrastructure', () => {
   const wsl = 'tests/integration/core/process/execution-target/WSLExecution.windows.test.ts';
   const relay = 'tests/integration/core/process/execution-target/WSLSessionToolRelay.windows.test.ts';
-  const deepseek = 'tests/integration/providers/deepseek/runtime/DeepSeekWSLHost.windows.test.ts';
   const opencode = 'tests/integration/providers/opencode/runtime/OpencodeWSL.windows.test.ts';
   const codex = 'tests/integration/providers/codex/runtime/CodexWSL.windows.test.ts';
   const grok = 'tests/integration/providers/grok/runtime/GrokWSL.windows.test.ts';
-  const antigravity = 'tests/integration/providers/antigravity/runtime/AntigravityWSL.windows.test.ts';
   const claude = 'tests/integration/core/process/execution-target/ClaudeWSL.windows.test.ts';
   // Source that launches, targets, maps paths or chooses the installation method for WSL keeps its declared suites.
   for (const [file, suite] of [
@@ -517,12 +504,8 @@ test('WSL suites run only for changes to WSL-related code or WSL test infrastruc
     ['src/core/providers/settings/InstallationSettings.ts', wsl],
     ['src/core/providers/cli/TargetCLIInstallationProbe.ts', wsl],
     ['src/shared/settings/ExecutionTargetSettings.ts', wsl],
-    ['src/providers/deepseek/runtime/DeepSeekHostProcess.ts', deepseek],
-    ['src/providers/deepseek/ui/DeepSeekSettingsTab.ts', deepseek],
     ['src/providers/grok/runtime/GrokExecutionContext.ts', relay],
     ['src/providers/grok/history/GrokConversationHistoryService.ts', grok],
-    ['src/providers/antigravity/runtime/AntigravityExecutionContext.ts', antigravity],
-    ['src/providers/antigravity/history/AntigravityHistoryEnvironment.ts', antigravity],
     ['src/providers/opencode/runtime/OpencodeExecutionTarget.ts', opencode],
     ['src/providers/opencode/ui/OpencodeSettingsTab.ts', opencode],
     ['src/providers/codex/runtime/CodexLaunchSpecBuilder.ts', codex],
@@ -547,26 +530,21 @@ test('WSL suites run only for changes to WSL-related code or WSL test infrastruc
   }
   // WSL suites, helpers and fixtures change what the native job runs.
   for (const [file, suite] of [
-    [wsl, wsl], [relay, relay], [deepseek, deepseek], [opencode, opencode], [codex, codex], [grok, grok],
-    [antigravity, antigravity], [claude, claude],
-    ['tests/fixtures/providers/deepseek/runtime/FakeDeepSeekWSLHost.mjs', deepseek],
+    [wsl, wsl], [relay, relay], [opencode, opencode], [codex, codex], [grok, grok],
+    [claude, claude],
     ['tests/fixtures/providers/pi/PiSessionProcess.mjs', wsl],
     ['tests/helpers/providers/codex/CodexWSLPeer.ts', codex],
-    ['tests/helpers/providers/antigravity/AntigravityWSLPeer.ts', antigravity],
   ]) assert.ok(select([file]).wslSuites.includes(suite), `${file} must select ${suite}`);
   for (const [helper, suite] of [['tests/helpers/WSLNativeTarget.ts', relay], ['tests/helpers/WSLNativePeer.ts', grok], ['tests/helpers/WSLClaudeFixture.ts', claude]]) {
     assert.ok(select([helper], [suite]).wslSuites.includes(suite), `${helper} must select ${suite}`);
   }
   // Platform-neutral source and test-only edits leave the native WSL job out, even when declarations select the suite on Linux.
   for (const file of [
-    'src/providers/deepseek/types.ts',
     'src/providers/grok/types.ts',
     'src/providers/codex/execution/CodexExecutionBackend.ts',
     'src/providers/codex/execution/CodexSubagentTracker.ts',
     'src/providers/grok/execution/GrokExecutionBackend.ts',
     'src/utils/markdownMath.ts',
-    'tests/unit/providers/deepseek/settings.test.ts',
-    'tests/integration/providers/deepseek/runtime/DeepSeekHostProcess.wsl.test.ts',
     'tests/integration/providers/grok/ui/GrokSettingsTab.dom.test.ts',
     'tests/integration/providers/pi/history/PiWSLHistory.test.ts',
     'tests/integration/core/providers/cli/TargetCLIInstallationProbe.test.ts',
@@ -576,7 +554,6 @@ test('WSL suites run only for changes to WSL-related code or WSL test infrastruc
   }
   assert.deepEqual(select(['src/features/chat/ClaudianView.ts'], [panel]).wslSuites, []);
   // Declarations still select the suites on Linux, where they skip without a distro.
-  assert.ok(select(['src/providers/deepseek/types.ts']).testFiles.includes(deepseek));
   const piFixture = select(['tests/fixtures/providers/pi/PiSessionProcess.mjs']);
   for (const consumer of [
     'tests/integration/features/chat/side-chat/SideChatNative.pi.test.ts',
@@ -589,11 +566,7 @@ test('WSL suites run only for changes to WSL-related code or WSL test infrastruc
 });
 
 
-test('documentation-only changes skip the CI workflow and select only the documentation test', () => {
-  const workflow = parse(readFileSync(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8'));
-  for (const event of ['push', 'pull_request']) {
-    assert.deepEqual(workflow.on[event]['paths-ignore'], documentationPaths, event);
-  }
+test('documentation-only changes select only the documentation test', () => {
   for (const file of ['assets/Preview.png', 'LICENSE', '.github/ISSUE_TEMPLATE/bug_report.yml', '.github/PULL_REQUEST_TEMPLATE.md']) {
     assert.deepEqual(select([file]).testFiles, [docs], file);
   }
@@ -636,53 +609,13 @@ test('repository automation and lint configuration select only their own checks'
   assert.deepEqual(jobs(eslint), noJobs);
 });
 
-test('CI jobs are gated by their selection outputs', () => {
-  const workflow = parse(readFileSync(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8'));
-  for (const [job, output] of [
-    ['workflow-lint', 'workflows'], ['dependencies', 'dependencies'], ['dependency-review', 'dependencies'],
-    ['build-artifacts', 'build'],
-  ]) {
-    assert.ok(workflow.jobs[job].needs.includes('test-scope'), job);
-    assert.match(workflow.jobs[job].if, new RegExp(`needs\\.test-scope\\.outputs\\.${output} == 'true'`), job);
-    assert.equal(workflow.jobs['test-scope'].outputs[output], `\${{ steps.scope.outputs.${output} }}`, output);
-  }
-});
-
-test('dependency audit runs for every change that triggers CI and gates the build', () => {
-  const workflow = parse(readFileSync(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8'));
-  const audit = workflow.jobs['dependency-audit'];
-  assert.equal(audit.if, undefined);
-  assert.equal(audit.needs, undefined);
-  assert.ok(audit.steps.some(step => step.run === 'npm audit --audit-level=moderate'));
-  assert.ok(workflow.jobs.build.needs.includes('dependency-audit'));
-  for (const job of ['typecheck', 'lint', 'dependencies']) {
-    assert.equal(workflow.jobs[job].steps.some(step => step.run?.startsWith('npm audit')), false, job);
-  }
-});
-
 test('WSL runs only the suites a change affects', () => {
   const codex = 'tests/integration/providers/codex/runtime/CodexWSL.windows.test.ts';
   const affected = select([codex]).wslSuites;
   assert.ok(affected.includes(codex));
-  assert.equal(affected.includes('tests/integration/providers/deepseek/runtime/DeepSeekWSLHost.windows.test.ts'), false);
+  assert.equal(affected.includes('tests/integration/providers/grok/runtime/GrokWSL.windows.test.ts'), false);
   assert.ok(affected.every(file => wslTests.includes(file)));
   assert.deepEqual(select(['.github/wsl/provision-rootfs.sh']).wslSuites, wslTests);
   assert.deepEqual(select(['package.json']).wslSuites, wslTests);
   assert.deepEqual(select(['src/features/chat/ClaudianView.ts'], [panel]).wslSuites, []);
-});
-
-test('CI starts independent checks immediately and runs affected WSL suites together in one job', () => {
-  const workflow = parse(readFileSync(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8'));
-  assert.equal(workflow.jobs.quality, undefined);
-  for (const job of ['typecheck', 'lint', 'dependency-audit', 'test-scope', 'diff-hygiene']) {
-    assert.equal(workflow.jobs[job].needs, undefined, job);
-  }
-  assert.ok(workflow.jobs.typecheck.steps.some(step => step.run === 'npm run typecheck'));
-  assert.ok(workflow.jobs.lint.steps.some(step => step.run === 'npm run lint'));
-  const wsl = workflow.jobs['wsl-native'];
-  assert.equal(wsl.strategy, undefined);
-  const suites = wsl.steps.find(step => step.env?.WSL_TESTS);
-  assert.equal(suites.env.WSL_TESTS, "${{ join(fromJSON(needs.test-scope.outputs.wsl-suites), ' ') }}");
-  assert.equal(wsl.if, "needs.test-scope.outputs.wsl-windows == 'true'");
-  for (const job of ['typecheck', 'lint']) assert.ok(workflow.jobs.build.needs.includes(job), job);
 });

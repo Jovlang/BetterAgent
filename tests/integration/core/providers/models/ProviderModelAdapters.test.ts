@@ -7,7 +7,6 @@ import type { ProviderModelCatalog } from '@/core/providers/models/ProviderModel
 import { ProviderModelUnavailableError } from '@/core/providers/models/ProviderModelUnavailableError';
 import { createClaudeModels } from '@/providers/claude/runtime/ClaudeModels';
 import { createCodexModels } from '@/providers/codex/runtime/CodexModels';
-import { createDeepSeekModels } from '@/providers/deepseek/runtime/DeepSeekModels';
 import { createGrokModels } from '@/providers/grok/runtime/GrokModels';
 import { createOpencodeModels } from '@/providers/opencode/runtime/OpencodeModels';
 import { createPiModels } from '@/providers/pi/runtime/PiModels';
@@ -16,7 +15,6 @@ import { getPiProviderSettings } from '@/providers/pi/settings';
 vi.mock('cross-spawn', () => ({ default: vi.fn() }));
 
 const browseOrders = {
-  deepseek: ['deepseek:native/selected', 'deepseek:native/unselected-catalog-entry'],
   claude: ['sonnet', 'unselected-catalog-entry'],
   codex: ['gpt-5.5', 'unselected-catalog-entry'],
   grok: ['selected', 'unselected-catalog-entry'],
@@ -46,7 +44,6 @@ it.each(modelCatalogCases)('$id keeps native selection, aliases and metadata beh
     vi.mocked(spawn).mockReset();
   });
   const factories: Record<string, () => ProviderModelCatalog> = {
-    deepseek: () => createDeepSeekModels(host, async () => { await discovery(); return { groups: [{ id: 'native', models: [{ id: 'selected', name: 'Selected label' }, { id: 'unselected-catalog-entry', name: 'Unselected' }] }] }; }),
     claude: () => createClaudeModels(host, discovery),
     codex: () => createCodexModels(host, { refresh: discovery }),
     grok: () => createGrokModels(host, { refresh: discovery }),

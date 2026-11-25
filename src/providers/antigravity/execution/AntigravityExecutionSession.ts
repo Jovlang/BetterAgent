@@ -659,8 +659,9 @@ export class AntigravityExecutionSession implements ProviderExecutionSession, St
   }
 
   async #getMCPServers(): Promise<ACPMCPServer[]> {
-    if (!this.config.sessionTools) return [];
-    this.sessionToolRoute ??= this.host.sessionToolEndpoint.registerMCPRoute(call => {
+    const endpoint = this.host.sessionToolEndpoint;
+    if (!this.config.sessionTools || !endpoint) return [];
+    this.sessionToolRoute ??= endpoint.registerMCPRoute(call => {
       // Capture ownership before dispatch: a pending call must never adopt a later turn. A call agy makes in its own
       // reply belongs to the background turn, under the configuration agy last ran with.
       const background = this.#backgroundTurn();

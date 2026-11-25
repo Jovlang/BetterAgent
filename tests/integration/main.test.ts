@@ -22,7 +22,6 @@ import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
 import { ProviderSettingsCoordinator } from '@/core/providers/ProviderSettingsCoordinator';
 import { ProviderWorkspaceRegistry } from '@/core/providers/ProviderWorkspaceRegistry';
 import { isVersionedRuntimeInputFingerprint } from '@/core/providers/settings/RuntimeInputFingerprint';
-import { LoopbackSessionToolServer } from '@/core/session-tools/LoopbackSessionToolServer';
 import { TOOL_SUBAGENT } from '@/core/tools/toolNames';
 import { type ClaudianSettings, type Conversation, type SessionMetadata, VIEW_TYPE_CLAUDIAN } from '@/core/types';
 import { ClaudianView } from '@/features/chat/ClaudianView';
@@ -906,7 +905,7 @@ describe('ClaudianPlugin', () => {
       return { host, repository, ids, hydrate, messages };
     }
 
-    it.each(['read', 'last reply', 'mention', 'title'])('releases unowned history after %s access', async kind => {
+    it.each(['read', 'last reply', 'title'])('releases unowned history after %s access', async kind => {
       const { host, repository, ids } = await setupHistoryReads();
       const service = new SessionMessagingService({ getHost: () => host, getActiveConversationId: () => null, refreshModelControls: () => {} });
       await host.mutateSettings(settings => { settings.enableAutoTitleGeneration = true; });
@@ -924,8 +923,6 @@ describe('ClaudianPlugin', () => {
             binding.dispose();
           } else if (kind === 'last reply') {
             result = await service.readLastReply(id);
-          } else if (kind === 'mention') {
-            result = (await resolveSessionMentions(host, `@[session](claudian-session:${id})`, new AbortController().signal)).references[0].id;
           } else {
             await titles.regenerate(id);
             result = repository.getSummary(id)?.title ?? '';
@@ -1194,17 +1191,28 @@ describe('ClaudianPlugin', () => {
       expect(disposeSpy).toHaveBeenCalledTimes(1);
     });
 
-    it('fences session tools synchronously and joins the service before provider teardown', async () => {
+    it('does not expose agent session tools or resolve old composer session references', async () => {
       await plugin.onload();
-      const host = (plugin as unknown as { chatHost: ClaudianChatFeatureHost }).chatHost;
-      const binding = host.bindSessionTools('caller');
+      const host = chatHostOf();
+      expect('bindSessionTools' in host).toBe(false);
+      expect(plugin.providerHost.sessionToolEndpoint).toBeUndefined();
+      const text = 'Compare @[Review](claudian-session:review) with [[Review.md]]';
+      await expect(resolveSessionMentions(host, text, new AbortController().signal)).resolves.toEqual({
+        text: 'Compare @"Review" with [[Review.md]]',
+        references: [],
+      });
+      await expect(plugin.api.listSessions()).resolves.toMatchObject({ sessions: expect.any(Array) });
+    });
+
+    it('fences the plugin client API synchronously and joins the service before provider teardown', async () => {
+      await plugin.onload();
       let release!: () => void;
       const pending = new Promise<void>(resolve => { release = resolve; });
       const dispose = vi.spyOn(SessionMessagingService.prototype, 'dispose').mockReturnValueOnce(pending);
       const disposeWorkspaces = vi.spyOn(ProviderWorkspaceRegistry, 'disposeInitialized');
       plugin.onunload();
       try {
-        await expect(binding.port.list({ includeProviders: false, limit: 50 }, new AbortController().signal)).rejects.toThrow('shutting down');
+        await expect(plugin.api.listSessions()).rejects.toThrow('shutting down');
         await waitForCondition(() => dispose.mock.calls.length > 0);
         expect(disposeWorkspaces).not.toHaveBeenCalled();
       } finally {
@@ -1215,52 +1223,16 @@ describe('ClaudianPlugin', () => {
       }
     });
 
-    it.each([false, true])('closes the session endpoint after workspace cleanup settles (failure: %s)', async fails => {
-      await plugin.onload();
-      expect(plugin.providerHost.sessionToolEndpoint).toBeInstanceOf(LoopbackSessionToolServer);
-      let finishWorkspace!: () => void;
-      const workspaceCleanup = new Promise<void>((resolve, reject) => {
-        finishWorkspace = () => fails ? reject(new Error('workspace cleanup failed')) : resolve();
-      });
-      const disposeWorkspaces = vi.spyOn(ProviderWorkspaceRegistry, 'disposeInitialized')
-        .mockReturnValueOnce(workspaceCleanup);
-      let finishClose!: () => void;
-      const close = vi.spyOn(LoopbackSessionToolServer.prototype, 'close')
-        .mockImplementationOnce(() => new Promise<void>(resolve => { finishClose = resolve; }));
-      let stopped = false;
-      plugin.onunload();
-      const shutdown = plugin['applicationShutdownPromise']!.then(() => { stopped = true; });
-      try {
-        await waitForCondition(() => disposeWorkspaces.mock.calls.length > 0);
-        expect(close).not.toHaveBeenCalled();
-        finishWorkspace();
-        await waitForCondition(() => close.mock.calls.length > 0);
-        expect(stopped).toBe(false);
-        finishClose();
-        await shutdown;
-        expect(stopped).toBe(true);
-        expect(close).toHaveBeenCalledTimes(1);
-      } finally {
-        finishWorkspace();
-        finishClose?.();
-        close.mockRestore();
-        disposeWorkspaces.mockRestore();
-      }
-    });
-
-    it('releases workspaces and the endpoint when native archive cleanup fails', async () => {
+    it('releases workspaces when native archive cleanup fails', async () => {
       await plugin.onload();
       const failure = new Error('archive cleanup failed');
       vi.spyOn(plugin['nativeSessionArchives'], 'dispose').mockRejectedValueOnce(failure);
       const disposeWorkspaces = vi.spyOn(ProviderWorkspaceRegistry, 'disposeInitialized');
-      const close = vi.spyOn(LoopbackSessionToolServer.prototype, 'close');
 
       plugin.onunload();
       await expect(plugin['applicationShutdownPromise']).rejects.toBe(failure);
 
       expect(disposeWorkspaces).toHaveBeenCalledTimes(1);
-      expect(close).toHaveBeenCalledTimes(1);
-      expect(disposeWorkspaces.mock.invocationCallOrder[0]).toBeLessThan(close.mock.invocationCallOrder[0]);
     });
 
     it('drains views and detached sessions before disposing execution and workspace resources', async () => {

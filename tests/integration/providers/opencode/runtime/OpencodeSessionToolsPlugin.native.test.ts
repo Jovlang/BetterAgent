@@ -40,7 +40,9 @@ it.skipIf(!cli)('registers session tools and carries the native caller through a
   const fixture = await createProviderHostFixture({ overrides: { workingDirectory: root, getResolvedProviderCliPath: async () => cli! } });
   const service = new OpencodeServerService(fixture.host.sessionToolEndpoint);
   const host = fixture.host.getRuntimeHost('opencode');
-  const route = await fixture.host.sessionToolEndpoint.registerCallRoute(async request => {
+  const endpoint = fixture.host.sessionToolEndpoint;
+  if (!endpoint) throw new Error('Expected a session tool endpoint in the fixture');
+  const route = await endpoint.registerCallRoute(async request => {
     callers.push(request.callerNativeId);
     return { isError: false, text: 'verified relay 中文' };
   });

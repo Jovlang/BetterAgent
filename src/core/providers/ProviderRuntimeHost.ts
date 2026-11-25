@@ -50,7 +50,7 @@ export interface ProviderRuntimeHost {
   readonly workingDirectory: string | null;
   readonly storage: ProviderHostStorage;
   /** Loopback endpoint through which shared provider processes reach main-chat session tools. */
-  readonly sessionToolEndpoint: SessionToolEndpoint;
+  readonly sessionToolEndpoint?: SessionToolEndpoint;
 
   resolveCliPath(context?: ProviderCLIResolutionContext): Promise<string | null>;
   notifyChatOptionsChanged(): void;

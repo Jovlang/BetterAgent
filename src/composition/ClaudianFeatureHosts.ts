@@ -22,8 +22,6 @@ import type {
 import type { ChatFeatureHost, ChatProjects, ChatSessionRuntimes } from '@/features/chat/ChatFeatureHost';
 import type { ClaudianView } from '@/features/chat/ClaudianView';
 import type { ConversationLifecycle } from '@/features/chat/conversation/ConversationLifecycle';
-import type { SessionToolBinding } from '@/features/chat/execution/ChatExecutionCoordinator';
-import type { SessionMessagingService } from '@/features/chat/session-messaging/SessionMessagingService';
 import type { SessionRuntimePool } from '@/features/chat/sessions/SessionRuntimePool';
 import type { FeatureHost } from '@/features/FeatureHost';
 
@@ -44,7 +42,6 @@ export interface FeatureHostDomains {
 
 export interface ChatFeatureHostDomains extends FeatureHostDomains {
   readonly sessionRuntimes: SessionRuntimePool;
-  readonly sessionMessaging: SessionMessagingService;
   readonly conversations: ConversationService;
   readonly executionPersistence: ConversationRepository;
   readonly chatModelSelection: ChatModelSelectionCoordinator;
@@ -122,10 +119,6 @@ export class ClaudianChatFeatureHost extends ClaudianFeatureHost implements Chat
 
   getAgentSkillResourceGeneration(): number {
     return this.domains.agentSkills.getGeneration();
-  }
-
-  bindSessionTools(conversationId: string): SessionToolBinding {
-    return this.domains.sessionMessaging.bindSessionTools(conversationId);
   }
 
   createConversation(options?: {

@@ -86,7 +86,7 @@ export interface ChatFeatureHost extends FeatureHost {
   /** Advances when vault skills change, invalidating provider command caches. */
   getAgentSkillResourceGeneration(): number;
   readonly sessionRuntimes: ChatSessionRuntimes;
-  bindSessionTools(conversationId: string): SessionToolBinding;
+  bindSessionTools?(conversationId: string): SessionToolBinding;
   readonly chatModelSelection: ChatModelSelectionPort;
   createConversation(options?: {
     providerId?: ProviderId;

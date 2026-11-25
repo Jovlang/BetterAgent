@@ -57,7 +57,9 @@ async function createFixture(version = '2.0.14') {
     overrides: { workingDirectory: root, getResolvedProviderCliPath: async () => cli },
   });
   const plugin = hostFixture.host;
-  const register = vi.spyOn(plugin.sessionToolEndpoint, 'registerCallRoute');
+  const endpoint = plugin.sessionToolEndpoint;
+  if (!endpoint) throw new Error('Expected a session tool endpoint in the fixture');
+  const register = vi.spyOn(endpoint, 'registerCallRoute');
   const runtimeHost = plugin.getRuntimeHost('opencode');
   const workspace = await createOpencodeWorkspaceServices(plugin);
   const backend = new OpencodeExecutionBackend(runtimeHost, workspace);

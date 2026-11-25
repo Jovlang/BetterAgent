@@ -27,7 +27,7 @@ export interface ProviderHost {
   /** Absolute local directory provider processes run in; null when the host has no local directory. */
   readonly workingDirectory: string | null;
   /** Loopback endpoint through which shared provider processes reach main-chat session tools. */
-  readonly sessionToolEndpoint: SessionToolEndpoint;
+  readonly sessionToolEndpoint?: SessionToolEndpoint;
 
   mutateSettings(
     mutation: (settings: ClaudianSettings) => void | Promise<void>,

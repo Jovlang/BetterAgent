@@ -55,10 +55,10 @@ function buildContextManagers(
 > {
   const { dom } = core;
   const { plugin } = options;
-  const fileContextManager = new FileContextManager(options.mentionDataProvider, {
+  const fileContextManager = new FileContextManager(options.mentionDataProvider, plugin.bindSessionTools ? {
     getConversationList: () => plugin.getConversationList(),
     getCurrentConversationId: () => runtimeRef.current()?.conversationId,
-  });
+  } : undefined);
   options.registerCleanup('tab file context manager', () => fileContextManager.destroy());
   const linkedContentController = core.session.runtime.model.linkedContentController;
   options.registerCleanup('tab Linked content presentation', () => {

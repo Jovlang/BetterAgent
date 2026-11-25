@@ -20,9 +20,7 @@ Open the BetterAgent interface from the ribbon icon or command palette. Everythi
 
 **Slash Commands & Skills** — Type `/` or `$` for reusable prompt templates or Skills from user- and vault-level scopes.
 
-**@mention** — Type `@` to reference vault files, folders and other BetterAgent sessions.
-
-**Cross-Session Messaging** — Let agents read, message, steer or interrupt other BetterAgent sessions, or start new ones on any provider. See the [Cross-session messaging guide](docs/cross-session-messaging.md).
+**@mention** — Type `@` to reference vault files and folders.
 
 **Side Chat (`/side` or `/btw`)** — Explore a separate, temporary conversation with follow-ups and tools while keeping the main chat unchanged.
 
@@ -88,7 +86,7 @@ npm run build
 ## Privacy & Data Use
 
 - **Sent to API**: Your input, attached files, images, and tool call outputs. Depending on the selected provider, data is sent to Anthropic (Claude), OpenAI (Codex), xAI (Grok), Google (Antigravity), or the providers configured in OpenCode, Pi, or DeepSeek Harness. The destination can be configured through provider settings and environment variables.
-- **No telemetry or unsolicited background activity**: BetterAgent does not run telemetry beacons. UI polling timers read local Obsidian/editor selection state only. Network activity is limited to explicit provider runtime work, configured MCP endpoints, a 127.0.0.1-only listener that OpenCode, DeepSeek and Grok sessions use for BetterAgent's session tools, provider SDK/CLI calls needed to answer your requests, and their configured services.
+- **No telemetry or unsolicited background activity**: BetterAgent does not run telemetry beacons. UI polling timers read local Obsidian/editor selection state only. Network activity is limited to explicit provider runtime work, configured MCP endpoints, provider SDK/CLI calls needed to answer your requests, and their configured services.
 
 ## Troubleshooting
 

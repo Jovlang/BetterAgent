@@ -9,6 +9,16 @@ export async function resolveSessionMentions(
   signal: AbortSignal,
 ): Promise<{ text: string; references: ProviderSessionReference[] }> {
   const mentions = findComposerSessionMentions(text);
+  if (!mentions.length) return { text, references: [] };
+  if (!host.bindSessionTools) {
+    // Old drafts keep their readable label, but cannot resolve or expose another session.
+    signal.throwIfAborted();
+    let plainText = text;
+    for (const mention of [...mentions].reverse()) {
+      plainText = plainText.slice(0, mention.index) + `@"${mention.title}"` + plainText.slice(mention.index + mention.fullMatch.length);
+    }
+    return { text: plainText, references: [] };
+  }
   const references = new Map<string, ProviderSessionReference>();
   for (const mention of mentions) {
     if (references.has(mention.conversationId)) continue;

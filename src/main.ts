@@ -29,7 +29,6 @@ import { ProviderRegistry } from './core/providers/ProviderRegistry';
 import { ProviderSettingsCoordinator } from './core/providers/ProviderSettingsCoordinator';
 import { ProviderWorkspaceRegistry } from './core/providers/ProviderWorkspaceRegistry';
 import type { ProviderId } from './core/providers/types';
-import { LoopbackSessionToolServer } from './core/session-tools/LoopbackSessionToolServer';
 import type { ClaudianSettings } from './core/types';
 import { VIEW_TYPE_CLAUDIAN } from './core/types';
 import { ClaudianView } from './features/chat/ClaudianView';
@@ -83,7 +82,6 @@ export default class ClaudianPlugin extends Plugin {
     () => this.settings.chatViewPlacement,
   );
   private readonly agentSkills = new AgentSkillResources(() => this.views.getAllViews());
-  private readonly sessionToolEndpoint = new LoopbackSessionToolServer();
   private readonly inlineEditSessions = new InlineEditSessionOwner();
   private readonly fontScale = new ChatFontScale({
     workspace: this.app.workspace,
@@ -264,7 +262,6 @@ export default class ClaudianPlugin extends Plugin {
       app: this.app,
       manifest: this.manifest,
       executionLifecycleRegistry: this.executionLifecycleRegistry,
-      sessionToolEndpoint: this.sessionToolEndpoint,
       storage: domains.storage,
       settings,
       environment,
@@ -319,7 +316,6 @@ export default class ClaudianPlugin extends Plugin {
     this.chatHost = new ClaudianChatFeatureHost({
       ...featureDomains,
       sessionRuntimes: this.sessionRuntimes,
-      sessionMessaging: this.sessionMessaging,
       conversationLifecycle: this.conversationLifecycle,
       executionPersistence: domains.conversationRepository,
       chatModelSelection: domains.chatModelSelection,
@@ -363,8 +359,6 @@ export default class ClaudianPlugin extends Plugin {
         await ProviderWorkspaceRegistry.disposeInitialized();
       } catch {
         // Obsidian teardown has no error channel; workspace cleanup is best effort.
-      } finally {
-        await this.sessionToolEndpoint.close();
       }
     }
     await this.modelMetadataMigration;

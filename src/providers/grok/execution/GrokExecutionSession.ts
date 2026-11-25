@@ -651,8 +651,9 @@ RewindableExecutionSession {
   }
 
   async #getMCPServers(): Promise<ACPMCPServer[]> {
-    if (!this.config.sessionTools) return [];
-    this.sessionToolRoute ??= this.host.sessionToolEndpoint.registerMCPRoute(call => {
+    const endpoint = this.host.sessionToolEndpoint;
+    if (!this.config.sessionTools || !endpoint) return [];
+    this.sessionToolRoute ??= endpoint.registerMCPRoute(call => {
       // Capture ownership before dispatch: a pending call must never adopt a later run.
       const active = this.active;
       return invokeSessionTool(call.name, call.args, {

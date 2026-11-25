@@ -35,7 +35,7 @@ export interface ClaudianProviderHostDeps {
   readonly manifest?: { version?: string };
   readonly executionLifecycleRegistry: ProviderExecutionLifecycleRegistry;
   readonly storage: ProviderHostStorage;
-  readonly sessionToolEndpoint: SessionToolEndpoint;
+  readonly sessionToolEndpoint?: SessionToolEndpoint;
   readonly settings: Pick<
     SettingsCoordinator<ClaudianSettings>,
     'getCommittedSettings' | 'mutate' | 'mutateConditionally'
@@ -60,7 +60,7 @@ export class ClaudianProviderHost implements ProviderHost {
   readonly manifest?: { version?: string };
   readonly executionLifecycleRegistry: ProviderExecutionLifecycleRegistry;
   readonly storage: ProviderHostStorage;
-  readonly sessionToolEndpoint: SessionToolEndpoint;
+  readonly sessionToolEndpoint?: SessionToolEndpoint;
   readonly #runtimeHosts = new Map<ProviderId, ProviderRuntimeHost>();
 
   constructor(private readonly deps: ClaudianProviderHostDeps) {

@@ -30,7 +30,6 @@ describe('session ownership across presentations', () => {
     const first = pool.acquire({ conversationId: null, providerId: 'claude', draftModel: 'model' }, owner);
     const runtime = first.attachment.runtime;
     expect(runtime.peekModel).toBeNull();
-    await expect(pool.awaitConversationCreations()).resolves.toBeUndefined();
     expect(runtime.peekModel).toBeNull();
     const held = deferred<void>();
     let signal!: AbortSignal;

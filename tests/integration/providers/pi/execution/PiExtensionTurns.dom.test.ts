@@ -8,7 +8,6 @@ import { App, Component, MarkdownRenderer } from 'obsidian';
 import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
 import { registerProviderModules } from '@/core/providers/registerProviderModules';
 import type { ClaudianSettings, Conversation } from '@/core/types';
-import { SessionMessagingService } from '@/features/chat/session-messaging/SessionMessagingService';
 import { activateTab, destroyTab } from '@/features/chat/tabs/TabLifecycle';
 import { createTabRuntime } from '@/features/chat/tabs/TabRuntimeFactory';
 import { claudeProviderRegistration } from '@/providers/claude/registration';
@@ -137,7 +136,6 @@ async function createPiView() {
     title: 'Pi extension', createdAt: 1, lastActivityAt: 1, sessionId: null,
   } satisfies Conversation;
   const pool = createSessionRuntimePool(() => plugin);
-  const messaging = new SessionMessagingService({ getHost: () => plugin, getActiveConversationId: () => conversation.id });
   const plugin = await createChatFeatureHost({
     sessionRuntimes: pool,
 
@@ -180,7 +178,7 @@ async function createPiView() {
   activateTab(tab);
   return {
     tab, kernels,
-    dispose: async () => { await destroyTab(tab); await messaging.dispose(); await plugin.providerHost.executionLifecycleRegistry.dispose(); },
+    dispose: async () => { await destroyTab(tab); await plugin.providerHost.executionLifecycleRegistry.dispose(); },
   };
 }
 

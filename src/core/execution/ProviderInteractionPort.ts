@@ -25,7 +25,7 @@ export interface ProviderApprovalDecisionOption {
   readonly description?: string;
   /** Identifies the option in the answer; unique within a request. */
   readonly value: string;
-  /** Scripting metadata (docs/plugin-api.md); routers decode the answer by `value`, never by this tag. */
+  /** Optional decision metadata; routers decode the answer by `value`, never by this tag. */
   readonly decision?: ApprovalDecision;
   readonly action?: ProviderActionSummary;
 }

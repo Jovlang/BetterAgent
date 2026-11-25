@@ -227,7 +227,6 @@ export function resolveRowActions(
     const readAction = readStateAction(input);
     if (readAction) actions.push(readAction);
   }
-  // The ID lets other Obsidian plugins refer to this session through the plugin API.
   actions.push(action('rename'), action('copy-session-id'));
   actions.push(mode === 'active' ? archiveAction : action('delete'));
   return actions;

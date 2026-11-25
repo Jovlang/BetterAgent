@@ -2,8 +2,7 @@ import { Notice } from 'obsidian';
 
 import type { ProviderActionKind, ProviderApprovalInteractionRequest } from '@/core/execution';
 import { TOOL_ASK_USER_QUESTION } from '@/core/tools/toolNames';
-import type { ApprovalDecision, AskUserAnswers, ToolCallInfo } from '@/core/types';
-import { askOptionValue, parseAskUserQuestions, validateAskUserAnswers } from '@/features/chat/interactions/askUserQuestions';
+import type { AskUserAnswers, ToolCallInfo } from '@/core/types';
 import { type InlineActionPicker, type InlineAskQuestionConfig, InlineAskUserQuestion } from '@/features/chat/interactions/InlineAskUserQuestion';
 import { QuestionInteractionState } from '@/features/chat/interactions/QuestionInteractionState';
 import { setToolIcon } from '@/features/chat/rendering/tools/toolContentPrimitives';
@@ -31,38 +30,6 @@ export interface SessionInteractionsDeps {
   getSuppressedEl?(): HTMLElement | null;
   /** Returns a restoration callback bound to the presentation being suppressed. */
   onBeforeShow?(): (() => void) | void;
-  /** A request became pending, or stopped pending however it ended. */
-  onPendingChanged?(interactionId: string, pending: boolean): void;
-}
-
-export interface PendingInteractionOption {
-  readonly label: string;
-  readonly value: string;
-  readonly description?: string;
-  /** What an approval option decides; absent for provider-specific options and questions. */
-  readonly decision?: ApprovalDecision;
-}
-
-export interface PendingInteractionQuestion {
-  readonly id?: string;
-  readonly header: string;
-  readonly question: string;
-  readonly options: readonly PendingInteractionOption[];
-  readonly multiSelect: boolean;
-  /** Free-text answers are accepted. */
-  readonly isOther: boolean;
-  readonly isSecret: boolean;
-}
-
-/** A pending request as plain data, exactly as the prompt shows it. */
-export interface PendingInteractionSnapshot {
-  readonly interactionId: string;
-  readonly kind: 'approval' | 'question';
-  readonly toolName?: string;
-  readonly description?: string;
-  readonly decisionReason?: string;
-  readonly blockedPath?: string;
-  readonly questions: readonly PendingInteractionQuestion[];
 }
 
 interface AsyncQuestionDelivery {
@@ -207,39 +174,6 @@ export class SessionInteractions {
 
   get pendingCount(): number { return this.pending.size; }
 
-  /** Pending requests in arrival order, including ones no presentation shows. */
-  listPending(): PendingInteractionSnapshot[] {
-    return [...this.pending].map(([interactionId, entry]) => snapshotPending(interactionId, entry));
-  }
-
-  /**
-   * Answers a pending request as its prompt would. Rejects answers the prompt could not submit; an
-   * async question resolves only after its answer is delivered and rejects when delivery fails.
-   */
-  async answer(interactionId: string, answers: AskUserAnswers): Promise<void> {
-    const entry = this.pending.get(interactionId);
-    if (!entry?.state.acceptsAnswer) {
-      throw new Error(`Interaction "${interactionId}" is not awaiting an answer`);
-    }
-    const error = validateAskUserAnswers(parseAskUserQuestions(entry.input), answers, entry.config?.showCustomInput !== false);
-    if (error) throw new Error(error);
-    const result = structuredClone(answers);
-    const submit = entry.config?.onSubmit;
-    if (submit) {
-      entry.state.beginSubmit();
-      entry.state.onChange?.();
-      try {
-        await submit(result);
-      } catch (submitError) {
-        if (entry.state.failSubmit(submitError instanceof Error ? submitError.message : t('chat.questions.sendFailed'))) {
-          entry.state.onChange?.();
-        }
-        throw submitError;
-      }
-    }
-    this.#finish(interactionId, entry, result);
-  }
-
   setActive(active: boolean): void {
     this.active = active;
     for (const [id, entry] of this.pending) {
@@ -283,7 +217,6 @@ export class SessionInteractions {
       entry.state.onChange = () => entry.inline?.refresh();
       this.pending.set(interactionId, entry);
       this.#publish();
-      this.deps.onPendingChanged?.(interactionId, true);
       signal?.addEventListener('abort', entry.abort, { once: true });
       this.#mount(interactionId, entry);
     });
@@ -324,7 +257,6 @@ export class SessionInteractions {
       this.asyncDelivery?.onChange(tool);
     }
     this.#publish();
-    this.deps.onPendingChanged?.(id, false);
     this.#syncSuppression();
     if (this.pending.size === 0) this.#restorePresentation?.();
     entry.resolve(result);
@@ -378,31 +310,4 @@ function createApprovalHeader(parentEl: HTMLElement, request: ApprovalPromptRequ
   });
 
   return headerEl;
-}
-
-function snapshotPending(interactionId: string, entry: PendingPrompt): PendingInteractionSnapshot {
-  const approval = entry.kind === 'approval' ? entry.approval : undefined;
-  const questions = parseAskUserQuestions(entry.input).map((question): PendingInteractionQuestion => ({
-    ...(question.id !== undefined ? { id: question.id } : {}),
-    header: question.header,
-    question: question.question,
-    options: question.options.map((option): PendingInteractionOption => {
-      const value = askOptionValue(option);
-      const decision = approval?.decisionOptions.find(candidate => candidate.value === value)?.decision;
-      return { label: option.label, value, description: option.description, ...(decision ? { decision } : {}) };
-    }),
-    multiSelect: question.multiSelect,
-    isOther: question.isOther === true && entry.config?.showCustomInput !== false,
-    isSecret: question.isSecret === true,
-  }));
-  if (!approval) return { interactionId, kind: 'question', questions };
-  return {
-    interactionId,
-    kind: 'approval',
-    toolName: approval.toolName,
-    description: approval.description,
-    ...(approval.decisionReason ? { decisionReason: approval.decisionReason } : {}),
-    ...(approval.blockedPath ? { blockedPath: approval.blockedPath } : {}),
-    questions,
-  };
 }

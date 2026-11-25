@@ -507,25 +507,6 @@ describe('MainTurnExecution', () => {
     ]);
   });
 
-  it('reports no error activity for a session message the provider failed before accepting', async () => {
-    const fixture = (await createFixture());
-    const onUnsent = vi.fn();
-    fixture.native.respond.mockImplementationOnce(run => {
-      run.emit({ type: 'turn_started', accepted: false });
-      run.emit({ type: 'execution_error', category: 'transport', message: 'Transport closed', recoverable: true });
-    });
-
-    await fixture.controller.sendSessionMessage(
-      { from: 'Sender', sessionId: 'sender', text: 'Please inspect this' },
-      { assertBeforeHandoff: () => undefined, onUnsent },
-    );
-
-    // The unsent message returns to its mailbox; the rolled-back turn has no reply to carry the error.
-    expect(onUnsent).toHaveBeenCalled();
-    expect(fixture.state.messages).toEqual([]);
-    expect(fixture.state.activity?.kind).not.toBe('error');
-  });
-
   it('renders a missing native session as an ordinary error and keeps the conversation', async () => {
     const fixture = (await createFixture());
     fixture.input.value = 'already handed off';

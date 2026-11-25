@@ -9,7 +9,6 @@ import { Component, WorkspaceLeaf } from 'obsidian';
 import { ChatModelSelectionCoordinator } from '@/app/settings/ChatModelSelectionCoordinator';
 import type { Conversation } from '@/core/types';
 import type { ChatFeatureHost, ChatViewHost } from '@/features/chat/ChatFeatureHost';
-import { SessionMessagingService } from '@/features/chat/session-messaging/SessionMessagingService';
 import type { TabManagerViewHost } from '@/features/chat/tabs/ChatTab';
 import { TabConversationNavigation } from '@/features/chat/tabs/TabConversationNavigation';
 import { TabManager } from '@/features/chat/tabs/TabManager';
@@ -39,9 +38,6 @@ export async function createPlugin(overrides: ChatFeatureHostOptions = {}, poolO
     },
   });
   const pool = createSessionRuntimePool(() => plugin, poolOptions);
-  const messaging = new SessionMessagingService({
-    getHost: () => plugin, getActiveConversationId: () => null,
-  });
   const chatModelSelection = new ChatModelSelectionCoordinator(fixture.coordinator);
   const ports = {
     sessionRuntimes: pool,
@@ -65,7 +61,6 @@ export async function createPlugin(overrides: ChatFeatureHostOptions = {}, poolO
   const { fixture: _fixture, settings: _settings, app: _app, ...capabilities } = overrides;
   const plugin: ChatFeatureHost = await createChatFeatureHost({ fixture, ...ports, ...capabilities });
   if (!capabilities.getConversationSummary) plugin.getConversationSummary = id => plugin.getCachedConversation(id);
-  onTestFinished(() => messaging.dispose());
   return Object.assign(plugin, { pool });
 }
 

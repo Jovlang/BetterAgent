@@ -32,14 +32,6 @@ import { VIEW_TYPE_CLAUDIAN } from './core/types';
 import { ClaudianView } from './features/chat/ClaudianView';
 import { ConversationLifecycle } from './features/chat/conversation/ConversationLifecycle';
 import { InactiveSessionArchiver } from './features/chat/conversation/InactiveSessionArchiver';
-import {
-  CLAUDIAN_TURN_ENDED_EVENT,
-  type ClaudianAPI,
-  type ClaudianTurnEndedEvent,
-  createClaudianAPI,
-  toClaudianWorkspaceEvent,
-} from './features/chat/session-messaging/ClaudianAPI';
-import { SessionMessagingService } from './features/chat/session-messaging/SessionMessagingService';
 import { createChatSessionRuntime } from './features/chat/sessions/createChatSessionRuntime';
 import { SessionRuntimePool } from './features/chat/sessions/SessionRuntimePool';
 import { ChatFontScale } from './features/chat/view/ChatFontScale';
@@ -61,9 +53,6 @@ export default class ClaudianPlugin extends Plugin {
   private featureHost!: ClaudianFeatureHost;
   private chatHost!: ClaudianChatFeatureHost;
   private sessionRuntimes!: SessionRuntimePool;
-  private sessionMessaging!: SessionMessagingService;
-  /** Experimental API for other plugins; see `ClaudianAPI`. */
-  api!: ClaudianAPI;
   /** Live committed settings, following Obsidian's plugin convention. */
   settings!: Readonly<ClaudianSettings>;
   private settingsCoordinator!: SettingsCoordinator<ClaudianSettings>;
@@ -285,20 +274,8 @@ export default class ClaudianPlugin extends Plugin {
       // Returning to a recent session skips reloading and parsing its transcript.
       retainedDetachedSessions: 3,
       onChanged: () => this.chatViews.notifyConversationListChanged(),
-      onSessionSettled: sessionId => {
-        this.app.workspace.trigger(CLAUDIAN_TURN_ENDED_EVENT, { sessionId } satisfies ClaudianTurnEndedEvent);
-      },
-      onSessionSignal: (sessionId, signal) => {
-        const event = toClaudianWorkspaceEvent(sessionId, signal);
-        this.app.workspace.trigger(event.name, event.payload);
-      },
       onError: () => { new Notice('Session state could not be saved. It remains in memory.'); },
     });
-    this.sessionMessaging = new SessionMessagingService({
-      getHost: () => this.chatHost,
-      getActiveConversationId: () => this.views.getInputFocusView()?.getActiveTab()?.conversationId ?? null,
-    });
-    this.api = createClaudianAPI(this.sessionMessaging, { openSession: (id, options) => this.views.openSession(id, options) });
     this.conversationLifecycle = new ConversationLifecycle({
       conversations: domains.conversations,
       views: this.views,
@@ -322,7 +299,6 @@ export default class ClaudianPlugin extends Plugin {
 
   /** Synchronously stops admission into domains that loading has built so far; idempotent. */
   private fenceLoadedDomains(): void {
-    this.sessionMessaging?.beginShutdown();
     this.sessionRuntimes?.beginShutdown();
     this.vaultContentEvents?.dispose();
     this.inactiveSessionArchiver?.dispose();
@@ -340,8 +316,6 @@ export default class ClaudianPlugin extends Plugin {
         this.sessionInputCleanup,
         ...this.views.getAllViews().map(view => view.prepareForPluginUnload()),
       ]);
-      // Admitted native archive work needs provider services that are disposed below.
-      await this.sessionMessaging?.dispose();
       await this.sessionRuntimes?.dispose().catch(() => undefined);
       await this.nativeSessionArchives?.dispose();
     } finally {

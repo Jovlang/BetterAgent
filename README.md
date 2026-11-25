@@ -28,8 +28,6 @@ Open BetterAgent from the ribbon icon or command palette. Configure Codex under 
 
 **Migrating from older versions** — The floating Zen panel, chat tab row, project management, and agent-facing session tools are no longer available. Existing Codex conversations remain in History, and BetterAgent does not move or delete [old project files and memory notes](docs/projects.md).
 
-**Plugin API (experimental)** — Let other Obsidian plugins send prompts to sessions, stop them and read their replies. See the [Plugin API guide](docs/plugin-api.md).
-
 **Collaboration** — Collab is now a standalone plugin. See [Claudian Collab](https://github.com/YishenTu/claudian-collab).
 
 ## Requirements

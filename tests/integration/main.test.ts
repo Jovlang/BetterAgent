@@ -27,7 +27,6 @@ import { type ClaudianSettings, type Conversation, type SessionMetadata, VIEW_TY
 import { ClaudianView } from '@/features/chat/ClaudianView';
 import { stripLegacySessionMentions } from '@/features/chat/composer/composerSessionMentions';
 import { ConversationTitleGeneration } from '@/features/chat/conversation/ConversationTitleGeneration';
-import { SessionMessagingService } from '@/features/chat/session-messaging/SessionMessagingService';
 import { SessionRuntimePool } from '@/features/chat/sessions/SessionRuntimePool';
 import * as sdkSession from '@/providers/claude/history/ClaudeHistoryStore';
 import { createCodexModelCatalogCommit } from '@/providers/codex/app/CodexWorkspaceServices';
@@ -903,29 +902,20 @@ describe('ClaudianPlugin', () => {
       return { host, repository, ids, hydrate, messages };
     }
 
-    it.each(['last reply', 'title'])('releases unowned history after %s access', async kind => {
+    it('releases unowned history after title generation', async () => {
       const { host, repository, ids } = await setupHistoryReads();
-      const service = new SessionMessagingService({ getHost: () => host, getActiveConversationId: () => null });
       await host.mutateSettings(settings => { settings.enableAutoTitleGeneration = true; });
       vi.spyOn(ProviderRegistry, 'resolveTitleGenerationSelection').mockReturnValue({ providerId: 'claude', model: 'haiku' });
       const titles = new ConversationTitleGeneration({ host, getService: () => ({
         generateTitle: async (id, _content, callback) => { await callback(id, { success: true, title: 'Generated' }); },
         cancel() {},
       }) });
-      try {
-        for (const id of ids) {
-          let result: string;
-          if (kind === 'last reply') {
-            result = await service.readLastReply(id);
-          } else {
-            await titles.regenerate(id);
-            result = repository.getSummary(id)?.title ?? '';
-          }
-          expect(result).toContain(kind === 'title' ? 'Generated' : 'Finished');
-          expect(host.sessionRuntimes.get(id)).toBeNull();
-          expect(repository.getSync(id)?.messages).toEqual([]);
-        }
-      } finally { await service.dispose(); }
+      for (const id of ids) {
+        await titles.regenerate(id);
+        expect(repository.getSummary(id)?.title).toContain('Generated');
+        expect(host.sessionRuntimes.get(id)).toBeNull();
+        expect(repository.getSync(id)?.messages).toEqual([]);
+      }
     });
 
     it('preserves a runtime model history, then releases subsequent reads after the model is evicted', async () => {
@@ -1192,26 +1182,6 @@ describe('ClaudianPlugin', () => {
       expect(plugin.providerHost.sessionToolEndpoint).toBeUndefined();
       const text = 'Compare @[Review](claudian-session:review) with [[Review.md]]';
       expect(stripLegacySessionMentions(text)).toBe('Compare @"Review" with [[Review.md]]');
-      await expect(plugin.api.listSessions()).resolves.toMatchObject({ sessions: expect.any(Array) });
-    });
-
-    it('fences the plugin client API synchronously and joins the service before provider teardown', async () => {
-      await plugin.onload();
-      let release!: () => void;
-      const pending = new Promise<void>(resolve => { release = resolve; });
-      const dispose = vi.spyOn(SessionMessagingService.prototype, 'dispose').mockReturnValueOnce(pending);
-      const disposeWorkspaces = vi.spyOn(ProviderWorkspaceRegistry, 'disposeInitialized');
-      plugin.onunload();
-      try {
-        await expect(plugin.api.listSessions()).rejects.toThrow('shutting down');
-        await waitForCondition(() => dispose.mock.calls.length > 0);
-        expect(disposeWorkspaces).not.toHaveBeenCalled();
-      } finally {
-        release();
-        await plugin['applicationShutdownPromise'];
-        dispose.mockRestore();
-        disposeWorkspaces.mockRestore();
-      }
     });
 
     it('releases workspaces when native archive cleanup fails', async () => {
@@ -4068,54 +4038,6 @@ describe('ClaudianPlugin', () => {
       );
 
       loadSpy.mockRestore();
-    });
-  });
-
-  describe('outside-client API', () => {
-    it('publishes the API and fires the turn-ended workspace event once a session settles', async () => {
-      await plugin.onload();
-      expect(plugin.api.version).toBe(1);
-      expect(plugin.api.getActiveSessionId()).toBeNull();
-      const host = chatHostOf();
-      const conversation = await host.createConversation();
-      const runtime = host.sessionRuntimes.ensure({ conversationId: conversation.id, providerId: conversation.providerId, draftModel: null });
-      let finish!: () => void;
-      const turn = runtime.turns.run(() => new Promise<void>(resolve => { finish = resolve; }));
-      await Promise.resolve();
-      expect(runtime.isWorking).toBe(true);
-      expect(mockApp.workspace.trigger).not.toHaveBeenCalled();
-      finish();
-      await turn;
-      expect(mockApp.workspace.trigger).toHaveBeenCalledTimes(1);
-      expect(mockApp.workspace.trigger).toHaveBeenCalledWith('claudian:turn-ended', { sessionId: conversation.id });
-    });
-
-    it('publishes session progress and interaction changes as workspace events', async () => {
-      await plugin.onload();
-      const host = chatHostOf();
-      const conversation = await host.createConversation();
-      const runtime = host.sessionRuntimes.ensure({ conversationId: conversation.id, providerId: conversation.providerId, draftModel: null });
-      runtime.signal({ type: 'progress', progress: { kind: 'text', messageId: 'm', blockIndex: 0, text: 'Hi' } });
-      runtime.signal({ type: 'interaction', interactionId: 'ask', pending: true });
-      runtime.signal({ type: 'interaction', interactionId: 'ask', pending: false });
-      expect(mockApp.workspace.trigger.mock.calls).toEqual([
-        ['claudian:turn-progress', { sessionId: conversation.id, kind: 'text', messageId: 'm', blockIndex: 0, text: 'Hi' }],
-        ['claudian:interaction-requested', { sessionId: conversation.id, interactionId: 'ask' }],
-        ['claudian:interaction-settled', { sessionId: conversation.id, interactionId: 'ask' }],
-      ]);
-    });
-
-    it('routes openSession through the workspace chat views, refusing sessions that do not exist', async () => {
-      // A placement leaf whose view never mounts: reaching it proves the API opened through the workspace views.
-      const rightLeaf = { setViewState: vi.fn().mockResolvedValue(undefined) };
-      mockApp.workspace.getLeavesOfType.mockReturnValue([]);
-      mockApp.workspace.getRightLeaf.mockReturnValue(rightLeaf);
-      await plugin.onload();
-      await expect(plugin.api.openSession('missing')).rejects.toThrow('The session does not exist or is archived');
-      expect(rightLeaf.setViewState).not.toHaveBeenCalled();
-      const conversation = await chatHostOf().createConversation();
-      await expect(plugin.api.openSession(conversation.id)).rejects.toThrow('The chat view is not ready');
-      expect(rightLeaf.setViewState).toHaveBeenCalledWith({ type: VIEW_TYPE_CLAUDIAN, active: false });
     });
   });
 

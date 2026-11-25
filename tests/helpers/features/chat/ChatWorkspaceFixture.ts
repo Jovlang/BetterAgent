@@ -17,7 +17,6 @@ import { ClaudianViews } from '@/composition/ClaudianViews';
 import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
 import { ProviderWorkspaceRegistry } from '@/core/providers/ProviderWorkspaceRegistry';
 import type { ClaudianSettings, Conversation } from '@/core/types';
-import { SessionMessagingService } from '@/features/chat/session-messaging/SessionMessagingService';
 import { destroyTab } from '@/features/chat/tabs/TabLifecycle';
 import { TabManager } from '@/features/chat/tabs/TabManager';
 import { createTabRuntime } from '@/features/chat/tabs/TabRuntimeFactory';
@@ -151,8 +150,6 @@ export async function createChatWorkspaceFixture(options: { ready?: boolean } = 
   const settingsCoordinator = featureFixture.coordinator;
   const find = (id: string) => conversations.find(entry => entry.id === id) ?? null;
   const pool = createSessionRuntimePool(() => plugin);
-  const messaging = new SessionMessagingService({ getHost: () => plugin, getActiveConversationId: () => conversations[0]?.id ?? null });
-  cleanups.push(() => messaging.dispose());
   const plugin = await createChatFeatureHost({
     fixture: featureFixture, sessionRuntimes: pool,
 

@@ -7,9 +7,7 @@ import { ChatExecutionCoordinator } from '@/features/chat/execution/ChatExecutio
 import { createInteractionPromptPort } from '@/features/chat/interactions/interactionPromptPort';
 import { ChatSessionRuntime, type SessionIdentity } from '@/features/chat/sessions/ChatSessionRuntime';
 import { createConversationExecutionBinding } from '@/features/chat/sessions/sessionExecution';
-import { SessionMailbox } from '@/features/chat/sessions/SessionMailbox';
 import { createSessionMessageId, createSessionSideChat, SessionModel } from '@/features/chat/sessions/SessionModel';
-import { t } from '@/i18n/i18n';
 
 /** Assembles a session without any tab, component, document, or window. */
 export function createChatSessionRuntime(plugin: ChatFeatureHost, identity: SessionIdentity): ChatSessionRuntime {
@@ -57,16 +55,6 @@ export function createChatSessionRuntime(plugin: ChatFeatureHost, identity: Sess
   const runtime: ChatSessionRuntime = new ChatSessionRuntime(
     { ...identity }, coordinator, session => new SessionModel(session, plugin),
   );
-  runtime.installMailbox(new SessionMailbox({
-    runtime,
-    isTargetAvailable: () => !!runtime.conversationId && plugin.getConversationList().some(
-      record => record.id === runtime.conversationId && !record.isArchived,
-    ),
-    onDiscard: messages => {
-      const senders = [...new Set(messages.flatMap(message => message.from ?? []))].join(', ');
-      if (senders) new Notice(t('chat.sessionMessage.undelivered', { senders }));
-    },
-  }));
   runtime.installSideChat(createSessionSideChat(runtime, plugin));
   return runtime;
 }

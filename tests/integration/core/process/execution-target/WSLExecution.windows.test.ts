@@ -4,9 +4,6 @@ import * as fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 
-import { createChatFeatureHost } from '@test/helpers/features/chat/ChatFeatureHostFixture';
-import { unmodeledChatViews } from '@test/helpers/features/chat/ClaudianAPIViews';
-import { createSessionRuntimePool } from '@test/helpers/features/chat/SessionRuntimePoolHarness';
 import { createProviderHostFixture } from '@test/helpers/providerRuntimeHost';
 import { testDate } from '@test/helpers/testClock';
 import { hasNativeWSL } from '@test/helpers/WSLNativeTarget';
@@ -22,8 +19,6 @@ import { createExecutionPathMapper } from '@/core/process/execution-target/WSLPa
 import { runProcessProbe } from '@/core/process/ProcessProbe';
 import { probeTargetCLIInstallation } from '@/core/providers/cli/TargetCLIInstallationProbe';
 import type { ProviderRuntimeHost } from '@/core/providers/ProviderRuntimeHost';
-import { createClaudianAPI } from '@/features/chat/session-messaging/ClaudianAPI';
-import { SessionMessagingService } from '@/features/chat/session-messaging/SessionMessagingService';
 import { decodePiConfig } from '@/providers/pi/config';
 import { PiCommandMetadataProbe } from '@/providers/pi/execution/PiCommandMetadataProbe';
 import { PiRPCSessionKernel } from '@/providers/pi/execution/PiExecutionKernel';
@@ -182,17 +177,11 @@ describe.skipIf(!available)('native Windows to WSL execution', { timeout: 60_000
       } finally { await fs.rm(directory, { recursive: true, force: true }); }
     });
 
-    it('reads the transcript through the plugin API and writes Linux fork header paths', async () => {
+    it('reads the transcript through the Pi history service and writes Linux fork header paths', async () => {
       const history = new PiConversationHistoryService();
       const context = { config: piHost.config, environmentText: piHost.environmentText, environment: { ...env, ...parseEnvironmentVariables(piHost.environmentText) }, hostPlatform: 'win32' as const };
       const conversation = { id: 'pi-chat', providerId: 'pi' as const, sessionId: 'pi-source', providerState: { sessionId: 'pi-source', sessionFile }, messages: [], title: 'WSL', createdAt: testDate().getTime(), lastActivityAt: testDate().getTime() };
-      const host = await createChatFeatureHost({
-        ensureConversationMetadataLoaded: async () => undefined,
-        getConversationById: async () => ({ ...conversation, ...(await history.hydrateConversationHistory(conversation, hostCwd, context)) }),
-        sessionRuntimes: createSessionRuntimePool(() => host),
-      });
-      const messaging = new SessionMessagingService({ getHost: () => host, getActiveConversationId: () => null });
-      expect(await createClaudianAPI(messaging, unmodeledChatViews).read('pi-chat')).toBe('Reply stored in WSL.');
+      expect((await history.hydrateConversationHistory(conversation, hostCwd, context))?.messages).toContainEqual(expect.objectContaining({ role: 'assistant', content: expect.stringContaining('Reply stored in WSL.') }));
       const fork = await createPiForkSessionFile(sessionFile, 'answer-1', { targetCwd: piTargetPath(hostCwd, resolvedTarget), parentSession: piTargetPath(sessionFile, resolvedTarget) });
       expect((await readPiSessionEntries(fork.sessionFile)).header).toMatchObject({ cwd: piTargetPath(hostCwd, resolvedTarget), parentSession: piTargetPath(sessionFile, resolvedTarget) });
       expect(fork.parentSession).toBe(sessionFile);

@@ -23,7 +23,6 @@ import {
   type ThinkingBlockState,
 } from '@/features/chat/rendering/ThinkingBlockRenderer';
 import type { ChatState } from '@/features/chat/state/ChatState';
-import type { ResponseProgress } from '@/features/chat/state/types';
 import { StreamingRenderCoordinator } from '@/features/chat/turns/StreamingRenderCoordinator';
 import { SubagentStreamRouter } from '@/features/chat/turns/SubagentStreamRouter';
 import { ThinkingIndicator } from '@/features/chat/turns/ThinkingIndicator';
@@ -41,8 +40,6 @@ export interface StreamControllerDeps {
   getProviderId?: () => ProviderId;
   /** Recovers finished async subagents from provider history; absent when the owner has none. */
   asyncSubagentHistoryRecovery?: AsyncSubagentHistoryRecovery;
-  /** Every main-transcript block change as received; subagent output is not included. */
-  onProgress?: (progress: ResponseProgress) => void;
 }
 
 interface StreamingContentSnapshot {
@@ -213,7 +210,6 @@ export class StreamController {
         }
         await this.appendThinking(chunk.content);
         state.recordActivity({ kind: 'thinking' });
-        this.#reportBlock('thinking', msg, state.currentThinkingBlock?.content ?? '');
         break;
 
       case 'text':
@@ -226,7 +222,6 @@ export class StreamController {
         await this.appendText(this.#textFollowsNotice ? `\n\n${chunk.content}` : chunk.content);
         this.#textFollowsNotice = false;
         state.recordActivity({ kind: 'text', text: state.currentTextContent });
-        this.#reportBlock('text', msg, state.currentTextContent);
         break;
 
       case 'citations':
@@ -273,7 +268,6 @@ export class StreamController {
         if (state.currentThinkingBlock) await this.finalizeCurrentThinkingBlock(msg);
         await this.appendText(`\n\n⚠️ **${chunk.level === 'warning' ? 'Warning' : 'Notice'}:** ${chunk.content}`);
         this.#textFollowsNotice = true;
-        this.#reportBlock('text', msg, state.currentTextContent);
         break;
 
       case 'error':
@@ -328,14 +322,8 @@ export class StreamController {
       const tool = msg.toolCalls?.find(candidate => candidate.id === chunk.id);
       if (tool) {
         state.recordActivity({ kind: 'tool', tool });
-        this.deps.onProgress?.({ kind: 'tool', messageId: msg.id, toolId: tool.id, toolName: tool.name, status: tool.status });
       }
     }
-  }
-
-  /** The open block's position is the count of blocks its message has already finalized. */
-  #reportBlock(kind: 'text' | 'thinking', msg: ChatMessage, text: string): void {
-    this.deps.onProgress?.({ kind, messageId: msg.id, blockIndex: msg.contentBlocks?.length ?? 0, text });
   }
 
   /** Renders buffered tools and finalizes open thinking and text before a standalone block. */
@@ -368,13 +356,12 @@ export class StreamController {
   // Text Block Management
   // ============================================
 
-  /** Renders a terminal error and publishes it as the latest activity; with its message, also as progress. */
+  /** Renders a terminal error and publishes it as the latest activity. */
   async appendError(message: string, label = '**Error:**', msg?: ChatMessage): Promise<void> {
     // Like text, an error closes open thinking so it lands in its own block.
     if (msg && this.deps.state.currentThinkingBlock) await this.finalizeCurrentThinkingBlock(msg);
     await this.appendText(`\n\n${label} ${message}`);
     this.deps.state.recordActivity({ kind: 'error', message });
-    if (msg) this.#reportBlock('text', msg, this.deps.state.currentTextContent);
   }
 
   async appendText(text: string): Promise<void> {

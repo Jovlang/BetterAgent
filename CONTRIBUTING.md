@@ -36,6 +36,10 @@ AI coding agents are welcome, and current state-of-the-art models are recommende
 - Before submitting a pull request, run the verification your change requires.
 - Have the change reviewed by a different model from the one that wrote it, covering correctness, architecture and ownership boundaries, and simplification. Address the findings, and mention the review under Validation.
 
+## Releases
+
+Releases are published manually from Git tags. Ensure the tag, `package.json`, and `manifest.json` use the same version. Build from the tagged commit with `npm run build`, then create the GitHub release from that tag and attach `main.js`, `manifest.json`, and `styles.css`.
+
 ## Pull Requests
 
 Pull requests are welcome when they solve a specific, well-defined problem. A pull request description must explain:

@@ -20,7 +20,6 @@ import { MessageRenderer } from '@/features/chat/rendering/MessageRenderer';
 import { createResponseTextBlock } from '@/features/chat/rendering/ResponseLayout';
 import { SubagentManager } from '@/features/chat/rendering/subagents/SubagentManager';
 import { createThinkingBlock, finalizeThinkingBlock } from '@/features/chat/rendering/ThinkingBlockRenderer';
-import { SessionMessagingService } from '@/features/chat/session-messaging/SessionMessagingService';
 import { ChatState } from '@/features/chat/state/ChatState';
 import { destroyTab } from '@/features/chat/tabs/TabLifecycle';
 import { createTabRuntime } from '@/features/chat/tabs/TabRuntimeFactory';
@@ -743,9 +742,6 @@ it('previews a branch without saving it and restores history when focus leaves t
   const conversation: Conversation = { id: 'pi-chat', providerId: 'pi', title: 'History', messages: history,
     sessionId: null, createdAt: testDate().getTime(), lastActivityAt: testDate().getTime() };
   const pool = createSessionRuntimePool(() => plugin);
-  const messaging = new SessionMessagingService({
-    getHost: () => plugin, getActiveConversationId: () => 'pi-chat',
-  });
   const plugin: ChatFeatureHost = await createChatFeatureHost({
     sessionRuntimes: pool,  updateConversation: vi.fn(),
     getConversationById: async id => (id === conversation.id ? conversation : null),
@@ -761,7 +757,7 @@ it('previews a branch without saving it and restores history when focus leaves t
     mentionDataProvider: new VaultMentionDataProvider(plugin.app), getProviderCatalogConfig: () => null,
     isRuntimeLive: () => true, openConversation: async () => undefined, startNewConversation: async () => undefined,
   });
-  onTestFinished(async () => { await destroyTab(tab); await pool.dispose(); await messaging.dispose(); component.unload(); });
+  onTestFinished(async () => { await destroyTab(tab); await pool.dispose(); component.unload(); });
   const { state, renderer } = tab;
   const { messagesEl, inputComposerEl, inputEl } = tab.dom;
   const controller = tab.controllers.conversationController;

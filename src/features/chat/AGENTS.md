@@ -3,7 +3,7 @@
 ## Session ownership and release
 
 - Conversation, persisted tab identity, runtime tab, hydration, and provider execution have independent lifetimes. Layout/selection/hydration cannot create provider execution, rewrite durable identity, or cancel another tab's turn.
-- The main-owned session pool owns execution across tab rebind and view close. A detached draft is disposed when idle unless a presentation holds it (`holdDraft`) to reattach by its session key. Attachment is exclusive and reserved before awaiting hydration; detach uses the exact issued handle. Only Stop (including an admitted public API interrupt) or plugin shutdown cancels admitted session work.
+- The main-owned session pool owns execution across tab rebind and view close. A detached draft is disposed when idle unless a presentation holds it (`holdDraft`) to reattach by its session key. Attachment is exclusive and reserved before awaiting hydration; detach uses the exact issued handle. Only Stop or plugin shutdown cancels admitted session work.
 - Idle release of provider resources runs independently of attachment. Detached main models release only after queued input, recovery, interactions, saves and auxiliary work settle; release repository history through its guarded cache API too. Compact selections and review attention survive model release.
 - A conversation deleted from inside its own turn retires its session only after the turn settles, so queued and unsent input reaches the attached composer before the tab resets. The pool disposes a deleted conversation's session once it is detached and idle; unreachable detached recovery is discarded with it.
 
@@ -20,8 +20,6 @@
 - Blank-tab provider transitions serialize and roll back to the last stable draft. Model-picker intents affect only the selected tab/conversation and the future-tab seed; existing tabs must not subscribe to that seed.
 - Conversation authority is revalidated after session preparation immediately before provider handoff. Superseded preparation cannot install or publish resources.
 - A steer or async answer returns to the composer or queue only when definitely unsent; accepted or uncertain delivery is reconciled from provider echo/history and never resent.
-- Public API delivery is internally queued main work owned by the recipient's mailbox: it waits for no active, queued, background or interaction work, never merges with or returns to the composer, and only definitely-unsent entries may be retried. Stop, archive, deletion and shutdown discard pending entries; delivery never cancels a recipient turn.
-- Public API delivery exceptions: a steer joins the running turn through the steering owner (an unsent steer falls back to the mailbox, an uncertain one is never resent); an interrupt goes ahead of waiting entries and, once admitted, stops main work as the user's Stop does but keeps those entries.
 - Render and submit model/reasoning from the same destination-owned settings. Submission cannot rederive them from provider-wide defaults.
 - One composer serves every destination, and its target is derived from presentation state rather than a separately mutable selection. User-originated sends and cancels resolve the target when they run; internally queued main work keeps the owner it was admitted with and must never read the current target at dispatch.
 - Provider command discovery runs only on demand for the active tab (live session snapshot first, then an isolated metadata probe); it never runs eagerly and cannot create chat sessions.

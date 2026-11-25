@@ -12,7 +12,6 @@ import { App, Component } from 'obsidian';
 
 import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
 import type { ClaudianSettings, Conversation } from '@/core/types';
-import { SessionMessagingService } from '@/features/chat/session-messaging/SessionMessagingService';
 import { activateTab, deactivateTab, destroyTab } from '@/features/chat/tabs/TabLifecycle';
 import { createTabRuntime } from '@/features/chat/tabs/TabRuntimeFactory';
 import { VaultMentionDataProvider } from '@/shared/mention/VaultMentionDataProvider';
@@ -52,8 +51,6 @@ async function createView(fakeBackend?: FakeSideBackend) {
   const conversations = new Map([[conversation.id, conversation]]);
   const saved: unknown[] = [];
   const pool = createSessionRuntimePool(() => plugin);
-  const messaging = new SessionMessagingService({ getHost: () => plugin, getActiveConversationId: () => conversation.id });
-  onTestFinished(() => messaging.dispose());
   const plugin = await createChatFeatureHost({
     app, settings, sessionRuntimes: pool,
 

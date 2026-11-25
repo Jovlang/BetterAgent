@@ -5,8 +5,6 @@ export type TurnCancelReason = 'user' | 'new-conversation' | 'shutdown';
 
 export interface TurnCancelOptions {
   dismissInteractions?: boolean;
-  /** Another session's interrupt keeps the pending session messages it is delivered with. */
-  keepMailbox?: boolean;
 }
 
 /**

@@ -26,7 +26,6 @@ import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
 import { type ChatMessage, type ClaudianSettings, type Conversation, isCanonicalUserMessage } from '@/core/types';
 import type { ChatFeatureHost } from '@/features/chat/ChatFeatureHost';
 import { PromptHistoryNavigation } from '@/features/chat/composer/PromptHistoryNavigation';
-import { SessionMessagingService } from '@/features/chat/session-messaging/SessionMessagingService';
 import { activateTab, destroyTab } from '@/features/chat/tabs/TabLifecycle';
 import { TabManager } from '@/features/chat/tabs/TabManager';
 import { createTabRuntime } from '@/features/chat/tabs/TabRuntimeFactory';
@@ -75,7 +74,6 @@ async function createView(provisional = false, options: { managed?: boolean; dra
     getResolvedProviderCliPath: async () => '/bin/claude',
   } });
   const pool = createSessionRuntimePool(() => plugin);
-  const messaging = new SessionMessagingService({ getHost: () => plugin, getActiveConversationId: () => conversation.id });
   const plugin: ChatFeatureHost = await createChatFeatureHost({ fixture, sessionRuntimes: pool,
 
     executionPersistence: {
@@ -112,7 +110,7 @@ async function createView(provisional = false, options: { managed?: boolean; dra
   activateTab(tab);
   tab.dom.inputEl.focus();
   return { get tab() { return manager?.getActiveTab() ?? tab; }, backend, saved, conversation, manager, plugin,
-    dispose: async () => { if (manager) await manager.destroy(); else await destroyTab(tab); await pool.dispose(); await messaging.dispose(); await fixture.dispose(); },
+    dispose: async () => { if (manager) await manager.destroy(); else await destroyTab(tab); await pool.dispose(); await fixture.dispose(); },
   };
 }
 

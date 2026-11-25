@@ -13,7 +13,6 @@ import { App, Component } from 'obsidian';
 
 import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
 import { type ChatMessage, type ClaudianSettings, type Conversation, type ImageAttachment } from '@/core/types';
-import { SessionMessagingService } from '@/features/chat/session-messaging/SessionMessagingService';
 import { activateTab, destroyTab } from '@/features/chat/tabs/TabLifecycle';
 import { createTabRuntime } from '@/features/chat/tabs/TabRuntimeFactory';
 import { VaultMentionDataProvider } from '@/shared/mention/VaultMentionDataProvider';
@@ -52,10 +51,6 @@ async function createView() {
   };
   const conversations = new Map([[conversation.id, conversation]]);
   const pool = createSessionRuntimePool(() => plugin);
-  const messaging = new SessionMessagingService({
-    getHost: () => plugin, getActiveConversationId: () => conversation.id,
-  });
-  onTestFinished(() => messaging.dispose());
   const plugin = await createChatFeatureHost({
     app, settings, sessionRuntimes: pool,
 
@@ -103,7 +98,6 @@ async function createView() {
       try {
         await destroyTab(tab);
         await pool.dispose();
-        await messaging.dispose();
         await plugin.providerHost.executionLifecycleRegistry.dispose();
       } finally {
         app.keymap.popScope(scope);

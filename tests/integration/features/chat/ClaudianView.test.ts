@@ -18,10 +18,8 @@ import { fireEvent, waitFor, within } from '@testing-library/dom';
 import { Menu, Platform, Scope, TFile } from 'obsidian';
 
 import { ChatModelSelectionCoordinator } from '@/app/settings/ChatModelSelectionCoordinator';
-import { ClaudianViews } from '@/composition/ClaudianViews';
 import { BUILT_IN_COMMANDS } from '@/core/commands/builtInCommands';
 import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
-import { SessionMessagingService } from '@/features/chat/session-messaging/SessionMessagingService';
 import { TabManager } from '@/features/chat/tabs/TabManager';
 import type { TabLayoutPolicy } from '@/features/chat/tabs/types';
 import { ViewerSlot } from '@/features/chat/tabs/ViewerSlot';
@@ -59,8 +57,6 @@ async function createView(options: {
     updateConversation: async (id, updates) => { Object.assign(records.find(record => record.id === id)!, updates); },
     ...overrides,
   } });
-  const messaging = new SessionMessagingService({ getHost: () => plugin, getActiveConversationId: () => null });
-  onTestFinished(() => messaging.dispose());
   const contentEl = document.body.createDiv();
   const resize = (width: number) => {
     const contentRect = new DOMRect(0, 0, width, 0);
@@ -313,7 +309,7 @@ describe('ClaudianView provider and presentation wiring', () => {
       path: 'notes/brief.pdf', extension: 'pdf', name: 'brief.pdf', basename: 'brief',
     });
     vi.spyOn(plugin.app.vault, 'getAllLoadedFiles').mockReturnValue([brief]);
-    await view.openSession('one');
+    await manager.viewerSlot.show('one');
     const tab = manager.getActiveTab()!;
     const composer = tab.dom.inputComposerEl;
     const history = contentEl.querySelector<HTMLElement>('.claudian-session-sidebar')!;
@@ -402,7 +398,7 @@ describe('ClaudianView provider and presentation wiring', () => {
 
   it.each([400, 800])('closes history from the mouse Back button at %i px without navigating away', async width => {
     const { view, manager, contentEl } = await openView({ width, singleViewer: true });
-    await view.openSession('one');
+    await manager.viewerSlot.show('one');
     const tab = manager.getActiveTab()!;
     tab.dom.inputEl.value = 'Keep this draft';
     const toggle = within(tab.dom.infoRowEl).getByRole('button', { name: 'Conversation history' });
@@ -440,7 +436,7 @@ describe('ClaudianView provider and presentation wiring', () => {
 
   it('automatically shows history alongside chat above 600 px without taking composer focus', async () => {
     const { view, manager, contentEl, resize } = await openView({ width: 601, singleViewer: true });
-    await view.openSession('one');
+    await manager.viewerSlot.show('one');
     const tab = manager.getActiveTab()!;
     const chat = tab.dom.messagesEl.closest('.claudian-chat-panel')!;
     const history = contentEl.querySelector<HTMLElement>('.claudian-session-sidebar')!;
@@ -906,72 +902,4 @@ describe('ClaudianView composer and scoped keys', () => {
     expect(session.cancelCalls).toBe(1);
   });
 
-});
-
-describe('opening a session for another plugin', () => {
-  /** Mounted chat leaves as Obsidian reports them; each leaf holds a real view. */
-  function workspaceViews(plugin: Awaited<ReturnType<typeof createView>>['plugin'], leaves: Array<{ view: unknown }>) {
-    const workspace = plugin.app.workspace;
-    vi.mocked(workspace.getLeavesOfType).mockImplementation(() => leaves as never);
-    const views = new ClaudianViews(workspace as never, () => 'right-sidebar');
-    plugin.getAllViews = () => views.getAllViews();
-    plugin.findConversationAcrossViews = id => views.findConversationAcrossViews(id);
-    return views;
-  }
-  const leafOf = (view: Awaited<ReturnType<typeof createClaudianView>>) => {
-    const leaf = { view, loadIfDeferred: async () => undefined };
-    Object.assign(view, { leaf });
-    return leaf;
-  };
-
-  it.each([['compact', 400], ['wide', 640]] as const)('shows the session in the %s layout and moves focus only when asked', async (_layout, width) => {
-    const { view, manager, plugin } = await openView({ width });
-    const leaf = leafOf(view);
-    const views = workspaceViews(plugin, [leaf]);
-    const outside = document.body.createEl('input');
-    outside.focus();
-    await views.openSession('two', { focus: false });
-    expect(manager.getActiveTab()!.conversationId).toBe('two');
-    expect(document.activeElement).toBe(outside);
-    expect(plugin.app.workspace.revealLeaf).not.toHaveBeenCalled();
-    await views.openSession('one', { focus: true });
-    expect(manager.getActiveTab()!.conversationId).toBe('one');
-    expect(plugin.app.workspace.revealLeaf).toHaveBeenCalledWith(leaf);
-    expect(manager.getActiveTab()!.dom.inputComposerEl.contains(document.activeElement)).toBe(true);
-  });
-
-  it('focuses the view that already shows the session rather than the one asked first', async () => {
-    const first = await openView();
-    const other = await createClaudianView({ host: first.plugin, contentEl: document.body.createDiv() });
-    other.load();
-    openedViews.push(other);
-    await other.onOpen();
-    await other.setState({}, { history: false });
-    const otherManager = other.getTabManager() as TabManager;
-    await otherManager.openConversation('two');
-    expect(otherManager.getActiveTab()!.conversationId).toBe('two');
-    const firstLeaf = leafOf(first.view);
-    const otherLeaf = leafOf(other);
-    const views = workspaceViews(first.plugin, [firstLeaf, otherLeaf]);
-    await views.openSession('two', { focus: true });
-    expect(first.manager.getTabIdentities().some(tab => tab.conversationId === 'two')).toBe(false);
-    expect(first.plugin.app.workspace.revealLeaf).toHaveBeenLastCalledWith(otherLeaf);
-    expect(otherManager.getActiveTab()!.dom.inputComposerEl.contains(document.activeElement)).toBe(true);
-  });
-
-  it('mounts a chat view at the configured placement without activating it when none exists', async () => {
-    const { view, manager, plugin } = await openView();
-    // Obsidian mounts the view into the leaf while applying its view state.
-    const leaf: { view?: unknown; setViewState: (state: { type: string; active?: boolean }) => Promise<void> } = {
-      setViewState: vi.fn(async () => { Object.assign(view, { leaf }); leaf.view = view; }),
-    };
-    const views = workspaceViews(plugin, []);
-    vi.mocked(plugin.app.workspace.getRightLeaf).mockReturnValue(leaf as never);
-    const outside = document.body.createEl('input');
-    outside.focus();
-    await views.openSession('two', { focus: false });
-    expect(leaf.setViewState).toHaveBeenCalledWith({ type: 'claudian-view', active: false });
-    expect(manager.getActiveTab()!.conversationId).toBe('two');
-    expect(document.activeElement).toBe(outside);
-  });
 });

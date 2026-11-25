@@ -158,9 +158,7 @@ function main() {
   const eventName = process.env.GITHUB_EVENT_NAME;
   const { BASE_SHA: base, HEAD_SHA: head } = process.env;
   let selection = { ...fullSelection };
-  // Tag pushes include reusable release verification and always retain the full suite.
-  if (['pull_request', 'push'].includes(eventName) && !process.env.GITHUB_REF?.startsWith('refs/tags/')
-    && base && head && !/^0+$/.test(base)) {
+  if (['pull_request', 'push'].includes(eventName) && base && head && !/^0+$/.test(base)) {
     let entries;
     try {
       entries = execFileSync('git', [

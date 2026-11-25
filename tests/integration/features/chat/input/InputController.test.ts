@@ -5,7 +5,6 @@ import { createFixture, deferred } from '@test/helpers/ChatInputHarness';
 import { Notice } from 'obsidian';
 
 import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
-import { decodeSessionMessage } from '@/core/session-tools/sessionMessageEnvelope';
 import type { ToolCallInfo } from '@/core/types';
 import { t } from '@/i18n/i18n';
 
@@ -16,64 +15,6 @@ beforeEach(() => {
 });
 afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); });
 
-
-describe('mailbox input', () => {
-  const message = { from: 'Sender', sessionId: 'sender', text: 'Please inspect this' };
-
-  it('keeps the composer and unread state, and submits a sender envelope without captured context', async () => {
-    const fixture = (await createFixture());
-    fixture.input.value = 'My unsent draft';
-    fixture.state.markReviewRequired();
-    const attention = fixture.state.attention;
-    const onUnsent = vi.fn();
-    await fixture.controller.sendSessionMessage(message, { onUnsent, assertBeforeHandoff: () => undefined });
-    const submission = fixture.native.requests[0];
-    expect(decodeSessionMessage(submission.input.filter(part => part.type === 'text').map(part => part.text).join(''))).toEqual(message);
-    expect(submission.context).toEqual({});
-    expect(submission.input.filter(part => part.type === 'image')).toEqual([]);
-    expect(fixture.state.messages[0]).toMatchObject({ displayContent: message.text, sessionMessage: { from: 'Sender', sessionId: 'sender' } });
-    expect(fixture.input.value).toBe('My unsent draft');
-    expect(fixture.state.attention).toEqual(attention);
-    expect(onUnsent).not.toHaveBeenCalled();
-  });
-
-  it('reports terminal preparation failure without putting the envelope in the composer', async () => {
-    const fixture = (await createFixture({ ensureExecutionInitialized: async () => false }));
-    fixture.input.value = 'My draft';
-    const onUnsent = vi.fn();
-    await fixture.controller.sendSessionMessage(message, { onUnsent, assertBeforeHandoff: () => undefined });
-    expect(onUnsent).toHaveBeenCalledWith('failed');
-    expect(fixture.native.requests).toHaveLength(0);
-    expect(fixture.input.value).toBe('My draft');
-  });
-
-  it('reports Stop during preparation with the cancellation reason and never submits', async () => {
-    const ready = deferred<boolean>();
-    const fixture = (await createFixture({ ensureExecutionInitialized: () => ready.promise }));
-    const onUnsent = vi.fn();
-    const sending = fixture.controller.sendSessionMessage(message, { onUnsent, assertBeforeHandoff: () => undefined });
-    await Promise.resolve();
-    fixture.controller.cancelStreaming();
-    ready.resolve(true);
-    await sending;
-    expect(onUnsent).toHaveBeenCalledWith('user');
-    expect(fixture.native.requests).toHaveLength(0);
-    expect(fixture.input.value).toBe('');
-  });
-
-  it.each([true, false])('discards only an unaccepted error (accepted: %s)', async accepted => {
-    const fixture = (await createFixture());
-    fixture.native.respond.mockImplementationOnce(run => {
-      run.emit({ type: 'turn_started', accepted });
-      run.emit({ type: 'execution_error', category: 'provider', message: 'Provider failed', recoverable: false });
-    });
-    const onUnsent = vi.fn();
-    await fixture.controller.sendSessionMessage(message, { onUnsent, assertBeforeHandoff: () => undefined });
-    expect(onUnsent.mock.calls).toEqual(accepted ? [] : [['failed']]);
-    expect(fixture.state.messages).toHaveLength(accepted ? 2 : 0);
-    expect(fixture.native.requests).toHaveLength(1);
-  });
-});
 
 describe('composer wikilinks', () => {
   it('sends exact aliased wikilinks and retains them in displayed messages', async () => {

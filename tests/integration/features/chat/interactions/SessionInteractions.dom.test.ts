@@ -114,14 +114,11 @@ it('replies with the exact ACP option the user picks when several share a kind',
   const region = within(parent).getByRole('region', { name: t('chat.approval.title') });
   expect(within(region).getAllByRole('button').map(button => button.getAttribute('aria-label')))
     .toEqual(['Allow this file', 'Allow this folder', 'Reject']);
-  // Scripts still see each option's documented decision.
-  expect(prompts.listPending()[0].questions[0].options.map(option => [option.value, option.decision]))
-    .toEqual([['allow-file', 'allow'], ['allow-folder', 'allow'], ['reject', undefined]]);
   fireEvent.click(within(region).getByRole('button', { name: 'Allow this folder' }));
   await expect(reply).resolves.toEqual({ outcome: { outcome: 'selected', optionId: 'allow-folder' } });
 });
 
-it('accepts a scripted answer naming an offered option whose native id is blank', async () => {
+it('replies with the selected option even when its native id is blank', async () => {
   const parent = document.body.createDiv();
   const prompts = new SessionInteractions({ getPromptParentEl: () => parent });
   const controller = new ACPInteractionController({
@@ -134,11 +131,8 @@ it('accepts a scripted answer naming an offered option whose native id is blank'
     ],
     sessionId: 'session', toolCall: { kind: 'edit', title: 'notes.md', toolCallId: 'tool' },
   });
-  const [pending] = prompts.listPending();
-  const question = pending.questions[0];
-  const offered = question.options.find(option => option.label === 'Allow')!;
-
-  await prompts.answer(pending.interactionId, { [question.id ?? question.question]: offered.value });
+  const region = within(parent).getByRole('region', { name: t('chat.approval.title') });
+  fireEvent.click(within(region).getByRole('button', { name: 'Allow' }));
 
   await expect(reply).resolves.toEqual({ outcome: { outcome: 'selected', optionId: '' } });
 });

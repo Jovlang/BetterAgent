@@ -297,50 +297,6 @@ it.each(['pointerup', 'pointercancel'])('keeps following through layout scrolls 
 });
 
 
-it('lets Escape Stop discard a pending mailbox while no response is active', async () => {
-  await releaseResponse();
-  vi.useRealTimers();
-  const mailbox = tab.session.runtime.mailbox!;
-  // Navigation blocks dispatch without publishing a running response.
-  let finishNavigation!: () => void;
-  const navigation = tab.session.runtime.runConversationNavigation(() => new Promise<void>(resolve => { finishNavigation = resolve; }));
-  expect(await mailbox.deliver({ message: { from: 'Other session', sessionId: 'other', text: 'Pending request' }, signal: new AbortController().signal })).toBe('queued');
-  expect(tab.session.isWorking).toBe(false);
-  expect(mailbox.hasPending).toBe(true);
-  const input = getByRole(tab.dom.inputComposerEl, 'textbox');
-  expect(await axe(input)).toHaveNoViolations();
-  fireEvent.keyDown(input, { key: 'Escape' });
-  try {
-    expect(mailbox.hasPending).toBe(false);
-    expect(harness.backend.sessions.every(session => session.requests.length === 0)).toBe(true);
-  } finally { mailbox.clear(); finishNavigation(); await navigation; }
-});
-
-
-it('wakes the mailbox when the user withdraws their queued input', async () => {
-  await tab.executionCoordinator.bindConversation({ conversationId: 'conversation-1', providerId: 'claude' });
-  await tab.executionCoordinator.prepare();
-  Object.assign(plugin, { getConversationById: async (id: string) => plugin.getConversationSync(id) });
-  tab.dom.inputEl.value = 'User follow-up';
-  await tab.controllers.inputController.sendMessage();
-  const mailbox = tab.session.runtime.mailbox!;
-  expect(await mailbox.deliver({ message: { from: 'Other session', sessionId: 'other', text: 'Mailbox request' }, signal: new AbortController().signal })).toBe('queued');
-  await releaseResponse();
-  vi.useRealTimers();
-  expect(tab.session.turns.isActive).toBe(false);
-  expect(mailbox.hasPending).toBe(true);
-  expect(harness.backend.sessions.flatMap(session => session.requests)).toHaveLength(0);
-  tab.controllers.inputController.queue.withdrawToComposer();
-  try {
-    await waitFor(() => expect(harness.backend.sessions.flatMap(session => session.requests)).toHaveLength(1));
-    expect(mailbox.hasPending).toBe(false);
-    expect(tab.dom.inputEl.value).toBe('User follow-up');
-  } finally {
-    mailbox.clear();
-    harness.backend.sessions.forEach(session => session.complete());
-    await tab.session.turns.drain();
-  }
-});
 
 
 it.each([

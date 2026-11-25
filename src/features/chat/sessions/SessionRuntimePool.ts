@@ -1,4 +1,4 @@
-import type { ChatSessionRuntime, SessionIdentity, SessionSignal } from './ChatSessionRuntime';
+import type { ChatSessionRuntime, SessionIdentity } from './ChatSessionRuntime';
 
 export interface SessionRevealOptions {
   /** Navigation may wait for a closing presentation to release its attachment before choosing another owner. */
@@ -96,10 +96,6 @@ export class SessionRuntimePool {
     /** Recently viewed idle conversation sessions that keep their loaded history; 0 when omitted. */
     retainedDetachedSessions?: number;
     onChanged(): void;
-    /** A conversation's session finished its work: running turns, background work and side chat. */
-    onSessionSettled?(conversationId: string): void;
-    /** A conversation's session streamed output or changed a pending interaction; drafts have no id yet. */
-    onSessionSignal?(conversationId: string, signal: SessionSignal): void;
     onError(error: unknown): void;
   }) {}
 
@@ -117,13 +113,6 @@ export class SessionRuntimePool {
     // Read runtime identities directly: a draft's promotion may not be published yet.
     if (!canRelease()) return;
     await this.deps.releaseHistory(id, canRelease);
-  }
-
-  /** Let first-turn shells adopt their draft runtime before another caller claims a published ID. */
-  async awaitConversationCreations(): Promise<void> {
-    await Promise.allSettled([...this.records.keys()]
-      .filter(runtime => !runtime.conversationId)
-      .map(runtime => runtime.peekModel?.conversationController.awaitCreation() ?? Promise.resolve()));
   }
 
   /**
@@ -326,11 +315,7 @@ export class SessionRuntimePool {
       // Hydration can start a native host that was unavailable at the initial read.
       void this.observeHydratedRevision(record);
     });
-    const unsubscribeSignals = runtime.subscribeSignals(signal => {
-      const conversationId = runtime.conversationId;
-      if (conversationId) this.deps.onSessionSignal?.(conversationId, signal);
-    });
-    record.unsubscribe = () => { unsubscribeChanged(); unsubscribeHydrated(); unsubscribeSignals(); };
+    record.unsubscribe = () => { unsubscribeChanged(); unsubscribeHydrated(); };
     return record;
   }
 
@@ -383,7 +368,6 @@ export class SessionRuntimePool {
       this.observeNativeRevision(record, record.ownWorkCheck);
       record.ownWorkCheck = null;
     }
-    if (previous.isWorking && !status.isWorking && status.conversationId) this.deps.onSessionSettled?.(status.conversationId);
     if (!status.isWorking) this.settleWaiters(record, true);
     if (record.retired) {
       if (this.isReleasable(record)) void this.disposeRecord(record).catch(error => this.deps.onError(error));
@@ -494,7 +478,6 @@ export class SessionRuntimePool {
     const record = this.conversations.get(id);
     if (!record) return Promise.resolve();
     record.retired = true;
-    record.runtime.mailbox?.clear();
     return this.isReleasable(record) ? this.disposeRecord(record) : Promise.resolve();
   }
 

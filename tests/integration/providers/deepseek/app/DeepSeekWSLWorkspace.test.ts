@@ -1,9 +1,6 @@
 import { NativePeer } from '@test/helpers/deepseek/NativePeer';
 import { nativeRequest } from '@test/helpers/deepseek/NativeRequest';
 import { createFeatureHostFixture } from '@test/helpers/FeatureHostFixture';
-import { createChatFeatureHost } from '@test/helpers/features/chat/ChatFeatureHostFixture';
-import { unmodeledChatViews } from '@test/helpers/features/chat/ClaudianAPIViews';
-import { createSessionRuntimePool } from '@test/helpers/features/chat/SessionRuntimePoolHarness';
 import { testDate } from '@test/helpers/testClock';
 import { WSLProcessFixture } from '@test/helpers/WSLProcessFixture';
 import spawn from 'cross-spawn';
@@ -15,9 +12,6 @@ import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
 import { ProviderSettingsCoordinator } from '@/core/providers/ProviderSettingsCoordinator';
 import { ProviderWorkspaceRegistry } from '@/core/providers/ProviderWorkspaceRegistry';
 import { registerProviderModules } from '@/core/providers/registerProviderModules';
-import type { ChatFeatureHost } from '@/features/chat/ChatFeatureHost';
-import { createClaudianAPI } from '@/features/chat/session-messaging/ClaudianAPI';
-import { SessionMessagingService } from '@/features/chat/session-messaging/SessionMessagingService';
 import { claudeProviderRegistration } from '@/providers/claude/registration';
 import { createDeepSeekWorkspaceServices } from '@/providers/deepseek/app/DeepSeekWorkspaceServices';
 import { deepseekProviderRegistration } from '@/providers/deepseek/registration';
@@ -58,14 +52,7 @@ async function createWSLWorkspace(vaultPath: string, linuxEnvironment: Record<st
     getSettings: () => fixture.settings, getVaultPath: () => vaultPath, onConversationDeleted: async () => undefined,
     persistence: new ConversationPersistenceStore(fixture.vault.files, fixture.storage.installationKey),
   });
-  const host: ChatFeatureHost = await createChatFeatureHost({
-    fixture, sessionRuntimes: createSessionRuntimePool(() => host),
-    ensureConversationMetadataLoaded: async () => undefined,
-    getConversationById: id => repository.getById(id),
-  });
-  const service = new SessionMessagingService({ getHost: () => host, getActiveConversationId: () => null });
-  onTestFinished(() => service.dispose());
-  return { wsl, peer, fixture, workspace, lifecycle, repository, api: createClaudianAPI(service, unmodeledChatViews) };
+  return { wsl, peer, fixture, workspace, lifecycle, repository };
 }
 
 const state = (home: string) => ({ schemaVersion: 1, home, profile: 'web', preset: 'claudian' });
@@ -73,7 +60,7 @@ const state = (home: string) => ({ schemaVersion: 1, home, profile: 'web', prese
 it.each([
   ['C:\\Vault', '/mnt/c/Vault', undefined, '\\\\wsl$\\Ubuntu\\home\\alice\\.dsh'],
   ['\\\\wsl$\\Ubuntu\\home\\alice\\Vault', '/home/alice/Vault', '/opt/dsh', '\\\\wsl$\\Ubuntu\\opt\\dsh'],
-])('reads the Linux transcript through the plugin API from %s', async (vaultPath, targetCwd, configuredHome, home) => {
+])('reads the Linux transcript through the repository from %s', async (vaultPath, targetCwd, configuredHome, home) => {
   const records = [
     // A tool record before any turn reaches the fallback mapper, which must still map its Linux path.
     record(0, 'tool/call', { callId: 'pre-turn-read', name: 'read', arguments: { path: `${targetCwd}/orphan.md` } }),
@@ -91,7 +78,7 @@ it.each([
     record(1, 'turn/start', { turn: 1 }),
     record(2, 'tool/call', { callId: 'read', name: 'read', arguments: { path: '/home/alice/notes.md' } }),
   ];
-  const { wsl, peer, fixture, workspace, lifecycle, repository, api } = await createWSLWorkspace(vaultPath, { HOME: '/home/alice', DSH_HOME: configuredHome }, (method, args) => {
+  const { wsl, peer, fixture, workspace, lifecycle, repository } = await createWSLWorkspace(vaultPath, { HOME: '/home/alice', DSH_HOME: configuredHome }, (method, args) => {
     if (method === 'session/list') return { items: [] };
     const request = nativeRequest(args);
     const child = request.sessionId === 'child' || request.address?.childSessionId === 'child';
@@ -103,7 +90,7 @@ it.each([
   repository.replaceAll([{ id: 'conversation', providerId: 'deepseek', sessionId: 'native-session', messages: [], title: 'WSL',
     providerState: state(home), createdAt: time, lastActivityAt: time,
   }]);
-  expect(await api.read('conversation')).toBe('Reply from Linux');
+  expect((await repository.getById('conversation'))?.messages).toContainEqual(expect.objectContaining({ role: 'assistant', content: expect.stringContaining('Reply from Linux') }));
   const tools = repository.getSync('conversation')?.messages.flatMap(message => message.toolCalls ?? []);
   expect(tools).toContainEqual(expect.objectContaining({ name: 'Edit', input: { file_path: `${vaultPath}\\note.md` }, diffData: expect.objectContaining({ filePath: `${vaultPath}\\note.md` }) }));
   expect(tools).toContainEqual(expect.objectContaining({ id: 'pre-turn-read', input: { file_path: `${vaultPath}\\orphan.md` } }));
@@ -132,7 +119,7 @@ it.each([
 
 it('treats a drive-mounted Linux store case-sensitively for history, the skill catalog and archives', async () => {
   // DSH_HOME on /mnt/c maps to a drive path, which native Windows stores would compare case-insensitively.
-  const { peer, workspace, fixture, repository, api } = await createWSLWorkspace('C:\\Vault', { HOME: '/home/alice', DSH_HOME: '/mnt/c/DeepSeek' }, method => {
+  const { peer, workspace, fixture, repository } = await createWSLWorkspace('C:\\Vault', { HOME: '/home/alice', DSH_HOME: '/mnt/c/DeepSeek' }, method => {
     if (method === 'session/list') return { items: [
       { sessionId: 'host-cwd', agentAvailable: true, running: false, cwd: 'C:\\Vault', updatedAt: 3 },
       { sessionId: 'linux-cwd', agentAvailable: true, running: false, cwd: '/mnt/c/Vault', updatedAt: 2 },
@@ -146,7 +133,7 @@ it('treats a drive-mounted Linux store case-sensitively for history, the skill c
   const variant = { sessionId: 'variant', providerState: state('C:\\deepseek'), messages: [] };
   const same = { sessionId: 'same', providerState: state('C:\\DeepSeek'), messages: [] };
   repository.replaceAll([{ id: 'variant', providerId: 'deepseek', ...variant, title: 'Variant', createdAt: time, lastActivityAt: time }]);
-  await expect(api.read('variant')).rejects.toThrow(/different native store/);
+  await expect(repository.getById('variant')).rejects.toThrow(/different native store/);
   // A blank-tab catalog comes from a chat in this vault's Linux cwd, never from the other store's session id.
   const commands = await workspace.commandLoader!.loadCommands({ allowIsolatedMetadataCreation: true, conversation: repository.getSync('variant')!, plugin: fixture.providerHost });
   expect(commands).toMatchObject({ status: 'ready' });

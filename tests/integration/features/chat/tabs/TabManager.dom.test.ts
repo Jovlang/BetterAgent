@@ -18,7 +18,6 @@ import type { ChatViewHost } from '@/features/chat/ChatFeatureHost';
 import { ConversationLifecycle } from '@/features/chat/conversation/ConversationLifecycle';
 import { SessionManagerSurface } from '@/features/chat/session-manager/SessionManagerSurface';
 import { SessionNavigation } from '@/features/chat/session-manager/SessionNavigation';
-import { SessionMessagingService } from '@/features/chat/session-messaging/SessionMessagingService';
 import { TabManager } from '@/features/chat/tabs/TabManager';
 import { t } from '@/i18n/i18n';
 import { VaultMentionDataProvider } from '@/shared/mention/VaultMentionDataProvider';
@@ -48,12 +47,6 @@ async function setup() {
   };
   const conversations = new Map(['conversation', 'second', 'third'].map(id => [id, { ...conversation, id, title: id === 'conversation' ? 'Conversation' : id }]));
   const findConversation = (id: string) => conversations.get(id) ?? null;
-  const messaging = new SessionMessagingService({
-    getHost: () => plugin,
-    getActiveConversationId: () => manager.getActiveTab()?.conversationId ?? null,
-
-  });
-  onTestFinished(() => messaging.dispose());
   const pool = createSessionRuntimePool(() => plugin);
   const plugin = await createChatFeatureHost({
     sessionRuntimes: pool,

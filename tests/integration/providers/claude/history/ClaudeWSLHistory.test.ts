@@ -4,9 +4,6 @@ import * as fsPromises from 'node:fs/promises';
 import { claudeCatalogFixture } from '@test/helpers/claudeModels';
 import { DesktopVault } from '@test/helpers/core/DesktopVault';
 import { DEFAULT_CLAUDIAN_SETTINGS } from '@test/helpers/defaultSettings';
-import { createChatFeatureHost } from '@test/helpers/features/chat/ChatFeatureHostFixture';
-import { unmodeledChatViews } from '@test/helpers/features/chat/ClaudianAPIViews';
-import { createSessionRuntimePool } from '@test/helpers/features/chat/SessionRuntimePoolHarness';
 import { testDate } from '@test/helpers/testClock';
 import { createWindowsHostFS } from '@test/helpers/WindowsHostFS';
 import { WSLProcessFixture } from '@test/helpers/WSLProcessFixture';
@@ -20,8 +17,6 @@ import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
 import { ProviderSettingsCoordinator } from '@/core/providers/ProviderSettingsCoordinator';
 import { registerProviderModules } from '@/core/providers/registerProviderModules';
 import type { ClaudianSettings, Conversation } from '@/core/types';
-import { createClaudianAPI } from '@/features/chat/session-messaging/ClaudianAPI';
-import { SessionMessagingService } from '@/features/chat/session-messaging/SessionMessagingService';
 import { loadSDKSessionMessages } from '@/providers/claude/history/ClaudeHistoryStore';
 import { claudeProviderRegistration } from '@/providers/claude/registration';
 
@@ -70,31 +65,24 @@ function createRepository(settings: ClaudianSettings) {
 // WindowsHostFS models Windows paths on POSIX hosts; on Windows they are real host paths.
 const onWindows = process.platform === 'win32';
 
-it.skipIf(onWindows)('plugin API read hydrates a WSL transcript through the repository with its provider configuration', async () => {
+it.skipIf(onWindows)('the repository hydrates a WSL transcript with its provider configuration', async () => {
   Object.defineProperty(process, 'platform', { value: 'win32' });
-  await host.write(sessionPath('api-read'), rows([
+  await host.write(sessionPath('history-read'), rows([
     { type: 'user', uuid: 'u1', timestamp, message: { role: 'user', content: 'Question' } },
     { type: 'assistant', uuid: 'a1', parentUuid: 'u1', timestamp,
       message: { role: 'assistant', model: 'claude-sonnet-4-5', content: [{ type: 'text', text: 'Answer from WSL history' }] } },
   ]));
   const { repository } = createRepository(wslSettings());
-  repository.replaceAll([{ id: 'conversation-1', providerId: 'claude', sessionId: 'api-read', messages: [],
+  repository.replaceAll([{ id: 'conversation-1', providerId: 'claude', sessionId: 'history-read', messages: [],
     selectedModel: 'claude-sonnet-4-5', title: 'WSL session', createdAt: testDate().getTime(), lastActivityAt: testDate().getTime(),
   }]);
-  const pool = createSessionRuntimePool(() => chatHost);
-  const chatHost = await createChatFeatureHost({ sessionRuntimes: pool,
-    ensureConversationMetadataLoaded: async () => {}, getConversationById: async id => repository.getById(id),
-  });
-  const service = new SessionMessagingService({ getHost: () => chatHost, getActiveConversationId: () => null });
-  try {
-    expect(await createClaudianAPI(service, unmodeledChatViews).read('conversation-1')).toBe('Answer from WSL history');
-    // The Linux HOME comes from distro environment probes (availability, then the read), run from the host vault.
-    expect(native.requests.length).toBeGreaterThan(0);
-    for (const request of native.requests) {
-      expect(request.executable).toBe('/usr/bin/awk');
-      expect(request.options).toMatchObject({ cwd: 'C:\\Vault', windowsVerbatimArguments: true });
-    }
-  } finally { await service.dispose(); }
+  expect((await repository.getById('conversation-1'))?.messages).toContainEqual(expect.objectContaining({ role: 'assistant', content: expect.stringContaining('Answer from WSL history') }));
+  // The Linux HOME comes from distro environment probes (availability, then the read), run from the host vault.
+  expect(native.requests.length).toBeGreaterThan(0);
+  for (const request of native.requests) {
+    expect(request.executable).toBe('/usr/bin/awk');
+    expect(request.options).toMatchObject({ cwd: 'C:\\Vault', windowsVerbatimArguments: true });
+  }
 });
 
 it.skipIf(onWindows)('restores WSL transcript tool paths at their Windows host paths through the provider history service', async () => {

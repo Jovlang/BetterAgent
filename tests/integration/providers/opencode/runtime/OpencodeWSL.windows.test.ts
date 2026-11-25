@@ -5,9 +5,6 @@ import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 
 import { createFeatureHostFixture } from '@test/helpers/FeatureHostFixture';
-import { createChatFeatureHost } from '@test/helpers/features/chat/ChatFeatureHostFixture';
-import { unmodeledChatViews } from '@test/helpers/features/chat/ClaudianAPIViews';
-import { createSessionRuntimePool } from '@test/helpers/features/chat/SessionRuntimePoolHarness';
 import { testDate } from '@test/helpers/testClock';
 import { hasNativeWSL } from '@test/helpers/WSLNativeTarget';
 import spawn from 'cross-spawn';
@@ -24,9 +21,6 @@ import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
 import { ProviderSettingsCoordinator } from '@/core/providers/ProviderSettingsCoordinator';
 import { ProviderWorkspaceRegistry } from '@/core/providers/ProviderWorkspaceRegistry';
 import { registerProviderModules } from '@/core/providers/registerProviderModules';
-import type { ChatFeatureHost } from '@/features/chat/ChatFeatureHost';
-import { createClaudianAPI } from '@/features/chat/session-messaging/ClaudianAPI';
-import { SessionMessagingService } from '@/features/chat/session-messaging/SessionMessagingService';
 import { claudeProviderRegistration } from '@/providers/claude/registration';
 import { createOpencodeWorkspaceServices } from '@/providers/opencode/app/OpencodeWorkspaceServices';
 import { OpencodeHTTPSessionKernel } from '@/providers/opencode/execution/OpencodeHTTPSessionKernel';
@@ -123,7 +117,6 @@ describe.skipIf(!available || !cli)('native OpenCode WSL adoption', () => {
       });
       return child;
     });
-    let messaging: SessionMessagingService | undefined;
     try {
       await kernel.connect({ profile: 'managed', systemPrompt: `Working directory: ${targetRoot}` });
       const session = await kernel.openSession();
@@ -140,24 +133,17 @@ describe.skipIf(!available || !cli)('native OpenCode WSL adoption', () => {
       try {
         expect(await control.request(`/api/session/${session.sessionId}`)).toMatchObject({ data: { location: { directory: targetRoot } } });
       } finally { await control.dispose(); }
-      // The public API must hydrate the Linux database through the same provider policy.
+      // The repository must hydrate the Linux database through the same provider policy.
       ProviderWorkspaceRegistry.setServices('opencode', workspace);
       const repository = new ConversationRepository({
         providers: ProviderRegistry, providerSettings: ProviderSettingsCoordinator, getSettings: () => fixture.settings, getVaultPath: () => root, onConversationDeleted: async () => undefined,
         persistence: new ConversationPersistenceStore(fixture.vault.files, fixture.storage.installationKey),
       });
       repository.replaceAll([{ id: 'conversation', providerId: 'opencode', sessionId: session.sessionId, messages: [], title: 'WSL', providerState: { databasePath: session.databasePath }, createdAt: testDate().getTime(), lastActivityAt: testDate().getTime() }]);
-      const chatHost: ChatFeatureHost = await createChatFeatureHost({
-        fixture, sessionRuntimes: createSessionRuntimePool(() => chatHost),
-        ensureConversationMetadataLoaded: async () => undefined,
-        getConversationById: id => repository.getById(id),
-      });
-      messaging = new SessionMessagingService({ getHost: () => chatHost, getActiveConversationId: () => null });
-      expect(await createClaudianAPI(messaging, unmodeledChatViews).read('conversation')).toContain('Reply from OpenCode in WSL.');
+      expect((await repository.getById('conversation'))?.messages).toContainEqual(expect.objectContaining({ role: 'assistant', content: expect.stringContaining('Reply from OpenCode in WSL.') }));
       const requests = (await readFile(log, 'utf8')).trim().split('\n').map(line => JSON.parse(line) as { messages?: Array<{ role: string; content: unknown }> });
       expect(requests.flatMap(request => request.messages ?? [])).toEqual(expect.arrayContaining([expect.objectContaining({ role: 'tool', content: expect.stringContaining('WSL relay 中文') })]));
     } finally {
-      await messaging?.dispose();
       ProviderWorkspaceRegistry.setServices('opencode', undefined);
       await kernel.dispose();
       await workspace.dispose?.();

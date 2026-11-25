@@ -27,22 +27,14 @@ import { captureSelectionSnapshots, createQueuedMessage } from '@/features/chat/
 import type { ChatTurnRequest, TabReviewOutcome } from '@/features/chat/state/types';
 import { ResponseStream } from '@/features/chat/turns/ResponseStream';
 import type { StreamController } from '@/features/chat/turns/StreamController';
-import type { TurnCancelReason, TurnCoordinator } from '@/features/chat/turns/TurnCoordinator';
+import type { TurnCoordinator } from '@/features/chat/turns/TurnCoordinator';
 import type { TurnQueue } from '@/features/chat/turns/TurnQueue';
 import type { TurnSteering } from '@/features/chat/turns/TurnSteering';
 import { t } from '@/i18n/i18n';
 import { toError } from '@/utils/error';
 
-/** Why a session message never reached its recipient's provider. */
-export type SessionMessageUnsentReason = TurnCancelReason | 'failed' | 'deferred' | 'deleted' | 'archived';
-
-/** The recipient's mailbox defers a session message while competing work runs. */
-export class SessionMessageDeferredError extends Error {}
-
 /** A main turn admitted for execution, with everything captured when it was admitted. */
 export interface MainTurn {
-  origin: 'user' | 'session-message';
-  onUnsent?: (reason: SessionMessageUnsentReason) => void;
   displayContent: string;
   request: ChatTurnRequest;
   images?: ImageAttachment[];
@@ -156,12 +148,7 @@ export class MainTurnExecution {
     const { state, streamController, conversationController } = this.deps;
     const { displayContent, request: turnRequest, images: imagesForMessage } = turn;
     const isCompact = parseCompactCommand(turnRequest.text) !== null;
-    const restoreUnsentInput = (request: ChatTurnRequest, merge = true, unsentReason: SessionMessageUnsentReason = 'failed'): void => {
-      if (turn.origin === 'session-message') {
-        const reason: unknown = signal.aborted ? signal.reason : unsentReason;
-        turn.onUnsent?.(reason === 'user' || reason === 'shutdown' || reason === 'new-conversation' || reason === 'deferred' ? reason : 'failed');
-        return;
-      }
+    const restoreUnsentInput = (request: ChatTurnRequest, merge = true): void => {
       // Unadmitted interaction replies stay with their prompt; queued replies use normal draft recovery.
       if (turn.assertBeforeHandoff) return;
       // Restore later submissions first so this turn precedes them and any newer unsent draft.
@@ -181,7 +168,7 @@ export class MainTurnExecution {
       }
     }
 
-    if (turn.origin === 'user') state.acknowledgeReview();
+    state.acknowledgeReview();
 
     let turnConversationId = state.currentConversationId;
     this.deps.steering.finishTurn(turnConversationId);
@@ -199,11 +186,9 @@ export class MainTurnExecution {
     const admission = this.deps.firstTurn.begin(messagesBeforeTurn, isCompact);
     const hadPendingConversationSave = state.hasPendingConversationSave;
 
-    const sender = turn.origin === 'session-message' ? decodeSessionMessage(turnRequest.text) : null;
     const userMsg: ChatMessage = {
       id: this.deps.generateId(),
       role: 'user',
-      ...(sender ? { sessionMessage: { from: sender.from, sessionId: sender.sessionId } } : {}),
       content: displayContent,
       displayContent,                // Original user input (for UI display)
       timestamp: Date.now(),
@@ -213,8 +198,8 @@ export class MainTurnExecution {
     this.#activeTurnStart = userMsg;
     state.markConversationDirty();
     this.deps.renderer?.addMessage(userMsg);
-    // The user's own turn lands at the bottom and re-arms following; another session's keeps the reader's place.
-    if (turn.origin === 'user') this.deps.renderer?.follow.reveal();
+    // The user's own turn lands at the bottom and re-arms following.
+    this.deps.renderer?.follow.reveal();
 
     const rollbackFailedTurn = (assistantMsg?: ChatMessage): void => {
       // Admission can overlap independent background output. Only this unaccepted submission is rolled back.
@@ -247,9 +232,9 @@ export class MainTurnExecution {
         providerId: this.deps.getProviderId(),
         model: this.deps.getSettings().model || undefined,
       }));
-      if ((turn.origin === 'user' && this.#retainUnsentTurnOnClose(signal)) || restoreCancelledInput()) return;
+      if (this.#retainUnsentTurnOnClose(signal) || restoreCancelledInput()) return;
       await admission.titleFirstTurn();
-      if ((turn.origin === 'user' && this.#retainUnsentTurnOnClose(signal)) || restoreCancelledInput()) return;
+      if (this.#retainUnsentTurnOnClose(signal) || restoreCancelledInput()) return;
     } catch (error) {
       admission.rollbackIfUncreated();
       restoreUnsentInput(turnRequest);
@@ -285,9 +270,9 @@ export class MainTurnExecution {
 
     // Lazy initialization: bind and prepare execution on the first provider action.
     const ready = await this.deps.ensureExecutionInitialized();
-    if ((turn.origin === 'user' && this.#retainUnsentTurnOnClose(signal, assistantMsg.id)) || restoreCancelledInput(assistantMsg)) return;
+    if (this.#retainUnsentTurnOnClose(signal, assistantMsg.id) || restoreCancelledInput(assistantMsg)) return;
     if (!ready) {
-      if ((turn.origin === 'user' && this.#retainUnsentTurnOnClose(signal, assistantMsg.id))) return;
+      if (this.#retainUnsentTurnOnClose(signal, assistantMsg.id)) return;
       new Notice(t('chat.executionNotices.initializeFailed'));
       rollbackUnstartedTurn();
       return;
@@ -325,11 +310,6 @@ export class MainTurnExecution {
           finalAssistant.assistantMessageId = checkpoint;
         }
       }
-      const rolledBack = !result.accepted && turn.origin === 'session-message';
-      if (rolledBack) {
-        restoreUnsentInput(admittedTurnRequest);
-        rollbackFailedTurn(assistantMsg);
-      }
       accepted = result.accepted;
       if (result.accepted) turn.onDelivery?.(true);
       if (result.status === 'completed' || (result.status === 'error' && result.accepted)) {
@@ -338,26 +318,21 @@ export class MainTurnExecution {
         ) ?? null;
       }
       if (result.status === 'invalidated') this.deps.onInvalidated();
-      if (rolledBack) {
-        end = { kind: 'unsent', invalidated: result.status === 'invalidated' };
-      } else if (result.status === 'cancelled') {
+      if (result.status === 'cancelled') {
         end = { kind: 'response', outcome: 'cancelled' };
       } else if (result.status === 'invalidated') {
         end = { kind: 'invalidated' };
       } else if (result.status === 'error' && result.error) {
-        // A rolled-back unsent turn has no reply left to carry the error; its input returns for retry.
         end = { kind: 'response', outcome: 'failed' };
         await streamController.appendError(result.error.message, undefined, this.responseStream.active ?? assistantMsg);
       }
     } catch (error) {
       if (error instanceof ChatExecutionPreHandoffError) {
-        if (!turn.assertBeforeHandoff && (turn.origin === 'user' && this.#retainUnsentTurnOnClose(signal, assistantMsg.id))) return;
-        const deferred = error.cause instanceof SessionMessageDeferredError;
-        restoreUnsentInput(admittedTurnRequest, true, deferred ? 'deferred' : 'failed');
+        if (!turn.assertBeforeHandoff && this.#retainUnsentTurnOnClose(signal, assistantMsg.id)) return;
+        restoreUnsentInput(admittedTurnRequest);
         rollbackFailedTurn(assistantMsg);
         end = { kind: 'unsent', invalidated: end.kind === 'invalidated' };
-        if (deferred) scheduledContinuation = this.deps.queue.scheduleContinuation();
-        if (!signal.aborted && !deferred) new Notice(error.userMessage ?? t('chat.executionNotices.unsentFallback'));
+        if (!signal.aborted) new Notice(error.userMessage ?? t('chat.executionNotices.unsentFallback'));
         this.reportDeferredReview();
       } else {
         if (end.kind === 'response') end = { kind: 'response', outcome: 'failed' };

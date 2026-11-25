@@ -18,7 +18,6 @@ import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
 import { ProviderWorkspaceRegistry } from '@/core/providers/ProviderWorkspaceRegistry';
 import type { ClaudianSettings, Conversation, ConversationMutablePatch } from '@/core/types';
 import { getChatSettingsSnapshot } from '@/features/chat/ChatSettings';
-import { SessionMessagingService } from '@/features/chat/session-messaging/SessionMessagingService';
 import { getSessionSettingsSnapshot, updateSessionProviderSettings, updateSessionReasoning } from '@/features/chat/sessions/sessionSettings';
 import { activateTab, destroyTab } from '@/features/chat/tabs/TabLifecycle';
 import { createTabRuntime } from '@/features/chat/tabs/TabRuntimeFactory';
@@ -45,8 +44,6 @@ async function setup(poolOptions: RuntimePoolFixtureOptions = {}) {
   const saves: ConversationMutablePatch[] = [];
   const statusChanges = vi.fn();
   const pool = createSessionRuntimePool(() => plugin, { onChanged: statusChanges, ...poolOptions });
-  const messaging = new SessionMessagingService({ getHost: () => plugin, getActiveConversationId: () => conversation.id });
-  onTestFinished(() => messaging.dispose());
   const plugin = await createChatFeatureHost({
     sessionRuntimes: pool,
     app, settings,
@@ -73,7 +70,7 @@ async function setup(poolOptions: RuntimePoolFixtureOptions = {}) {
     activateTab(tab);
     return tab;
   };
-  return { attach, pool, plugin, backend, messaging, saves, statusChanges, setNativeHistory: (messages: Conversation['messages']) => { nativeHistory = messages; } };
+  return { attach, pool, plugin, backend, saves, statusChanges, setNativeHistory: (messages: Conversation['messages']) => { nativeHistory = messages; } };
 }
 
 it('reattaches a held blank draft session, with its selections, to the next presentation', async () => {
@@ -743,28 +740,6 @@ it('does not absorb external main history changes when only a side chat settles'
   await destroyTab(second);
 });
 
-it('revalidates a retained headless recipient before delivery from the public API', async () => {
-  const s = await setupRevisionedSession();
-  await s.detach();
-  s.continueElsewhere();
-  vi.spyOn(s.h.plugin, 'ensureConversationMetadataLoaded').mockResolvedValue(undefined);
-  const recipient = s.h.plugin.getConversationList()[0];
-  vi.spyOn(s.h.plugin, 'getConversationList').mockReturnValue([
-    recipient, { ...recipient, id: 'sender', title: 'Sender' },
-  ]);
-  const requested = s.h.backend.nextRequest(() => true);
-  await s.h.messaging.sendAsUser('conversation', { text: 'Continue after CLI' });
-  await requested;
-  const provider = s.h.backend.latest;
-  const messages = s.runtime.model.state.messages;
-  provider.complete();
-  await s.runtime.turns.drain();
-  expect(s.provider.disposeCalls).toBe(1);
-  expect(provider).not.toBe(s.provider);
-  expect(messages.some(message => message.content === 'Reply from the CLI')).toBe(true);
-  expect(provider.requests).toHaveLength(1);
-});
-
 
 it('keeps an external change unabsorbed when a send fails before reaching the provider', async () => {
   const s = await setupRevisionedSession();
@@ -823,73 +798,6 @@ it('keeps the known baseline when the read after its own turn cannot answer', as
   await destroyTab(second);
 });
 
-
-it('keeps session messages in order when a later one arrives while the first waits for the reload', async () => {
-  const s = await setupRevisionedSession();
-  s.continueElsewhere();
-  vi.spyOn(s.h.plugin, 'ensureConversationMetadataLoaded').mockResolvedValue(undefined);
-  const readConversation = vi.mocked(s.h.plugin.getConversationById).getMockImplementation()!;
-  const loadStarted = deferred<void>();
-  const finishLoad = deferred<void>();
-  vi.mocked(s.h.plugin.getConversationById).mockImplementationOnce(async id => {
-    loadStarted.resolve();
-    await finishLoad.promise;
-    return readConversation(id);
-  });
-  const first = s.h.messaging.sendAsUser('conversation', { text: 'FIRST message' });
-  await loadStarted.promise;
-  const second = s.h.messaging.sendAsUser('conversation', { text: 'SECOND message' });
-
-  const requested = s.h.backend.nextRequest(() => true);
-  finishLoad.resolve();
-  const request = await requested;
-  expect(JSON.stringify(request.input)).toContain('FIRST message');
-  await Promise.all([first, second]);
-  s.h.backend.latest.complete();
-  await waitFor(() => expect(s.h.backend.latest.requests).toHaveLength(2));
-  expect(JSON.stringify(s.h.backend.latest.requests[1].input)).toContain('SECOND message');
-  s.h.backend.latest.complete();
-  await s.runtime.turns.drain();
-  await destroyTab(s.first);
-});
-
-it('delivers session messages whose recipient reload failed once the history loads on retry', async () => {
-  const s = await setupRevisionedSession();
-  s.continueElsewhere();
-  vi.spyOn(s.h.plugin, 'ensureConversationMetadataLoaded').mockResolvedValue(undefined);
-  vi.mocked(s.h.plugin.getConversationById).mockRejectedValueOnce(new Error('History unavailable'));
-  const requested = s.h.backend.nextRequest(() => true);
-  await s.h.messaging.sendAsUser('conversation', { text: 'FIRST message' });
-  await s.h.messaging.sendAsUser('conversation', { text: 'SECOND message' });
-
-  const request = await requested;
-  expect(JSON.stringify(request.input)).toContain('FIRST message');
-  expect(request.conversationHistory?.map(message => message.content)).toContain('Reply from the CLI');
-  s.h.backend.latest.complete();
-  await waitFor(() => expect(s.h.backend.latest.requests).toHaveLength(2));
-  expect(JSON.stringify(s.h.backend.latest.requests[1].input)).toContain('SECOND message');
-  s.h.backend.latest.complete();
-  await s.runtime.turns.drain();
-  await destroyTab(s.first);
-});
-
-it('revalidates a recipient open in a tab before delivery and reloads it there', async () => {
-  const s = await setupRevisionedSession();
-  s.continueElsewhere();
-  vi.spyOn(s.h.plugin, 'ensureConversationMetadataLoaded').mockResolvedValue(undefined);
-  const requested = s.h.backend.nextRequest(() => true);
-  await s.h.messaging.sendAsUser('conversation', { text: 'Continue after CLI' });
-  await requested;
-  const provider = s.h.backend.latest;
-  expect(provider).not.toBe(s.provider);
-  expect(s.provider.disposeCalls).toBe(1);
-  expect(s.provider.requests).toHaveLength(0);
-  expect(provider.requests[0].conversationHistory?.map(message => message.content)).toContain('Reply from the CLI');
-  expect(s.first.dom.messagesEl.textContent).toContain('Reply from the CLI');
-  provider.complete();
-  await s.runtime.turns.drain();
-  await destroyTab(s.first);
-});
 
 it.each(['unviewed', 'attached'] as const)('does not retry failed history cleanup on an unrelated %s session change', async kind => {
   const failure = new Error('History storage unavailable');
@@ -1485,27 +1393,6 @@ it('retains a detached model until its uncertain branch navigation is reconciled
   h.backend.latest.complete();
   await sending;
   await destroyTab(second);
-});
-
-it('holds mailbox delivery behind a branch preview and wakes when the full transcript returns', async () => {
-  const h = (await setup());
-  h.setNativeHistory(branchHistory());
-  const tab = await h.attach();
-  await tab.controllers.conversationController.navigateBranch('u2');
-  expect(tab.controllers.conversationController.hasBranchDraft).toBe(true);
-  expect(tab.dom.messagesEl.textContent).not.toContain('Second answer');
-  const runtime = tab.session.runtime;
-  expect(await runtime.mailbox!.deliver({ message: { from: 'Sender', sessionId: 'sender', text: 'New incoming task' }, signal: new AbortController().signal })).toBe('queued');
-  expect(h.backend.sessions.flatMap(session => session.requests)).toHaveLength(0);
-  expect(tab.controllers.drafts.capture('main').content).toBe('Second prompt');
-  tab.controllers.conversationController.cancelBranchDraft();
-  expect(tab.dom.messagesEl.textContent).toContain('Second answer');
-  await waitFor(() => expect(h.backend.latest?.requests).toHaveLength(1));
-  expect(h.backend.latest.requests[0].conversationHistory?.map(message => message.content))
-    .toEqual(['First prompt', 'First answer', 'Second prompt', 'Second answer']);
-  h.backend.latest.complete();
-  await runtime.turns.drain();
-  await destroyTab(tab);
 });
 
 it('rematches an open mention after editing queued input back into the composer', async () => {

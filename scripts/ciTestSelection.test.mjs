@@ -373,7 +373,7 @@ test('Vitest shards scale with the selection and script checks run in their own 
   assert.deepEqual(ciTestLanes({ testFiles: null, scriptTests: null }), ['1/4', '2/4', '3/4', '4/4', 'scripts']);
 });
 
-test('the CI entry point handles real Git ranges, renames, missing bases and release tags', async () => {
+test('the CI entry point handles real Git ranges, renames and missing bases', async () => {
   const { copyFileSync, mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } = await import('node:fs');
   const { tmpdir } = await import('node:os');
   const path = await import('node:path');
@@ -400,7 +400,7 @@ test('the CI entry point handles real Git ranges, renames, missing bases and rel
     const scope = (head, overrides = {}) => {
       const output = execFileSync(process.execPath, ['scripts/ciTestSelection.mjs'], {
         cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
-        env: { ...process.env, GITHUB_OUTPUT: '', GITHUB_EVENT_NAME: 'push', GITHUB_REF: 'refs/heads/main',
+        env: { ...process.env, GITHUB_OUTPUT: '', GITHUB_EVENT_NAME: 'push',
           BASE_SHA: base, HEAD_SHA: head, ...overrides },
       });
       return Object.fromEntries(output.trim().split('\n').map(line => {
@@ -432,20 +432,19 @@ test('the CI entry point handles real Git ranges, renames, missing bases and rel
     assert.deepEqual(scope(deleted, { BASE_SHA: styled })['test-lanes'], ['scripts']);
     for (const overrides of [
       { BASE_SHA: 'f'.repeat(40) }, { BASE_SHA: '0'.repeat(40) }, { BASE_SHA: '' },
-      { GITHUB_REF: 'refs/tags/2.3.0' },
     ]) {
       const full = scope(deleted, overrides);
       assert.equal(full['test-files'], null);
       assert.deepEqual(full['test-lanes'], ['1/4', '2/4', '3/4', '4/4', 'scripts']);
       assert.deepEqual([full.build, full.dependencies, full.workflows, full['wsl-suites']], [true, true, true, wslTests]);
     }
-    // Release scope must work before dependency installation, without invoking Vitest.
+    // Reusable CI selects the full suite without invoking Vitest.
     writeFileSync(path.join(root, 'scripts/run-vitest.js'), "throw new Error('Vitest is unavailable');");
-    const tag = scope(deleted, { GITHUB_REF: 'refs/tags/2.3.0' });
-    assert.equal(tag['test-files'], null);
-    assert.equal(tag['script-tests'], null);
-    assert.equal(tag['cross-platform-tests'], null);
-    assert.equal(tag['pi-windows'], true);
+    const reusable = scope(deleted, { GITHUB_EVENT_NAME: 'workflow_call' });
+    assert.equal(reusable['test-files'], null);
+    assert.equal(reusable['script-tests'], null);
+    assert.equal(reusable['cross-platform-tests'], null);
+    assert.equal(reusable['pi-windows'], true);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

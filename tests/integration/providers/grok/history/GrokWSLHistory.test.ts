@@ -3,9 +3,6 @@ import * as fsPromises from 'node:fs/promises';
 import * as path from 'node:path';
 
 import { createFeatureHostFixture } from '@test/helpers/FeatureHostFixture';
-import { createChatFeatureHost } from '@test/helpers/features/chat/ChatFeatureHostFixture';
-import { unmodeledChatViews } from '@test/helpers/features/chat/ClaudianAPIViews';
-import { createSessionRuntimePool } from '@test/helpers/features/chat/SessionRuntimePoolHarness';
 import { grokWSLToolUpdates } from '@test/helpers/providers/grokWSLTools';
 import { testDate } from '@test/helpers/testClock';
 import { createWindowsHostFS } from '@test/helpers/WindowsHostFS';
@@ -18,9 +15,6 @@ import { getInstallationKey } from '@/core/device/InstallationKey';
 import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
 import { ProviderSettingsCoordinator } from '@/core/providers/ProviderSettingsCoordinator';
 import { registerProviderModules } from '@/core/providers/registerProviderModules';
-import type { ChatFeatureHost } from '@/features/chat/ChatFeatureHost';
-import { createClaudianAPI } from '@/features/chat/session-messaging/ClaudianAPI';
-import { SessionMessagingService } from '@/features/chat/session-messaging/SessionMessagingService';
 import { claudeProviderRegistration } from '@/providers/claude/registration';
 import { grokProviderRegistration } from '@/providers/grok/registration';
 
@@ -40,7 +34,7 @@ describe.skipIf(path.sep === '\\')('Grok WSL history on a simulated Windows host
     { homeKey: 'GROK_HOME', storedCwd: '/mnt/c/vault' },
     { homeKey: 'HOME', storedCwd: '/mnt/c/old-vault' },
     { homeKey: 'GROK_HOME', storedCwd: '/mnt/c/old-vault' },
-  ] as const)('reads a WSL Grok transcript through the plugin API using Linux $homeKey stored under $storedCwd', async ({ homeKey, storedCwd }) => {
+  ] as const)('reads a WSL Grok transcript through the repository using Linux $homeKey stored under $storedCwd', async ({ homeKey, storedCwd }) => {
     const native = new WSLProcessFixture();
     native.environment = homeKey === 'HOME' ? { HOME: '/home/alice' } : { HOME: '/home/alice', GROK_HOME: '/opt/grok' };
     vi.mocked(spawn).mockReset().mockImplementation(native.spawn);
@@ -70,22 +64,14 @@ describe.skipIf(path.sep === '\\')('Grok WSL history on a simulated Windows host
       providerState: { sessionDirectory: '\\\\wsl$\\OtherDistro\\opt\\grok\\sessions\\wrong\\native-session' },
       createdAt: testDate().getTime(), lastActivityAt: testDate().getTime(),
     }]);
-    const host: ChatFeatureHost = await createChatFeatureHost({
-      fixture, sessionRuntimes: createSessionRuntimePool(() => host),
-      ensureConversationMetadataLoaded: async () => undefined,
-      getConversationById: id => repository.getById(id),
-    });
-    const service = new SessionMessagingService({ getHost: () => host, getActiveConversationId: () => null });
-    try {
-      expect(await createClaudianAPI(service, unmodeledChatViews).read('conversation')).toBe('Reply from Linux');
-      const tools = repository.getSync('conversation')?.messages.flatMap(message => message.toolCalls ?? []);
-      expect(tools).toContainEqual(expect.objectContaining({ name: 'LS', input: expect.objectContaining({ path: 'C:\\vault\\notes' }) }));
-      expect(tools).toContainEqual(expect.objectContaining({ name: 'Edit', diffData: expect.objectContaining({ filePath: 'C:\\vault\\note.md' }) }));
-      expect(repository.getSync('conversation')?.providerState?.sessionDirectory).toBe(directory);
-      // The store comes from the Linux environment of the configured distro and vault cwd.
-      expect(native.requests.map(request => [request.executable, request.argv.slice(1)])).toEqual([['/usr/bin/awk', ['HOME', 'GROK_HOME']]]);
-      expect(native.requests[0].args).toEqual(expect.arrayContaining(['--distribution', 'Ubuntu', '--cd', '/mnt/c/vault']));
-    } finally { await service.dispose(); }
+    expect((await repository.getById('conversation'))?.messages).toContainEqual(expect.objectContaining({ role: 'assistant', content: expect.stringContaining('Reply from Linux') }));
+    const tools = repository.getSync('conversation')?.messages.flatMap(message => message.toolCalls ?? []);
+    expect(tools).toContainEqual(expect.objectContaining({ name: 'LS', input: expect.objectContaining({ path: 'C:\\vault\\notes' }) }));
+    expect(tools).toContainEqual(expect.objectContaining({ name: 'Edit', diffData: expect.objectContaining({ filePath: 'C:\\vault\\note.md' }) }));
+    expect(repository.getSync('conversation')?.providerState?.sessionDirectory).toBe(directory);
+    // The store comes from the Linux environment of the configured distro and vault cwd.
+    expect(native.requests.map(request => [request.executable, request.argv.slice(1)])).toEqual([['/usr/bin/awk', ['HOME', 'GROK_HOME']]]);
+    expect(native.requests[0].args).toEqual(expect.arrayContaining(['--distribution', 'Ubuntu', '--cd', '/mnt/c/vault']));
   });
 
 });

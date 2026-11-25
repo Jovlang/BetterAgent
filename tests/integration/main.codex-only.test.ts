@@ -47,6 +47,7 @@ it('retains stored Codex settings and loads only Codex sessions without changing
   }));
 
   await plugin.onload();
+  expect(plugin).not.toHaveProperty('api');
   expect(plugin.settings.providerConfigs.codex).toMatchObject(codex);
   expect(plugin.settings.permissionMode).toBe('normal');
   expect(resolveNewConversationModel(plugin.settings)).toEqual({
@@ -66,8 +67,7 @@ it('retains stored Codex settings and loads only Codex sessions without changing
     disposeSettings();
     settingsContainer.remove();
   }
-  await expect(plugin.api.openSession('legacy')).rejects.toThrow('The session does not exist or is archived');
   await plugin['sessionMetadata'].ensureAllLoaded();
-  expect((await plugin.api.listSessions()).sessions.map(session => session.sessionId)).toEqual(['current']);
+  expect(plugin['chatHost'].getConversationList().map(session => session.id)).toEqual(['current']);
   expect(await vault.read(legacyPath)).toBe(legacy);
 });

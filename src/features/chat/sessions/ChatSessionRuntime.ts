@@ -1,10 +1,8 @@
 import type { ProviderId } from '@/core/providers/types';
 import type { ChatExecutionCoordinator } from '@/features/chat/execution/ChatExecutionCoordinator';
-import type { SessionMailbox } from '@/features/chat/sessions/SessionMailbox';
 import type { SessionChange, SessionModel } from '@/features/chat/sessions/SessionModel';
 import type { SideChatController } from '@/features/chat/side-chat/SideChatController';
 import { SessionAttention } from '@/features/chat/state/SessionAttention';
-import type { ResponseProgress } from '@/features/chat/state/types';
 import { type TurnCancelOptions, type TurnCancelReason, TurnCoordinator } from '@/features/chat/turns/TurnCoordinator';
 
 export interface SessionIdentity {
@@ -15,11 +13,6 @@ export interface SessionIdentity {
   draftSessionKey?: string;
 }
 
-/** What outside observers hear from the session as it happens; nothing is retained. */
-export type SessionSignal =
-  | { readonly type: 'progress'; readonly progress: ResponseProgress }
-  | { readonly type: 'interaction'; readonly interactionId: string; readonly pending: boolean };
-
 let nextSessionKey = 0;
 
 export class ChatSessionRuntime {
@@ -27,12 +20,10 @@ export class ChatSessionRuntime {
   readonly sessionKey = `session-${++nextSessionKey}`;
   readonly attention = new SessionAttention();
   private currentModel: SessionModel | null = null;
-  private mailboxOwner: SessionMailbox | null = null;
   private childOwner: SideChatController | null = null;
   private lifetime: 'open' | 'closing' | 'disposed' = 'open';
   private readonly listeners = new Set<() => void>();
   private readonly hydrationListeners = new Set<() => void>();
-  private readonly signalListeners = new Set<(signal: SessionSignal) => void>();
   private pendingBackgroundWork = 0;
   private readonly modelWork = new Set<Promise<unknown>>();
   private disposal: Promise<void> | null = null;
@@ -91,14 +82,6 @@ export class ChatSessionRuntime {
     await this.currentModel?.conversationController.awaitCreation();
   }
 
-  get mailbox(): SessionMailbox | null { return this.mailboxOwner; }
-
-  installMailbox(mailbox: SessionMailbox): void {
-    if (this.mailboxOwner) throw new Error('Mailbox already installed');
-    this.mailboxOwner = mailbox;
-    this.subscribe(() => mailbox.wake());
-  }
-
   installSideChat(side: SideChatController): void {
     if (this.childOwner) throw new Error('Side chat owner already installed');
     this.childOwner = side;
@@ -125,16 +108,6 @@ export class ChatSessionRuntime {
 
   notifyChanged(): void {
     for (const listener of this.listeners) listener();
-  }
-
-  /** Listeners run synchronously for every streamed chunk and must stay cheap. */
-  subscribeSignals(listener: (signal: SessionSignal) => void): () => void {
-    this.signalListeners.add(listener);
-    return () => this.signalListeners.delete(listener);
-  }
-
-  signal(signal: SessionSignal): void {
-    for (const listener of this.signalListeners) listener(signal);
   }
 
   /** Delivers a change to the attached presentation, if any, and to session observers once. */
@@ -186,7 +159,7 @@ export class ChatSessionRuntime {
    */
   get isIdle(): boolean {
     return !this.coordinator.isWritingNativeHistory && !this.turns.isActive && this.pendingBackgroundWork === 0 && this.modelWork.size === 0 && !this.hasBackgroundWork && !this.isConversationBusy
-      && !this.hasPendingInteraction && !this.mailboxOwner?.hasPending;
+      && !this.hasPendingInteraction;
   }
 
   private get isConversationBusy(): boolean {
@@ -230,7 +203,6 @@ export class ChatSessionRuntime {
    * then cancels provider execution. Non-user reasons also release the turn's presentation.
    */
   cancelTurn(reason: TurnCancelReason, options: TurnCancelOptions = {}): boolean {
-    if (!options.keepMailbox) this.mailboxOwner?.clear();
     const cancelled = this.turns.cancel(reason);
     try {
       if (options.dismissInteractions) this.currentModel?.dismissInteractions();
@@ -253,7 +225,6 @@ export class ChatSessionRuntime {
   beginShutdown(): void {
     if (this.lifetime !== 'open') return;
     this.lifetime = 'closing';
-    this.mailboxOwner?.clear();
     this.turns.cancel('shutdown');
     this.childOwner?.beginShutdown();
   }
@@ -335,7 +306,6 @@ export class ChatSessionRuntime {
     this.lifetime = 'disposed';
     this.listeners.clear();
     this.hydrationListeners.clear();
-    this.signalListeners.clear();
     const failures = results.filter(result => result.status === 'rejected');
     if (failures.length) throw new AggregateError(failures.map(result => result.reason as unknown), 'Failed to drain session');
   }

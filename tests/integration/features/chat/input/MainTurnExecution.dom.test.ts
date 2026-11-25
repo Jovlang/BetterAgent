@@ -226,9 +226,7 @@ it('shows only the indicator for a turn stopped after blank thinking alone, live
   expect(inspect(messagesEl)).toEqual(expected);
 });
 
-// Issue #2189: another session's message arrives without moving a reader scrolled up, while the
-// user's own send still lands at the bottom. Streamed text grows its row, so following is visible.
-it.each([true, false])('keeps a scrolled-up reader in place for a session message but not for their own send (auto-scroll %s)', async autoScroll => {
+it.each([true, false])('reveals the user’s own send from a scrolled-up transcript (auto-scroll %s)', async autoScroll => {
   vi.useFakeTimers();
   cleanups.push(() => vi.useRealTimers());
   const fixture = await createFixture();
@@ -259,13 +257,6 @@ it.each([true, false])('keeps a scrolled-up reader in place for a session messag
   fireEvent.wheel(messagesEl, { deltaY: -100 });
   messagesEl.scrollTop = 200;
   fireEvent.scroll(messagesEl);
-
-  const sessionHandoff = await reply(() => fixture.controller.sendSessionMessage(
-    { from: 'Sender', sessionId: 'sender', text: 'Please inspect this' },
-    { assertBeforeHandoff: () => undefined, onUnsent: () => undefined },
-  ));
-  expect(within(messagesEl).getByText('Please inspect this')).toBeTruthy();
-  expect([sessionHandoff, messagesEl.scrollTop]).toEqual([200, 200]);
 
   const userHandoff = await reply(() => fixture.controller.sendMessage({ content: 'Read the note' }));
   expect(userHandoff).toBeGreaterThan(200);

@@ -21,7 +21,6 @@ import { ConversationLifecycle } from '@/features/chat/conversation/Conversation
 import type { ChatExecutionCoordinator } from '@/features/chat/execution/ChatExecutionCoordinator';
 import { SelectionController } from '@/features/chat/input/SelectionController';
 import { NavigationController } from '@/features/chat/navigation/NavigationController';
-import { SessionMessagingService } from '@/features/chat/session-messaging/SessionMessagingService';
 import type { ChatSessionRuntime } from '@/features/chat/sessions/ChatSessionRuntime';
 import { createChatSessionRuntime } from '@/features/chat/sessions/createChatSessionRuntime';
 import { handleForkRequest } from '@/features/chat/sessions/SessionForkSource';
@@ -84,8 +83,6 @@ async function createPlugin(overrides: Omit<NonNullable<Parameters<typeof create
     onChanged: () => undefined,
     onError: () => undefined,
   });
-  const messaging: SessionMessagingService = new SessionMessagingService({ getHost: () => plugin, getActiveConversationId: () => null });
-  onTestFinished(() => messaging.dispose());
   const ports = {
 
     executionPersistence: {

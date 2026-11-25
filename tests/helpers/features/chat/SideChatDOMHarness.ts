@@ -12,7 +12,6 @@ import type { ChatMessage } from '@/core/types';
 import { getChatSettingsSnapshot } from '@/features/chat/ChatSettings';
 import { ComposerDraftController } from '@/features/chat/composer/ComposerDraftController';
 import { ImageContextManager } from '@/features/chat/composer/ImageContextManager';
-import { SessionMessagingService } from '@/features/chat/session-messaging/SessionMessagingService';
 import {
   captureLatestCompletedForkSource,
 } from '@/features/chat/sessions/SessionForkSource';
@@ -85,11 +84,6 @@ export async function createHarness(options: {
   ];
   const conversation = conversationRecord('conversation-1', { sessionId: 'main-session', messages });
   const pool = createSessionRuntimePool(() => plugin);
-  const messaging = new SessionMessagingService({
-    getHost: () => plugin,
-    getActiveConversationId: () => tab.conversationId,
-
-  });
   const plugin = await createChatFeatureHost({
     sessionRuntimes: pool, executionPersistence: createExecutionPersistence(),
 
@@ -138,7 +132,6 @@ export async function createHarness(options: {
     await destroyTab(tab);
     await pool.dispose();
     component.unload();
-    await messaging.dispose();
     await lifecycleRegistry.dispose();
     ProviderRegistry.register('claude', claudeProviderRegistration);
   });

@@ -123,7 +123,7 @@ it('toggles focus between the attached zen composer and the previous control wit
   expect(command.checkCallback!(true)).toBe(true);
   expect(document.activeElement).toBe(noteEditor);
   expect(command.checkCallback!(false)).toBe(true);
-  const input = within(screen.getByRole('region', { name: 'Claudian chat' })).getByRole('textbox', { name: 'Message' });
+  const input = within(screen.getByRole('region', { name: 'BetterAgent chat' })).getByRole('textbox', { name: 'Message' });
   expect(document.activeElement).toBe(input);
   expect(scopes).toHaveLength(1);
   expect(tab.dom.inputEl.value).toBe('Unsent draft');
@@ -159,7 +159,7 @@ it('ignores removed focus targets and retains the return target across normal an
   setCollapsed(rightSplit, true);
   noteEditor.focus();
   command.checkCallback!(false);
-  const input = within(screen.getByRole('region', { name: 'Claudian chat' })).getByRole('textbox', { name: 'Message' });
+  const input = within(screen.getByRole('region', { name: 'BetterAgent chat' })).getByRole('textbox', { name: 'Message' });
   noteEditor.remove();
   command.checkCallback!(false);
   expect(document.activeElement).toBe(input);

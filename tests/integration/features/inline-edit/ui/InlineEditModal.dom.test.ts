@@ -259,7 +259,7 @@ it('keeps the provider when a picked model is not uniquely owned by one enabled 
   fireEvent.click(within(screen.getByRole('tablist', { name: 'Provider' })).getByRole('tab', { name: 'codex' }));
   fireEvent.click(screen.getByRole('option', { name: 'Opus' }));
   // Like a new chat, a model both providers own resolves to neither.
-  await waitFor(() => expect(Notice).toHaveBeenCalledWith('Select an available model in Claudian settings.'));
+  await waitFor(() => expect(Notice).toHaveBeenCalledWith('Select an available model in BetterAgent settings.'));
   expect(screen.getByRole('button', { name: 'Model: Sonnet, effort High' })).toBeDefined();
   expect(h.plugin.settings.inlineEditModel).toBeNull();
   submitInstruction();

@@ -1,4 +1,4 @@
-# Contributing to Claudian
+# Contributing to BetterAgent
 
 Issues and pull requests are welcome. Issues are the preferred way to contribute: if you describe the problem and your environment clearly, I will review it and make a best effort to address it.
 
@@ -19,7 +19,7 @@ A useful issue explains the problem well enough for someone else to understand a
 - What you were trying to do.
 - What happened and what you expected instead.
 - Clear reproduction steps or a minimal example.
-- Your Claudian version, Obsidian version, operating system, provider, provider CLI version, and installation method.
+- Your BetterAgent version, Obsidian version, operating system, provider, provider CLI version, and installation method.
 - Relevant logs, screenshots, or recordings.
 
 For a feature request or a proposal to change existing behavior, start with the user problem or use case and your rationale. A proposed solution is helpful, but explaining the need is more important than prescribing an implementation, and current behavior may be intentional.
@@ -86,6 +86,6 @@ Contributions that improve an existing provider are welcome when they follow the
 
 The environment settings, including environment snippets, are for short-term testing or for a configuration change you intend to keep. They are not designed for frequent switching between endpoints, accounts, models, or CLI configuration directories.
 
-Claudian passes the environment to the provider CLI and restarts the runtime when it changes. It does not manage native sessions across those changes: whether an existing conversation can continue is up to the provider CLI. If a conversation's native session is not available under the current configuration, that conversation cannot continue until the session is available again; start a new chat instead.
+BetterAgent passes the environment to the provider CLI and restarts the runtime when it changes. It does not manage native sessions across those changes: whether an existing conversation can continue is up to the provider CLI. If a conversation's native session is not available under the current configuration, that conversation cannot continue until the session is available again; start a new chat instead.
 
-Issues and pull requests that ask Claudian to migrate, repair, or switch native sessions when the environment changes are out of scope.
+Issues and pull requests that ask BetterAgent to migrate, repair, or switch native sessions when the environment changes are out of scope.

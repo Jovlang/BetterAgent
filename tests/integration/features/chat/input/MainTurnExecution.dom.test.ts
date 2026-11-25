@@ -28,7 +28,7 @@ afterEach(() => {
   document.body.replaceChildren();
 });
 
-const INTERRUPTED = 'Interrupted · What should Claudian do instead?';
+const INTERRUPTED = 'Interrupted · What should BetterAgent do instead?';
 
 function visibleText(element: HTMLElement): string {
   const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);

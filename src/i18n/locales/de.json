@@ -1,4 +1,11 @@
 {
+  "plugin": {
+    "name": "BetterAgent",
+    "open": "BetterAgent öffnen",
+    "addFile": "Zu BetterAgent hinzufügen",
+    "chatNotReady": "Der BetterAgent-Chat ist nicht bereit.",
+    "addFileFailed": "Die Datei konnte nicht zu BetterAgent hinzugefügt werden."
+  },
   "common": {
     "inputSuggestions": "Eingabevorschläge",
     "save": "Speichern",
@@ -24,9 +31,9 @@
     },
     "promptSuggestionHint": "Mit Tab übernehmen",
     "selectAvailableModel": "Wähle vor dem Senden ein verfügbares Modell aus.",
-    "reloadingHistory": "Dieser Chat wurde außerhalb von Claudian geändert und wird neu geladen. Sende erneut, sobald das Laden abgeschlossen ist.",
-    "changedOutsideWithBackgroundTask": "Dieser Chat wurde außerhalb von Claudian fortgesetzt, während eine Hintergrundaufgabe aus der früheren Sitzung noch läuft. Stoppe die Aufgabe oder warte, bis sie abgeschlossen ist, und sende dann erneut.",
-    "selectAvailableTitleModel": "Wähle in den Claudian-Einstellungen ein verfügbares Titelmodell aus.",
+    "reloadingHistory": "Dieser Chat wurde außerhalb von BetterAgent geändert und wird neu geladen. Sende erneut, sobald das Laden abgeschlossen ist.",
+    "changedOutsideWithBackgroundTask": "Dieser Chat wurde außerhalb von BetterAgent fortgesetzt, während eine Hintergrundaufgabe aus der früheren Sitzung noch läuft. Stoppe die Aufgabe oder warte, bis sie abgeschlossen ist, und sende dann erneut.",
+    "selectAvailableTitleModel": "Wähle in den BetterAgent-Einstellungen ein verfügbares Titelmodell aus.",
     "rewind": {
       "confirmMessage": "Zu diesem Punkt zurückspulen? Dateiänderungen nach dieser Nachricht können überschrieben oder entfernt werden. Dies kann nicht rückgängig gemacht werden.",
       "confirmMessageConflicts": "Zu diesem Punkt zurückspulen? {count} außerhalb des Agenten geänderte Datei(en) werden überschrieben:\n{files}",
@@ -95,7 +102,7 @@
       "busySide": "Der Nebenchat antwortet noch. Warte, bis er fertig ist."
     },
     "zen": {
-      "regionLabel": "Claudian-Chat",
+      "regionLabel": "BetterAgent-Chat",
       "showHistory": "Unterhaltung anzeigen",
       "move": "Chat-Bereich verschieben",
       "working": "Arbeitet…",
@@ -171,7 +178,7 @@
     "copyMessage": "Nachricht kopieren",
     "showEarlierMessages": "Frühere Nachrichten anzeigen",
     "renderFailed": "Nachrichteninhalt konnte nicht angezeigt werden.",
-    "interruptedHint": "· Was soll Claudian stattdessen tun?",
+    "interruptedHint": "· Was soll BetterAgent stattdessen tun?",
     "sessions": {
       "empty": "Keine Unterhaltungen",
       "noMatch": "Keine passenden Sitzungen",
@@ -750,7 +757,7 @@
     "insertLabel": "Einfügeanweisungen",
     "editPlaceholder": "Bearbeitungsanweisungen…",
     "insertPlaceholder": "Einfügeanweisungen…",
-    "modelUnavailable": "Wähle in den Claudian-Einstellungen ein verfügbares Modell aus.",
+    "modelUnavailable": "Wähle in den BetterAgent-Einstellungen ein verfügbares Modell aus.",
     "providerFailed": "Der Anbieter {provider} konnte nicht gestartet werden.",
     "actionsLabel": "Aktionen für die Inline-Bearbeitung",
     "lineOne": "Zeile",
@@ -782,7 +789,7 @@
     "responses": "Antworten",
     "experimental": "Experimentell",
     "userName": {
-      "name": "Wie soll Claudian dich nennen?",
+      "name": "Wie soll BetterAgent dich nennen?",
       "desc": "Dein Name für personalisierte Begrüßungen (leer lassen für allgemeine Begrüßungen)"
     },
     "excludedTags": {
@@ -917,7 +924,7 @@
       "desc": "Write- und Edit-Diffs beim ersten Erscheinen ausgeklappt anzeigen."
     },
     "chatViewPlacement": {
-      "name": "Claudian öffnen in",
+      "name": "BetterAgent öffnen in",
       "desc": "Wähle aus, wo das Chat-Panel beim Erstellen geöffnet wird",
       "rightSidebar": "Rechte Seitenleiste",
       "leftSidebar": "Linke Seitenleiste",
@@ -956,7 +963,7 @@
     },
     "providerEnablement": {
       "name": "{provider} aktivieren",
-      "lastProviderWarning": "Damit Claudian funktioniert, muss mindestens ein Anbieter aktiviert bleiben.",
+      "lastProviderWarning": "Damit BetterAgent funktioniert, muss mindestens ein Anbieter aktiviert bleiben.",
       "noModelsWarning": "Es sind keine {provider}-Modelle aktiviert. Aktiviere unten unter „Modelle“ mindestens ein Modell."
     },
     "modelPicker": {
@@ -1085,7 +1092,7 @@
         "desc": "Zusätzliche Umgebungsvariablen, die an OpenCode übergeben werden."
       },
       "migrationNotice": {
-        "text": "OpenCode v1 wird nicht mehr unterstützt. Aktualisiere auf OpenCode v2, um es in Claudian zu verwenden.",
+        "text": "OpenCode v1 wird nicht mehr unterstützt. Aktualisiere auf OpenCode v2, um es in BetterAgent zu verwenden.",
         "link": "Zu OpenCode v2 migrieren"
       }
     },
@@ -1095,7 +1102,7 @@
         "desc": "Umgebungsvariablen, die nur an Pi übergeben werden."
       },
       "models": {
-        "desc": "Claudian führt eine eigene Modellliste, getrennt von Pis enabledModels. „Erkennen“ listet alle Modelle auf, die Pi in seiner aktuellen Umgebung authentifizieren kann, gruppiert nach der Anbieter-Route, die Pi aufruft. Die Route bestimmt Zugangsdaten und Abrechnung."
+        "desc": "BetterAgent führt eine eigene Modellliste, getrennt von Pis enabledModels. „Erkennen“ listet alle Modelle auf, die Pi in seiner aktuellen Umgebung authentifizieren kann, gruppiert nach der Anbieter-Route, die Pi aufruft. Die Route bestimmt Zugangsdaten und Abrechnung."
       }
     },
     "grok": {
@@ -1110,7 +1117,7 @@
         "desc": "Umgebungsvariablen, die nur an Antigravity (agy) übergeben werden, z. B. GEMINI_API_KEY."
       },
       "listModelsFailed": "Die Antigravity-Modelle konnten nicht aufgelistet werden. Details zeigt agy models im Terminal. Verwende agy acp --login zur Anmeldung.",
-      "updateReminder": "Claudian unterstützt nur die neueste agy-Version, und agy ändert sich schnell. Halte es aktuell:"
+      "updateReminder": "BetterAgent unterstützt nur die neueste agy-Version, und agy ändert sich schnell. Halte es aktuell:"
     },
     "deepseek": {
       "installation": {
@@ -1124,7 +1131,7 @@
       },
       "presetPlugins": {
         "name": "Zusätzliche Preset-Plugins",
-        "desc": "Erweitert. Eine YAML-Liste (dsh-Format) nativer dsh-Plugin-Einträge, die an Claudians Chat-Preset angehängt werden, jeweils mit eigener \"id\" und eigenem \"name\". Einträge können Claudians eigene nicht ersetzen. Durch das Speichern wird DeepSeek Harness neu gestartet, was laufende Runden beendet. Plugins ohne Claudian-Oberfläche, etwa der Planungsmodus, funktionieren möglicherweise nicht."
+        "desc": "Erweitert. Eine YAML-Liste (dsh-Format) nativer dsh-Plugin-Einträge, die an BetterAgents Chat-Preset angehängt werden, jeweils mit eigener \"id\" und eigenem \"name\". Einträge können BetterAgents eigene nicht ersetzen. Durch das Speichern wird DeepSeek Harness neu gestartet, was laufende Runden beendet. Plugins ohne BetterAgent-Oberfläche, etwa der Planungsmodus, funktionieren möglicherweise nicht."
       },
       "presetPreview": "Preset-Vorschau",
       "environment": {
@@ -1218,7 +1225,7 @@
     "executionTarget": {
       "installationMethod": {
         "name": "Installationsmethode",
-        "desc": "Wie Claudian {provider} unter Windows starten soll. „Natives Windows“ verwendet einen Windows-Programmpfad. WSL startet die Linux-CLI in einer ausgewählten Distribution.",
+        "desc": "Wie BetterAgent {provider} unter Windows starten soll. „Natives Windows“ verwendet einen Windows-Programmpfad. WSL startet die Linux-CLI in einer ausgewählten Distribution.",
         "nativeWindows": "Natives Windows",
         "wsl": "WSL"
       },

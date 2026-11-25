@@ -55,12 +55,12 @@ const messages: ChatMessage[] = [
     ] },
 ];
 
-const INTERRUPTED = 'Interrupted · What should Claudian do instead?';
+const INTERRUPTED = 'Interrupted · What should BetterAgent do instead?';
 
 /** The interrupted disclosure's header is the interrupt indicator itself, never repeated in its body. */
 function expectInterruptHeader(header: HTMLElement, history: HTMLElement): void {
   expect([header.querySelector('.claudian-interrupted')?.textContent, header.querySelector('.claudian-interrupted-hint')?.textContent])
-    .toEqual(['Interrupted', '· What should Claudian do instead?']);
+    .toEqual(['Interrupted', '· What should BetterAgent do instead?']);
   expect(history.querySelector('.claudian-interrupted, .claudian-interrupted-hint')).toBeNull();
 }
 
@@ -198,7 +198,7 @@ it('folds a partial-text interruption under a disclosure headed by the interrupt
 
 it('copies retired interruption markup as ordinary message text', async () => {
   const { renderer, messagesEl } = setup();
-  const marker = '<span class="claudian-interrupted">Interrupted</span> <span class="claudian-interrupted-hint">· What should Claudian do instead?</span>';
+  const marker = '<span class="claudian-interrupted">Interrupted</span> <span class="claudian-interrupted-hint">· What should BetterAgent do instead?</span>';
   renderer.renderStoredMessage({ id: 'legacy', role: 'assistant', timestamp: 5,
     content: `Partial answer\n\n${marker}` });
   fireEvent.click(within(messagesEl).getByRole('button', { name: 'Copy message' }));

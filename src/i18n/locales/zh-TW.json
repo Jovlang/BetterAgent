@@ -1,4 +1,11 @@
 {
+  "plugin": {
+    "name": "BetterAgent",
+    "open": "開啟 BetterAgent",
+    "addFile": "新增至 BetterAgent",
+    "chatNotReady": "BetterAgent 聊天尚未就緒。",
+    "addFileFailed": "無法將檔案新增至 BetterAgent。"
+  },
   "common": {
     "inputSuggestions": "輸入建議",
     "save": "儲存",
@@ -24,9 +31,9 @@
     },
     "promptSuggestionHint": "按 Tab 接受",
     "selectAvailableModel": "請先選擇可用的模型再傳送。",
-    "reloadingHistory": "此對話在 Claudian 之外有所變更，正在重新載入。載入完成後請重新傳送。",
-    "changedOutsideWithBackgroundTask": "此對話在 Claudian 之外繼續進行，而先前工作階段的背景任務仍在執行。請停止該任務或等待其完成，然後重新傳送。",
-    "selectAvailableTitleModel": "請在 Claudian 設定中選擇可用的標題產生模型。",
+    "reloadingHistory": "此對話在 BetterAgent 之外有所變更，正在重新載入。載入完成後請重新傳送。",
+    "changedOutsideWithBackgroundTask": "此對話在 BetterAgent 之外繼續進行，而先前工作階段的背景任務仍在執行。請停止該任務或等待其完成，然後重新傳送。",
+    "selectAvailableTitleModel": "請在 BetterAgent 設定中選擇可用的標題產生模型。",
     "rewind": {
       "confirmMessage": "確定要回退到此處嗎？此訊息之後的檔案變更可能會被覆寫或移除，且無法復原。",
       "confirmMessageConflicts": "回退到此處？偵測到 {count} 個檔案在代理之外被修改，繼續操作將覆寫這些變更：\n{files}",
@@ -95,7 +102,7 @@
       "busySide": "側邊對話仍在回覆中，請稍候。"
     },
     "zen": {
-      "regionLabel": "Claudian 聊天",
+      "regionLabel": "BetterAgent 聊天",
       "showHistory": "顯示對話",
       "move": "移動聊天面板",
       "working": "處理中…",
@@ -171,7 +178,7 @@
     "copyMessage": "複製訊息",
     "showEarlierMessages": "顯示較早的訊息",
     "renderFailed": "訊息內容呈現失敗。",
-    "interruptedHint": "· 你希望 Claudian 改做什麼？",
+    "interruptedHint": "· 你希望 BetterAgent 改做什麼？",
     "sessions": {
       "empty": "尚無對話",
       "noMatch": "沒有符合的工作階段",
@@ -750,7 +757,7 @@
     "insertLabel": "插入指令",
     "editPlaceholder": "編輯指令…",
     "insertPlaceholder": "插入指令…",
-    "modelUnavailable": "請在 Claudian 設定中選取可用的模型。",
+    "modelUnavailable": "請在 BetterAgent 設定中選取可用的模型。",
     "providerFailed": "無法啟動 {provider} 提供者。",
     "actionsLabel": "行內編輯操作",
     "lineOne": "行",
@@ -782,7 +789,7 @@
     "responses": "回覆",
     "experimental": "實驗性功能",
     "userName": {
-      "name": "希望 Claudian 如何稱呼你？",
+      "name": "希望 BetterAgent 如何稱呼你？",
       "desc": "用於個人化問候的名稱（留空則使用一般問候）"
     },
     "excludedTags": {
@@ -917,7 +924,7 @@
       "desc": "首次顯示 Write 與 Edit 的差異（diff）時預設展開。"
     },
     "chatViewPlacement": {
-      "name": "Claudian 開啟位置",
+      "name": "BetterAgent 開啟位置",
       "desc": "選擇建立新聊天面板時的開啟位置",
       "rightSidebar": "右側邊欄",
       "leftSidebar": "左側邊欄",
@@ -956,7 +963,7 @@
     },
     "providerEnablement": {
       "name": "啟用 {provider}",
-      "lastProviderWarning": "至少需要啟用一個提供者，Claudian 才能正常運作。",
+      "lastProviderWarning": "至少需要啟用一個提供者，BetterAgent 才能正常運作。",
       "noModelsWarning": "未啟用任何 {provider} 模型。請前往下方的「模型」區段並至少啟用一個模型。"
     },
     "modelPicker": {
@@ -1085,7 +1092,7 @@
         "desc": "傳遞給 OpenCode 的額外環境變數。"
       },
       "migrationNotice": {
-        "text": "OpenCode v1 已不再受支援。請更新至 OpenCode v2 以在 Claudian 中使用。",
+        "text": "OpenCode v1 已不再受支援。請更新至 OpenCode v2 以在 BetterAgent 中使用。",
         "link": "移轉至 OpenCode v2"
       }
     },
@@ -1095,7 +1102,7 @@
         "desc": "僅傳遞給 Pi 的環境變數。"
       },
       "models": {
-        "desc": "Claudian 維護獨立於 Pi enabledModels 的模型清單。「探索」會列出 Pi 在目前環境中可驗證的所有模型，並依 Pi 實際呼叫的提供者路由分組。路由決定憑證與計費方式。"
+        "desc": "BetterAgent 維護獨立於 Pi enabledModels 的模型清單。「探索」會列出 Pi 在目前環境中可驗證的所有模型，並依 Pi 實際呼叫的提供者路由分組。路由決定憑證與計費方式。"
       }
     },
     "grok": {
@@ -1110,7 +1117,7 @@
         "desc": "僅傳遞給 Antigravity（agy）的環境變數，例如 GEMINI_API_KEY。"
       },
       "listModelsFailed": "無法取得 Antigravity 模型清單。請在終端機執行 agy models 查看詳細資訊。如需登入，請執行 agy acp --login。",
-      "updateReminder": "Claudian 僅支援 agy 的最新版本，且 agy 變化很快。請保持更新："
+      "updateReminder": "BetterAgent 僅支援 agy 的最新版本，且 agy 變化很快。請保持更新："
     },
     "deepseek": {
       "installation": {
@@ -1124,7 +1131,7 @@
       },
       "presetPlugins": {
         "name": "附加預設集外掛",
-        "desc": "進階設定。以 YAML 清單（dsh 格式）列出要附加至 Claudian 聊天預設集的原生 dsh 外掛項目，每個項目都必須包含 \"id\" 與 \"name\"，且不可取代 Claudian 內建項目。儲存後會重新啟動 DeepSeek Harness，並中止進行中的回合。Claudian 尚未提供介面支援的外掛（例如規劃模式）可能無法正常運作。"
+        "desc": "進階設定。以 YAML 清單（dsh 格式）列出要附加至 BetterAgent 聊天預設集的原生 dsh 外掛項目，每個項目都必須包含 \"id\" 與 \"name\"，且不可取代 BetterAgent 內建項目。儲存後會重新啟動 DeepSeek Harness，並中止進行中的回合。BetterAgent 尚未提供介面支援的外掛（例如規劃模式）可能無法正常運作。"
       },
       "presetPreview": "預設集預覽",
       "environment": {
@@ -1218,7 +1225,7 @@
     "executionTarget": {
       "installationMethod": {
         "name": "安裝方式",
-        "desc": "Claudian 在 Windows 上啟動 {provider} 的方式。原生 Windows 使用 Windows 可執行檔路徑；WSL 會在所選發行版內啟動 Linux CLI。",
+        "desc": "BetterAgent 在 Windows 上啟動 {provider} 的方式。原生 Windows 使用 Windows 可執行檔路徑；WSL 會在所選發行版內啟動 Linux CLI。",
         "nativeWindows": "原生 Windows",
         "wsl": "WSL"
       },

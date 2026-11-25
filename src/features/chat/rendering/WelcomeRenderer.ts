@@ -1,8 +1,6 @@
 import { t } from '@/i18n/i18n';
 import type { TranslationKey } from '@/i18n/types';
 
-const WELCOME_BRAND_NAME = 'Claudian';
-
 export function renderWelcomeContent(
   welcomeEl: HTMLElement,
   greeting?: string,
@@ -10,7 +8,7 @@ export function renderWelcomeContent(
   welcomeEl.empty();
   welcomeEl.createDiv({
     cls: 'claudian-welcome-brand claudian-welcome-text',
-    text: WELCOME_BRAND_NAME,
+    text: t('plugin.name'),
   });
 
   if (greeting) {
@@ -70,7 +68,7 @@ export function pickWelcomeGreeting(name: string | undefined, now: Date, random:
     if (hour >= 5 && hour < 12) {
       return [
         personalize('chat.welcome.morning', 'chat.welcome.morningNamed'),
-        t('chat.welcome.coffee', { brand: WELCOME_BRAND_NAME }),
+        t('chat.welcome.coffee', { brand: t('plugin.name') }),
       ];
     } else if (hour >= 12 && hour < 18) {
       return [

@@ -154,7 +154,7 @@ export class ClaudianView extends ItemView implements ZenModeSource {
   }
 
   getDisplayText(): string {
-    return 'Claudian';
+    return t('plugin.name');
   }
 
   getIcon(): string {

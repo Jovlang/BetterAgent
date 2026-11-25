@@ -3,7 +3,7 @@
   "configVersion": 0,
   "workspaces": {
     "": {
-      "name": "claudian",
+      "name": "betteragent",
       "dependencies": {
         "@anthropic-ai/claude-agent-sdk": "0.3.322",
         "@codemirror/commands": "6.10.0",

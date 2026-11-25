@@ -12,11 +12,11 @@ afterEach(() => { setLocale('en'); document.body.replaceChildren(); vi.restoreAl
 it('renders the brand before a greeting arrives and replaces greetings without duplicating content', () => {
   const parent = document.createElement('div');
   const welcome = createWelcomeElement(parent);
-  expect(within(welcome).getByText('Claudian')).toBeDefined();
+  expect(within(welcome).getByText('BetterAgent')).toBeDefined();
   renderWelcomeContent(welcome, 'Good morning');
   expect(within(welcome).getByText('Good morning')).toBeDefined();
   renderWelcomeContent(welcome, 'Welcome back');
-  expect(within(welcome).getAllByText('Claudian')).toHaveLength(1);
+  expect(within(welcome).getAllByText('BetterAgent')).toHaveLength(1);
   expect(within(welcome).getAllByText('Welcome back')).toHaveLength(1);
   expect(within(welcome).queryByText('Good morning')).toBeNull();
 });
@@ -26,7 +26,7 @@ it('renders and replaces translated picker greetings while preserving caller dat
   setLocale('zh-CN');
   const backAtIt = t('chat.welcome.backAtItNamed', { name: 'Archive' });
   const hiHow = t('chat.welcome.hiHowNamed', { name: 'Archive' });
-  const coffee = t('chat.welcome.coffee', { brand: 'Claudian' });
+  const coffee = t('chat.welcome.coffee', { brand: 'BetterAgent' });
   expect(backAtIt).not.toBe(englishBackAtIt);
   const monday = testDate();
   monday.setDate(monday.getDate() + ((1 - monday.getDay() + 7) % 7));
@@ -40,7 +40,7 @@ it('renders and replaces translated picker greetings while preserving caller dat
   expect(within(welcome).getByText(hiHow)).toBeDefined();
   expect(within(welcome).queryByText(backAtIt)).toBeNull();
   expect(welcome.querySelectorAll('.claudian-welcome-brand')).toHaveLength(1);
-  expect(welcome.querySelector('.claudian-welcome-brand')?.textContent).toBe('Claudian');
+  expect(welcome.querySelector('.claudian-welcome-brand')?.textContent).toBe('BetterAgent');
   expect(welcome.querySelectorAll('.claudian-welcome-greeting')).toHaveLength(1);
   expect(welcome.querySelectorAll('.claudian-welcome-linked-content')).toHaveLength(1);
 

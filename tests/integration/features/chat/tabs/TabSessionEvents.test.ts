@@ -279,7 +279,7 @@ it('keeps the next turn\'s notification out of a stopped automatic turn rendered
     const second = view.state.messages.find(message => message.contentBlocks?.some(block =>
       block.type === 'task_notification' && block.content === 'Second job finished.'))!;
     expect(second.isInterrupt).toBeUndefined();
-    const header = within(view.messagesEl).getByRole('button', { name: 'Interrupted · What should Claudian do instead?' });
+    const header = within(view.messagesEl).getByRole('button', { name: 'Interrupted · What should BetterAgent do instead?' });
     const history = document.getElementById(header.getAttribute('aria-controls')!)!;
     fireEvent.click(header);
     expect(history.textContent).toContain('First reply.');

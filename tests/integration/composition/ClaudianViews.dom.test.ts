@@ -146,7 +146,7 @@ describe('toggle chat view hotkey', () => {
   });
 });
 
-it('keeps Open Claudian on the active chat view before applying an explicit destination', async () => {
+it('keeps Open BetterAgent on the active chat view before applying an explicit destination', async () => {
   const fixture = await createChatWorkspaceFixture();
   const second = await fixture.addView('main');
   fixture.tab.controllers.drafts.restore('main', { content: 'First session draft' });

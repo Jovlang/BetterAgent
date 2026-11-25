@@ -70,7 +70,7 @@ function visibleText(element: HTMLElement): string {
   return parts.join(' ');
 }
 
-const INTERRUPTED = 'Interrupted · What should Claudian do instead?';
+const INTERRUPTED = 'Interrupted · What should BetterAgent do instead?';
 
 /** The interrupted turn as a reader sees it, collapsed and then expanded. */
 function inspectInterruptedTurn(root: HTMLElement, folded: RegExp[]) {
@@ -95,7 +95,7 @@ function inspectInterruptedTurn(root: HTMLElement, folded: RegExp[]) {
 }
 
 const expectedTurn = {
-  collapsed: { expanded: 'false', visible: [INTERRUPTED], actions: 0, header: ['Interrupted', '· What should Claudian do instead?'] },
+  collapsed: { expanded: 'false', visible: [INTERRUPTED], actions: 0, header: ['Interrupted', '· What should BetterAgent do instead?'] },
   expanded: { expanded: 'true', ordered: true, hidden: false, indicatorInBody: false, worked: 0 },
 };
 

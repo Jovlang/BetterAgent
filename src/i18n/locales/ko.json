@@ -1,4 +1,11 @@
 {
+  "plugin": {
+    "name": "BetterAgent",
+    "open": "BetterAgent 열기",
+    "addFile": "BetterAgent에 추가",
+    "chatNotReady": "BetterAgent 채팅이 준비되지 않았습니다.",
+    "addFileFailed": "BetterAgent에 파일을 추가하지 못했습니다."
+  },
   "common": {
     "inputSuggestions": "입력 제안",
     "save": "저장",
@@ -24,9 +31,9 @@
     },
     "promptSuggestionHint": "Tab으로 수락",
     "selectAvailableModel": "전송하기 전에 사용 가능한 모델을 선택하세요.",
-    "reloadingHistory": "이 채팅이 Claudian 외부에서 변경되어 다시 불러오고 있습니다. 완료되면 다시 보내 주세요.",
-    "changedOutsideWithBackgroundTask": "이전 세션의 백그라운드 작업이 아직 실행 중인 상태에서 이 채팅이 Claudian 외부에서 이어졌습니다. 작업을 중지하거나 완료될 때까지 기다린 후 다시 보내 주세요.",
-    "selectAvailableTitleModel": "Claudian 설정에서 사용 가능한 제목 생성 모델을 선택하세요.",
+    "reloadingHistory": "이 채팅이 BetterAgent 외부에서 변경되어 다시 불러오고 있습니다. 완료되면 다시 보내 주세요.",
+    "changedOutsideWithBackgroundTask": "이전 세션의 백그라운드 작업이 아직 실행 중인 상태에서 이 채팅이 BetterAgent 외부에서 이어졌습니다. 작업을 중지하거나 완료될 때까지 기다린 후 다시 보내 주세요.",
+    "selectAvailableTitleModel": "BetterAgent 설정에서 사용 가능한 제목 생성 모델을 선택하세요.",
     "rewind": {
       "confirmMessage": "이 시점으로 되감을까요? 이 메시지 이후의 파일 변경 사항이 덮어쓰이거나 삭제될 수 있으며, 되돌릴 수 없습니다.",
       "confirmMessageConflicts": "이 시점으로 되감을까요? 에이전트 외부에서 수정된 파일 {count}개를 덮어쓰게 됩니다:\n{files}",
@@ -95,7 +102,7 @@
       "busySide": "사이드 채팅이 아직 응답 중입니다. 완료될 때까지 기다려 주세요."
     },
     "zen": {
-      "regionLabel": "Claudian 채팅",
+      "regionLabel": "BetterAgent 채팅",
       "showHistory": "대화 표시",
       "move": "채팅 패널 이동",
       "working": "작업 중…",
@@ -171,7 +178,7 @@
     "copyMessage": "메시지 복사",
     "showEarlierMessages": "이전 메시지 표시",
     "renderFailed": "메시지 내용을 표시하지 못했습니다.",
-    "interruptedHint": "· Claudian이 대신 무엇을 할까요?",
+    "interruptedHint": "· BetterAgent이 대신 무엇을 할까요?",
     "sessions": {
       "empty": "대화 없음",
       "noMatch": "일치하는 세션 없음",
@@ -750,7 +757,7 @@
     "insertLabel": "삽입 지시",
     "editPlaceholder": "편집 지시…",
     "insertPlaceholder": "삽입 지시…",
-    "modelUnavailable": "Claudian 설정에서 사용 가능한 모델을 선택하세요.",
+    "modelUnavailable": "BetterAgent 설정에서 사용 가능한 모델을 선택하세요.",
     "providerFailed": "{provider} 제공자를 시작하지 못했습니다.",
     "actionsLabel": "인라인 편집 작업",
     "lineOne": "줄",
@@ -782,7 +789,7 @@
     "responses": "응답",
     "experimental": "실험적 기능",
     "userName": {
-      "name": "Claudian이 어떻게 불러드릴까요?",
+      "name": "BetterAgent이 어떻게 불러드릴까요?",
       "desc": "맞춤형 인사에 사용할 이름입니다(비워 두면 기본 인사를 표시합니다)."
     },
     "excludedTags": {
@@ -917,7 +924,7 @@
       "desc": "Write 및 Edit 변경 내역(diff)이 처음 표시될 때 펼친 상태로 보여줍니다."
     },
     "chatViewPlacement": {
-      "name": "Claudian 열 위치",
+      "name": "BetterAgent 열 위치",
       "desc": "채팅 패널이 생성될 때 열릴 위치를 선택합니다.",
       "rightSidebar": "오른쪽 사이드바",
       "leftSidebar": "왼쪽 사이드바",
@@ -956,7 +963,7 @@
     },
     "providerEnablement": {
       "name": "{provider} 활성화",
-      "lastProviderWarning": "Claudian을 사용하려면 하나 이상의 제공자를 활성화해야 합니다.",
+      "lastProviderWarning": "BetterAgent을 사용하려면 하나 이상의 제공자를 활성화해야 합니다.",
       "noModelsWarning": "활성화된 {provider} 모델이 없습니다. 아래 모델 섹션에서 하나 이상의 모델을 활성화하세요."
     },
     "modelPicker": {
@@ -1085,7 +1092,7 @@
         "desc": "OpenCode에 전달되는 추가 환경 변수입니다."
       },
       "migrationNotice": {
-        "text": "OpenCode v1은 더 이상 지원되지 않습니다. Claudian에서 사용하려면 OpenCode v2로 업데이트하세요.",
+        "text": "OpenCode v1은 더 이상 지원되지 않습니다. BetterAgent에서 사용하려면 OpenCode v2로 업데이트하세요.",
         "link": "OpenCode v2로 마이그레이션"
       }
     },
@@ -1095,7 +1102,7 @@
         "desc": "Pi에만 전달되는 환경 변수입니다."
       },
       "models": {
-        "desc": "Claudian은 Pi의 enabledModels와 별도로 자체 모델 목록을 유지합니다. 검색을 실행하면 Pi가 현재 환경에서 인증할 수 있는 모든 모델을 Pi가 호출할 제공자 경로별로 묶어 표시합니다. 이 경로에 따라 자격 증명과 요금 청구가 결정됩니다."
+        "desc": "BetterAgent은 Pi의 enabledModels와 별도로 자체 모델 목록을 유지합니다. 검색을 실행하면 Pi가 현재 환경에서 인증할 수 있는 모든 모델을 Pi가 호출할 제공자 경로별로 묶어 표시합니다. 이 경로에 따라 자격 증명과 요금 청구가 결정됩니다."
       }
     },
     "grok": {
@@ -1110,7 +1117,7 @@
         "desc": "Antigravity(agy)에만 전달되는 환경 변수입니다(예: GEMINI_API_KEY)."
       },
       "listModelsFailed": "Antigravity 모델 목록을 가져오지 못했습니다. 터미널에서 agy models를 실행하여 자세한 내용을 확인하세요. 로그인하려면 agy acp --login을 실행하세요.",
-      "updateReminder": "Claudian은 agy의 최신 릴리스만 지원하며 agy는 빠르게 변경됩니다. 항상 최신 상태로 유지하세요:"
+      "updateReminder": "BetterAgent은 agy의 최신 릴리스만 지원하며 agy는 빠르게 변경됩니다. 항상 최신 상태로 유지하세요:"
     },
     "deepseek": {
       "installation": {
@@ -1124,7 +1131,7 @@
       },
       "presetPlugins": {
         "name": "추가 프리셋 플러그인",
-        "desc": "고급 설정입니다. Claudian 채팅 프리셋 뒤에 추가할 네이티브 dsh 플러그인 항목의 YAML 목록(dsh 형식)이며, 각 항목에는 고유한 \"id\"와 \"name\"이 있어야 합니다. Claudian 기본 항목은 대체할 수 없습니다. 저장하면 DeepSeek Harness가 다시 시작되어 진행 중인 턴이 중지됩니다. 계획 모드처럼 Claudian에 인터페이스가 없는 플러그인은 작동하지 않을 수 있습니다."
+        "desc": "고급 설정입니다. BetterAgent 채팅 프리셋 뒤에 추가할 네이티브 dsh 플러그인 항목의 YAML 목록(dsh 형식)이며, 각 항목에는 고유한 \"id\"와 \"name\"이 있어야 합니다. BetterAgent 기본 항목은 대체할 수 없습니다. 저장하면 DeepSeek Harness가 다시 시작되어 진행 중인 턴이 중지됩니다. 계획 모드처럼 BetterAgent에 인터페이스가 없는 플러그인은 작동하지 않을 수 있습니다."
       },
       "presetPreview": "프리셋 미리보기",
       "environment": {
@@ -1218,7 +1225,7 @@
     "executionTarget": {
       "installationMethod": {
         "name": "설치 방식",
-        "desc": "Windows에서 Claudian의 {provider} 실행 방식을 설정합니다. 네이티브 Windows는 Windows 실행 파일 경로를 사용하고, WSL은 선택한 배포판 안에서 Linux CLI를 실행합니다.",
+        "desc": "Windows에서 BetterAgent의 {provider} 실행 방식을 설정합니다. 네이티브 Windows는 Windows 실행 파일 경로를 사용하고, WSL은 선택한 배포판 안에서 Linux CLI를 실행합니다.",
         "nativeWindows": "네이티브 Windows",
         "wsl": "WSL"
       },

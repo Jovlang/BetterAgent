@@ -80,7 +80,7 @@ async function createSettings(
 it('renders the declarative settings surface and loads real skills only on first activation', async () => {
   const h = await createSettings();
   const [definition] = h.tab.getSettingDefinitions();
-  expect(definition).toMatchObject({ name: 'Claudian', searchable: false });
+  expect(definition).toMatchObject({ name: 'BetterAgent', searchable: false });
   expect(h.container.querySelector('.claudian-settings')).not.toBeNull();
   expect(within(h.container).queryByText('Obsolete settings')).toBeNull();
   for (const name of ['general', 'providers', 'skills'] as const) {

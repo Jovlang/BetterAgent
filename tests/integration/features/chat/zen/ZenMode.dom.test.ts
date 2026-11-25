@@ -203,7 +203,7 @@ it.each([
   session.emitText(input);
   await waitFor(() => expect(preview()).toBe(expected));
 
-  const panel = screen.getByRole('region', { name: 'Claudian chat' });
+  const panel = screen.getByRole('region', { name: 'BetterAgent chat' });
   const show = within(panel).getByRole('button', { name: 'Show conversation', description: expected });
   expect(document.getElementById(show.getAttribute('aria-describedby')!)?.textContent).toBe(expected);
   expect(await axe(panel.querySelector<HTMLElement>('.claudian-zen-bar')!)).toHaveNoViolations();
@@ -656,7 +656,7 @@ it('toggles history through its hotkey command while preserving focus and the ac
   setCollapsed(rightSplit, false);
   seedHistory(tab);
   setCollapsed(rightSplit, true);
-  const panel = screen.getByRole('region', { name: 'Claudian chat' });
+  const panel = screen.getByRole('region', { name: 'BetterAgent chat' });
   const show = within(panel).getByRole('button', { name: 'Show conversation' });
   const history = document.getElementById(show.getAttribute('aria-controls')!)!;
   tab.dom.inputEl.value = 'Unsent draft';
@@ -697,7 +697,7 @@ it('discloses the existing transcript accessibly and remembers the choice for th
   expect(show.getAttribute('aria-expanded')).toBe('false');
   expect(history.classList.contains('claudian-hidden')).toBe(true);
   expect(history.contains(tab.dom.messagesWrapperEl)).toBe(true);
-  expect(screen.getByRole('region', { name: 'Claudian chat' })).toBe(panel);
+  expect(screen.getByRole('region', { name: 'BetterAgent chat' })).toBe(panel);
 
   // Moved chat nodes keep their own coverage; this checks the zen chrome.
   expect(await axe(panel.querySelector<HTMLElement>('.claudian-zen-bar')!)).toHaveNoViolations();
@@ -1166,7 +1166,7 @@ it('releases every moved node and subscription on close and disposal', async () 
   expect(zenPanel()).toBeNull();
   view['sessions'].dispose();
   expect(workspace.listenerCount()).toBe(0);
-  expect(screen.queryByRole('region', { name: 'Claudian chat' })).toBeNull();
+  expect(screen.queryByRole('region', { name: 'BetterAgent chat' })).toBeNull();
 });
 
 it('announces the current error when the same zen panel binds another failed session', async () => {

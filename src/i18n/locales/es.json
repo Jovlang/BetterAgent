@@ -1,4 +1,11 @@
 {
+  "plugin": {
+    "name": "BetterAgent",
+    "open": "Abrir BetterAgent",
+    "addFile": "Añadir a BetterAgent",
+    "chatNotReady": "El chat de BetterAgent no está listo.",
+    "addFileFailed": "No se pudo añadir el archivo a BetterAgent."
+  },
   "common": {
     "inputSuggestions": "Sugerencias de entrada",
     "save": "Guardar",
@@ -24,9 +31,9 @@
     },
     "promptSuggestionHint": "Tab para aceptar",
     "selectAvailableModel": "Selecciona un modelo disponible antes de enviar.",
-    "reloadingHistory": "Este chat cambió fuera de Claudian y se está recargando. Vuelve a enviar cuando termine.",
-    "changedOutsideWithBackgroundTask": "Este chat continuó fuera de Claudian mientras una tarea en segundo plano de su sesión anterior sigue en ejecución. Detén la tarea o espera a que termine y vuelve a enviar.",
-    "selectAvailableTitleModel": "Selecciona un modelo de títulos disponible en los ajustes de Claudian.",
+    "reloadingHistory": "Este chat cambió fuera de BetterAgent y se está recargando. Vuelve a enviar cuando termine.",
+    "changedOutsideWithBackgroundTask": "Este chat continuó fuera de BetterAgent mientras una tarea en segundo plano de su sesión anterior sigue en ejecución. Detén la tarea o espera a que termine y vuelve a enviar.",
+    "selectAvailableTitleModel": "Selecciona un modelo de títulos disponible en los ajustes de BetterAgent.",
     "rewind": {
       "confirmMessage": "¿Rebobinar hasta este punto? Los cambios de archivos posteriores a este mensaje podrían sobrescribirse o eliminarse. Esta acción no se puede deshacer.",
       "confirmMessageConflicts": "¿Rebobinar hasta este punto? Se sobrescribirán {count} archivo(s) modificado(s) fuera del agente:\n{files}",
@@ -95,7 +102,7 @@
       "busySide": "El chat lateral aún está respondiendo. Espera a que termine."
     },
     "zen": {
-      "regionLabel": "Chat de Claudian",
+      "regionLabel": "Chat de BetterAgent",
       "showHistory": "Mostrar conversación",
       "move": "Mover el panel de chat",
       "working": "Trabajando…",
@@ -171,7 +178,7 @@
     "copyMessage": "Copiar mensaje",
     "showEarlierMessages": "Mostrar mensajes anteriores",
     "renderFailed": "No se pudo mostrar el contenido del mensaje.",
-    "interruptedHint": "· ¿Qué debería hacer Claudian en su lugar?",
+    "interruptedHint": "· ¿Qué debería hacer BetterAgent en su lugar?",
     "sessions": {
       "empty": "No hay conversaciones",
       "noMatch": "No hay sesiones coincidentes",
@@ -750,7 +757,7 @@
     "insertLabel": "Instrucciones de inserción",
     "editPlaceholder": "Instrucciones de edición…",
     "insertPlaceholder": "Instrucciones de inserción…",
-    "modelUnavailable": "Selecciona un modelo disponible en los ajustes de Claudian.",
+    "modelUnavailable": "Selecciona un modelo disponible en los ajustes de BetterAgent.",
     "providerFailed": "No se pudo iniciar el proveedor {provider}.",
     "actionsLabel": "Acciones de edición en línea",
     "lineOne": "línea",
@@ -782,7 +789,7 @@
     "responses": "Respuestas",
     "experimental": "Experimental",
     "userName": {
-      "name": "¿Cómo debería llamarte Claudian?",
+      "name": "¿Cómo debería llamarte BetterAgent?",
       "desc": "Tu nombre para saludos personalizados (déjalo vacío para saludos genéricos)"
     },
     "excludedTags": {
@@ -917,7 +924,7 @@
       "desc": "Mostrar expandidas las diferencias de Write y Edit cuando aparecen por primera vez."
     },
     "chatViewPlacement": {
-      "name": "Abrir Claudian en",
+      "name": "Abrir BetterAgent en",
       "desc": "Elige dónde se abre el panel de chat cuando se crea",
       "rightSidebar": "Barra lateral derecha",
       "leftSidebar": "Barra lateral izquierda",
@@ -956,7 +963,7 @@
     },
     "providerEnablement": {
       "name": "Activar {provider}",
-      "lastProviderWarning": "Debe haber al menos un proveedor habilitado para que Claudian funcione.",
+      "lastProviderWarning": "Debe haber al menos un proveedor habilitado para que BetterAgent funcione.",
       "noModelsWarning": "No hay modelos de {provider} habilitados. Ve a Modelos más abajo y habilita al menos uno."
     },
     "modelPicker": {
@@ -1085,7 +1092,7 @@
         "desc": "Variables de entorno adicionales que se pasan a OpenCode."
       },
       "migrationNotice": {
-        "text": "OpenCode v1 ya no es compatible. Actualiza a OpenCode v2 para usarlo en Claudian.",
+        "text": "OpenCode v1 ya no es compatible. Actualiza a OpenCode v2 para usarlo en BetterAgent.",
         "link": "Migrar a OpenCode v2"
       }
     },
@@ -1095,7 +1102,7 @@
         "desc": "Variables de entorno que se pasan solo a Pi."
       },
       "models": {
-        "desc": "Claudian mantiene su propia lista de modelos, independiente de enabledModels de Pi. Descubrir muestra todos los modelos que Pi puede autenticar en su entorno actual, agrupados por la ruta de proveedor que Pi usará. La ruta determina las credenciales y la facturación."
+        "desc": "BetterAgent mantiene su propia lista de modelos, independiente de enabledModels de Pi. Descubrir muestra todos los modelos que Pi puede autenticar en su entorno actual, agrupados por la ruta de proveedor que Pi usará. La ruta determina las credenciales y la facturación."
       }
     },
     "grok": {
@@ -1110,7 +1117,7 @@
         "desc": "Variables de entorno que solo se pasan a Antigravity (agy), como GEMINI_API_KEY."
       },
       "listModelsFailed": "No se pudieron listar los modelos de Antigravity. Ejecuta agy models en una terminal para ver los detalles. Para iniciar sesión, ejecuta agy acp --login.",
-      "updateReminder": "Claudian solo es compatible con la versión más reciente de agy, que cambia con rapidez. Mantenlo actualizado:"
+      "updateReminder": "BetterAgent solo es compatible con la versión más reciente de agy, que cambia con rapidez. Mantenlo actualizado:"
     },
     "deepseek": {
       "installation": {
@@ -1124,7 +1131,7 @@
       },
       "presetPlugins": {
         "name": "Plugins adicionales del preset",
-        "desc": "Avanzado. Una lista YAML (formato de dsh) de filas de plugins nativos de dsh que se añaden al preset de chat de Claudian, cada una con su propio \"id\" y \"name\". Las filas no pueden reemplazar las de Claudian. Al guardar se reinicia DeepSeek Harness, lo que detiene los turnos en curso. Los plugins sin interfaz en Claudian, como el modo de planificación, pueden no funcionar."
+        "desc": "Avanzado. Una lista YAML (formato de dsh) de filas de plugins nativos de dsh que se añaden al preset de chat de BetterAgent, cada una con su propio \"id\" y \"name\". Las filas no pueden reemplazar las de BetterAgent. Al guardar se reinicia DeepSeek Harness, lo que detiene los turnos en curso. Los plugins sin interfaz en BetterAgent, como el modo de planificación, pueden no funcionar."
       },
       "presetPreview": "Vista previa del preset",
       "environment": {
@@ -1218,7 +1225,7 @@
     "executionTarget": {
       "installationMethod": {
         "name": "Método de instalación",
-        "desc": "Cómo debe iniciar Claudian {provider} en Windows. Windows nativo usa una ruta de ejecutable de Windows. WSL inicia la CLI de Linux dentro de una distribución seleccionada.",
+        "desc": "Cómo debe iniciar BetterAgent {provider} en Windows. Windows nativo usa una ruta de ejecutable de Windows. WSL inicia la CLI de Linux dentro de una distribución seleccionada.",
         "nativeWindows": "Windows nativo",
         "wsl": "WSL"
       },

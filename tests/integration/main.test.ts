@@ -2196,7 +2196,7 @@ describe('ClaudianPlugin', () => {
 
       expect(plugin.addRibbonIcon).toHaveBeenCalledWith(
         'bot',
-        'Open Claudian',
+        'Open BetterAgent',
         expect.any(Function),
       );
       const ribbonCallback = (plugin.addRibbonIcon as Mock).mock.calls[0][2];

@@ -55,6 +55,7 @@ import { ZenModeController } from './features/chat/zen/ZenModeController';
 import { createInlineEditCommand } from './features/inline-edit/inlineEditCommand';
 import { InlineEditSessionOwner } from './features/inline-edit/InlineEditSessionOwner';
 import { ClaudianSettingTab } from './features/settings/ClaudianSettings';
+import { t } from './i18n/i18n';
 import { getBuiltInProviderDefaultConfigs } from './providers/defaultProviderConfigs';
 
 export default class ClaudianPlugin extends Plugin {
@@ -141,7 +142,7 @@ export default class ClaudianPlugin extends Plugin {
       });
       this.vaultContentEvents.register(eventRef => this.registerEvent(eventRef));
 
-      this.addRibbonIcon('bot', 'Open Claudian', () => {
+      this.addRibbonIcon('bot', t('plugin.open'), () => {
         void this.views.activateView();
       });
 

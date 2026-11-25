@@ -55,7 +55,7 @@ it('exposes a live last-provider warning for ten seconds before hiding it', asyn
   vi.useFakeTimers();
   warning.showFor();
   const message = within(container).getByRole('status');
-  expect(message.textContent).toBe('At least one provider must remain enabled for Claudian to work.');
+  expect(message.textContent).toBe('At least one provider must remain enabled for BetterAgent to work.');
   expect(message.getAttribute('aria-live')).toBe('polite');
   await vi.advanceTimersByTimeAsync(9999);
   expect(within(container).getByRole('status')).toBe(message);

@@ -94,7 +94,7 @@ Changing the memory file path in the editor moves the file to the new path.
 - The new path must not already hold a file or belong to another project.
 - If the file is missing, the project is only repointed to the new path.
 - If another project still uses the same file, which can happen with records from an earlier version or another synced device, the file is copied to the new path instead of moved. The other project keeps the original, and the two files are edited independently from then on.
-- If saving the project fails, Claudian tries to undo the move, or removes the new copy.
+- If saving the project fails, BetterAgent tries to undo the move, or removes the new copy.
 
 ### Deleting a project
 

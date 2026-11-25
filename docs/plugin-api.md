@@ -1,8 +1,8 @@
 # Plugin API (experimental)
 
-Other Obsidian plugins can list and open Claudian sessions, send prompts to them, stop them, follow their output as it streams, read their replies, and answer their approvals and questions. A voice companion, for example, sends the user's transcript, speaks the reply as it arrives, and reads approvals aloud.
+Other Obsidian plugins can list and open BetterAgent sessions, send prompts to them, stop them, follow their output as it streams, read their replies, and answer their approvals and questions. A voice companion, for example, sends the user's transcript, speaks the reply as it arrives, and reads approvals aloud.
 
-The API reports state and events as Claudian has them and makes no decisions for the caller: which streamed blocks to use, which approval options to offer, and how to present them are up to the client.
+The API reports state and events as BetterAgent has them and makes no decisions for the caller: which streamed blocks to use, which approval options to offer, and how to present them are up to the client.
 
 The API is experimental: its shape may change in minor releases while `version` is `1`. Check `version` before using it.
 
@@ -18,12 +18,12 @@ import type { App } from 'obsidian';
 const app = this.app as App & {
   plugins: { getPlugin(id: string): { api?: ClaudianAPI } | null };
 };
-const claudian = app.plugins.getPlugin('betteragent');
-const api = claudian?.api;
-if (api?.version !== 1) return; // Claudian is missing, disabled, still loading, or incompatible
+const betterAgent = app.plugins.getPlugin('betteragent');
+const api = betterAgent?.api;
+if (api?.version !== 1) return; // BetterAgent is missing, disabled, still loading, or incompatible
 ```
 
-Resolve the API when you need it rather than caching it across plugin reloads: disabling or updating Claudian replaces the plugin instance.
+Resolve the API when you need it rather than caching it across plugin reloads: disabling or updating BetterAgent replaces the plugin instance.
 
 ## Interface
 
@@ -65,7 +65,7 @@ Returns non-archived sessions, most recently active first. `limit` is an integer
 
 ### `openSession`
 
-Shows the session the way the session list does: in the viewer of the wide layout, or in a tab of the compact layout, reusing the tab that already shows it. When no chat view exists, one opens at the configured placement. `{ focus: true }` also reveals the chat view and focuses its composer. Without it, Claudian does not activate the view itself, but showing a session follows the same path as a click in the session list: a session already open in another tab or view is revealed there, and a pending approval or question takes focus as it does on screen. It rejects when the session does not exist or is archived.
+Shows the session the way the session list does: in the viewer of the wide layout, or in a tab of the compact layout, reusing the tab that already shows it. When no chat view exists, one opens at the configured placement. `{ focus: true }` also reveals the chat view and focuses its composer. Without it, BetterAgent does not activate the view itself, but showing a session follows the same path as a click in the session list: a session already open in another tab or view is revealed there, and a pending approval or question takes focus as it does on screen. It rejects when the session does not exist or is archived.
 
 ### `send`
 
@@ -133,7 +133,7 @@ Only the session's main transcript is covered; a side chat's requests are answer
 
 ## Turn-ended event
 
-Claudian fires a workspace event when a session finishes its turn and any work the
+BetterAgent fires a workspace event when a session finishes its turn and any work the
 turn left running. This custom event is absent from the SDK's workspace overloads;
 describe it locally and register the returned event reference for unload cleanup:
 
@@ -154,7 +154,7 @@ The event fires for every session and every turn, whether it was started from th
 
 ## Turn progress event
 
-`claudian:turn-progress` fires for every change to a streamed block, as Claudian receives it, without throttling or filtering:
+`claudian:turn-progress` fires for every change to a streamed block, as BetterAgent receives it, without throttling or filtering:
 
 ```ts
 type TurnProgress =
@@ -164,8 +164,8 @@ type TurnProgress =
 
 - `text` holds everything so far in the block, so a missed event loses nothing. A new block has a new `blockIndex` within the same `messageId`.
 - Notices and errors arrive as text, appended to the open text block as the transcript shows them.
-- A reply the provider produced in the background, outside a turn Claudian started, arrives in one burst once it is rendered.
-- Text written before a tool call streams too. Claudian does not mark which block is the final answer; `read()` returns it once the turn ends.
+- A reply the provider produced in the background, outside a turn BetterAgent started, arrives in one burst once it is rendered.
+- Text written before a tool call streams too. BetterAgent does not mark which block is the final answer; `read()` returns it once the turn ends.
 - Subagent output is not included. Listeners run for every chunk and must stay cheap.
 
 ## Interaction events

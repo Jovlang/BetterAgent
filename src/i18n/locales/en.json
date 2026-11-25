@@ -1,4 +1,11 @@
 {
+  "plugin": {
+    "name": "BetterAgent",
+    "open": "Open BetterAgent",
+    "addFile": "Add to BetterAgent",
+    "chatNotReady": "BetterAgent chat is not ready.",
+    "addFileFailed": "Failed to add the file to BetterAgent."
+  },
   "common": {
     "inputSuggestions": "Input suggestions",
     "save": "Save",
@@ -24,9 +31,9 @@
     },
     "promptSuggestionHint": "Tab to accept",
     "selectAvailableModel": "Select an available model before sending.",
-    "reloadingHistory": "This chat changed outside Claudian and is reloading. Send again when it finishes.",
-    "changedOutsideWithBackgroundTask": "This chat continued outside Claudian while a background task from its earlier session is still running. Stop the task or wait for it to finish, then send again.",
-    "selectAvailableTitleModel": "Select an available title model in Claudian settings.",
+    "reloadingHistory": "This chat changed outside BetterAgent and is reloading. Send again when it finishes.",
+    "changedOutsideWithBackgroundTask": "This chat continued outside BetterAgent while a background task from its earlier session is still running. Stop the task or wait for it to finish, then send again.",
+    "selectAvailableTitleModel": "Select an available title model in BetterAgent settings.",
     "rewind": {
       "confirmMessage": "Rewind to this point? File changes after this message may be overwritten or removed. This cannot be undone.",
       "confirmMessageConflicts": "Rewind to this point? {count} file(s) were modified outside the agent and will be overwritten:\n{files}",
@@ -95,7 +102,7 @@
       "busySide": "The side chat is still responding. Wait for it to finish."
     },
     "zen": {
-      "regionLabel": "Claudian chat",
+      "regionLabel": "BetterAgent chat",
       "showHistory": "Show conversation",
       "move": "Move chat panel",
       "working": "Working…",
@@ -171,7 +178,7 @@
     "copyMessage": "Copy message",
     "showEarlierMessages": "Show earlier messages",
     "renderFailed": "Failed to render message content.",
-    "interruptedHint": "· What should Claudian do instead?",
+    "interruptedHint": "· What should BetterAgent do instead?",
     "sessions": {
       "empty": "No conversations",
       "noMatch": "No matching sessions",
@@ -750,7 +757,7 @@
     "insertLabel": "Insert instructions",
     "editPlaceholder": "Edit instructions...",
     "insertPlaceholder": "Insert instructions...",
-    "modelUnavailable": "Select an available model in Claudian settings.",
+    "modelUnavailable": "Select an available model in BetterAgent settings.",
     "providerFailed": "Failed to start the {provider} provider.",
     "actionsLabel": "Inline edit actions",
     "lineOne": "line",
@@ -782,7 +789,7 @@
     "responses": "Responses",
     "experimental": "Experimental",
     "userName": {
-      "name": "What should Claudian call you?",
+      "name": "What should BetterAgent call you?",
       "desc": "Your name for personalized greetings (leave empty for generic greetings)"
     },
     "excludedTags": {
@@ -917,7 +924,7 @@
       "desc": "Show Write and Edit diffs expanded when they first appear."
     },
     "chatViewPlacement": {
-      "name": "Open Claudian in",
+      "name": "Open BetterAgent in",
       "desc": "Choose where the chat panel opens when it is created",
       "rightSidebar": "Right sidebar",
       "leftSidebar": "Left sidebar",
@@ -956,7 +963,7 @@
     },
     "providerEnablement": {
       "name": "Enable {provider}",
-      "lastProviderWarning": "At least one provider must remain enabled for Claudian to work.",
+      "lastProviderWarning": "At least one provider must remain enabled for BetterAgent to work.",
       "noModelsWarning": "No {provider} models are enabled. Go to Models below and enable at least one model."
     },
     "modelPicker": {
@@ -1085,7 +1092,7 @@
         "desc": "Extra environment variables passed to OpenCode."
       },
       "migrationNotice": {
-        "text": "OpenCode v1 is no longer supported. Update to OpenCode v2 to use it in Claudian.",
+        "text": "OpenCode v1 is no longer supported. Update to OpenCode v2 to use it in BetterAgent.",
         "link": "Migrate to OpenCode v2"
       }
     },
@@ -1095,7 +1102,7 @@
         "desc": "Environment variables passed only to Pi."
       },
       "models": {
-        "desc": "Claudian keeps its own model list, separate from Pi's enabledModels. Discover lists every model Pi can authenticate in its current environment, grouped by the provider route Pi will call. The route determines credentials and billing."
+        "desc": "BetterAgent keeps its own model list, separate from Pi's enabledModels. Discover lists every model Pi can authenticate in its current environment, grouped by the provider route Pi will call. The route determines credentials and billing."
       }
     },
     "grok": {
@@ -1110,7 +1117,7 @@
         "desc": "Environment variables passed only to Antigravity (agy), such as GEMINI_API_KEY."
       },
       "listModelsFailed": "Could not list Antigravity models. Run agy models in a terminal for details. To sign in, run agy acp --login.",
-      "updateReminder": "Claudian supports only the latest agy release, and agy changes quickly. Keep it up to date:"
+      "updateReminder": "BetterAgent supports only the latest agy release, and agy changes quickly. Keep it up to date:"
     },
     "deepseek": {
       "installation": {
@@ -1124,7 +1131,7 @@
       },
       "presetPlugins": {
         "name": "Additional preset plugins",
-        "desc": "Advanced. A YAML list (dsh's format) of native dsh plugin rows appended to Claudian's chat preset, each with its own \"id\" and \"name\". Rows cannot replace Claudian's own. Saving restarts DeepSeek Harness, which stops running turns. Plugins Claudian has no interface for, such as plan mode, may not work."
+        "desc": "Advanced. A YAML list (dsh's format) of native dsh plugin rows appended to BetterAgent's chat preset, each with its own \"id\" and \"name\". Rows cannot replace BetterAgent's own. Saving restarts DeepSeek Harness, which stops running turns. Plugins BetterAgent has no interface for, such as plan mode, may not work."
       },
       "presetPreview": "Preset preview",
       "environment": {
@@ -1218,7 +1225,7 @@
     "executionTarget": {
       "installationMethod": {
         "name": "Installation method",
-        "desc": "How Claudian should launch {provider} on Windows. Native Windows uses a Windows executable path. WSL launches the Linux CLI inside a selected distro.",
+        "desc": "How BetterAgent should launch {provider} on Windows. Native Windows uses a Windows executable path. WSL launches the Linux CLI inside a selected distro.",
         "nativeWindows": "Native Windows",
         "wsl": "WSL"
       },

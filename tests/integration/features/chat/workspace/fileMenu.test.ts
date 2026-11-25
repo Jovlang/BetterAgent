@@ -41,7 +41,7 @@ describe('Claudian file menu', () => {
     (Menu as typeof Menu & { instances: Menu[] }).instances.length = 0;
   });
 
-  it('registers an Add to Claudian item for files', () => {
+  it('registers an Add to BetterAgent item for files', () => {
     const { fireFileMenu, host } = createHost();
 
     registerFileMenu(host);
@@ -51,7 +51,7 @@ describe('Claudian file menu', () => {
 
     expect(host.registerEvent).toHaveBeenCalledTimes(1);
     expect((menu).items).toHaveLength(1);
-    expect((menu).items[0].title).toBe('Add to Claudian');
+    expect((menu).items[0].title).toBe('Add to BetterAgent');
   });
 
   it('does not add the action for folders', () => {

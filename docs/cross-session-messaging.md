@@ -1,6 +1,6 @@
 # Cross-session messaging
 
-Agents in one Claudian session can find other sessions, read them, send them messages, steer or interrupt their work, and start new sessions on any enabled provider. An agent can hand off a task, consult a session that already has the right context, or delegate work to a different model.
+Agents in one BetterAgent session can find other sessions, read them, send them messages, steer or interrupt their work, and start new sessions on any enabled provider. An agent can hand off a task, consult a session that already has the right context, or delegate work to a different model.
 
 Agents use three tools for this. You don't call them yourself: ask the agent, for example "ask the Review session what it found" or "start a Codex session to write the tests".
 
@@ -84,7 +84,7 @@ Each session has its own mailbox. A queued message waits until the recipient is 
 
 - Messages are delivered one per turn, in arrival order, and are never merged with each other or put into the composer. Interrupts go ahead of ordinary messages, the newest first.
 - A recipient that isn't open in a tab is loaded in the background without opening one.
-- Stopping a session, or archiving or deleting it, drops its pending messages. Claudian shows a notice naming the senders whose messages could not be delivered.
+- Stopping a session, or archiving or deleting it, drops its pending messages. BetterAgent shows a notice naming the senders whose messages could not be delivered.
 - A message from another session does not clear the recipient's unread mark.
 - If the recipient asks for a permission or a question during the turn, the turn waits until you answer on screen.
 
@@ -104,7 +104,7 @@ The agent sees the message wrapped in `<session_message from="â€¦" session_id="â
 
 ## Pointing an agent at a session
 
-- **@ mentions:** type `@` in the composer and pick a Claudian session. The agent receives the session's title, id, provider and last update, and reads it with `claudian_read_session` when it needs the content.
+- **@ mentions:** type `@` in the composer and pick a BetterAgent session. The agent receives the session's title, id, provider and last update, and reads it with `claudian_read_session` when it needs the content.
 - **Copy session ID:** in a session's menu in the session list, choose **Copy session ID** and paste it into your prompt. It is offered for non-archived sessions.
 
 ## Availability
@@ -121,6 +121,6 @@ The tools are available in main chat and side chat sessions on these providers:
 | Pi | |
 
 - On providers or threads without the read tool, an @ mention still carries the session id, but the agent cannot read the session.
-- Calls that Claudian cannot tie to a running chat session are rejected with "Session tools are only available in Claudian main chat sessions with the default tool policy." For example, a Codex fork or a session on a shared OpenCode or DeepSeek Harness process may see the tools listed without being bound to a Claudian chat; its calls fail.
+- Calls that BetterAgent cannot tie to a running chat session are rejected with "Session tools are only available in Claudian main chat sessions with the default tool policy." For example, a Codex fork or a session on a shared OpenCode or DeepSeek Harness process may see the tools listed without being bound to a BetterAgent chat; its calls fail.
 - A side chat acts as its parent session: its `self` entry and the sender of its messages are the parent, so it cannot message its own parent. A side chat on a draft that hasn't been sent yet has no session tools.
 - OpenCode, DeepSeek Harness and Grok Build sessions reach the tools through a listener that accepts connections from 127.0.0.1 only.

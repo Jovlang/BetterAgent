@@ -1,4 +1,11 @@
 {
+  "plugin": {
+    "name": "BetterAgent",
+    "open": "BetterAgent を開く",
+    "addFile": "BetterAgent に追加",
+    "chatNotReady": "BetterAgent のチャットは準備できていません。",
+    "addFileFailed": "ファイルを BetterAgent に追加できませんでした。"
+  },
   "common": {
     "inputSuggestions": "入力候補",
     "save": "保存",
@@ -24,9 +31,9 @@
     },
     "promptSuggestionHint": "Tab で確定",
     "selectAvailableModel": "送信する前に利用可能なモデルを選択してください。",
-    "reloadingHistory": "このチャットは Claudian の外で変更されたため再読み込み中です。完了したら再送信してください。",
-    "changedOutsideWithBackgroundTask": "このチャットは、以前のセッションのバックグラウンドタスクが実行中のまま Claudian の外で続行されました。タスクを停止するか完了を待ってから、再送信してください。",
-    "selectAvailableTitleModel": "Claudian の設定で利用可能なタイトル生成モデルを選択してください。",
+    "reloadingHistory": "このチャットは BetterAgent の外で変更されたため再読み込み中です。完了したら再送信してください。",
+    "changedOutsideWithBackgroundTask": "このチャットは、以前のセッションのバックグラウンドタスクが実行中のまま BetterAgent の外で続行されました。タスクを停止するか完了を待ってから、再送信してください。",
+    "selectAvailableTitleModel": "BetterAgent の設定で利用可能なタイトル生成モデルを選択してください。",
     "rewind": {
       "confirmMessage": "この時点に巻き戻しますか？このメッセージ以降のファイル変更は上書きまたは削除される可能性があります。この操作は元に戻せません。",
       "confirmMessageConflicts": "この時点に巻き戻しますか？エージェント外で変更された {count} 個のファイルが上書きされます：\n{files}",
@@ -95,7 +102,7 @@
       "busySide": "サイドチャットが応答中です。完了までお待ちください。"
     },
     "zen": {
-      "regionLabel": "Claudian チャット",
+      "regionLabel": "BetterAgent チャット",
       "showHistory": "会話を表示",
       "move": "チャットパネルを移動",
       "working": "処理中…",
@@ -171,7 +178,7 @@
     "copyMessage": "メッセージをコピー",
     "showEarlierMessages": "以前のメッセージを表示",
     "renderFailed": "メッセージの表示に失敗しました。",
-    "interruptedHint": "· Claudian に代わりに何をしてほしいですか？",
+    "interruptedHint": "· BetterAgent に代わりに何をしてほしいですか？",
     "sessions": {
       "empty": "会話がありません",
       "noMatch": "一致するセッションがありません",
@@ -750,7 +757,7 @@
     "insertLabel": "挿入の指示",
     "editPlaceholder": "編集の指示…",
     "insertPlaceholder": "挿入の指示…",
-    "modelUnavailable": "Claudian の設定で利用可能なモデルを選択してください。",
+    "modelUnavailable": "BetterAgent の設定で利用可能なモデルを選択してください。",
     "providerFailed": "プロバイダー {provider} を起動できませんでした。",
     "actionsLabel": "インライン編集の操作",
     "lineOne": "行",
@@ -782,7 +789,7 @@
     "responses": "回答",
     "experimental": "実験的機能",
     "userName": {
-      "name": "Claudian からの呼び方",
+      "name": "BetterAgent からの呼び方",
       "desc": "挨拶メッセージに表示する名前です（空欄の場合は通常の挨拶になります）。"
     },
     "excludedTags": {
@@ -917,7 +924,7 @@
       "desc": "Write と Edit の diff が最初に表示されるとき、展開した状態で表示します。"
     },
     "chatViewPlacement": {
-      "name": "Claudian を開く場所",
+      "name": "BetterAgent を開く場所",
       "desc": "チャットパネルを新しく開く場所を選択します。",
       "rightSidebar": "右サイドバー",
       "leftSidebar": "左サイドバー",
@@ -956,7 +963,7 @@
     },
     "providerEnablement": {
       "name": "{provider} を有効化",
-      "lastProviderWarning": "Claudian を使用するには、少なくとも 1 つのプロバイダーを有効にする必要があります。",
+      "lastProviderWarning": "BetterAgent を使用するには、少なくとも 1 つのプロバイダーを有効にする必要があります。",
       "noModelsWarning": "有効な {provider} モデルがありません。下の「モデル」で少なくとも 1 つのモデルを有効にしてください。"
     },
     "modelPicker": {
@@ -1085,7 +1092,7 @@
         "desc": "OpenCode に渡す追加の環境変数です。"
       },
       "migrationNotice": {
-        "text": "OpenCode v1 はサポートされなくなりました。Claudian で使用するには OpenCode v2 に更新してください。",
+        "text": "OpenCode v1 はサポートされなくなりました。BetterAgent で使用するには OpenCode v2 に更新してください。",
         "link": "OpenCode v2 に移行"
       }
     },
@@ -1095,7 +1102,7 @@
         "desc": "Pi にのみ渡す環境変数です。"
       },
       "models": {
-        "desc": "Claudian は Pi の enabledModels とは別に独自のモデル一覧を保持します。「検出」では、Pi が現在の環境で認証できるすべてのモデルを、Pi が呼び出すプロバイダールートごとに一覧表示します。ルートによって認証情報と課金が決まります。"
+        "desc": "BetterAgent は Pi の enabledModels とは別に独自のモデル一覧を保持します。「検出」では、Pi が現在の環境で認証できるすべてのモデルを、Pi が呼び出すプロバイダールートごとに一覧表示します。ルートによって認証情報と課金が決まります。"
       }
     },
     "grok": {
@@ -1110,7 +1117,7 @@
         "desc": "Antigravity（agy）にのみ渡す環境変数です（例：GEMINI_API_KEY）。"
       },
       "listModelsFailed": "Antigravity のモデル一覧を取得できませんでした。詳細を確認するにはターミナルで agy models を、ログインするには agy acp --login を実行してください。",
-      "updateReminder": "Claudian は agy の最新リリースのみをサポートしており、agy は頻繁に変更されます。常に最新の状態に保ってください："
+      "updateReminder": "BetterAgent は agy の最新リリースのみをサポートしており、agy は頻繁に変更されます。常に最新の状態に保ってください："
     },
     "deepseek": {
       "installation": {
@@ -1124,7 +1131,7 @@
       },
       "presetPlugins": {
         "name": "追加のプリセットプラグイン",
-        "desc": "上級者向け。Claudian のチャットプリセットに追加するネイティブ dsh プラグイン行の YAML リスト（dsh の形式）です。各行には固有の \"id\" と \"name\" が必要です。Claudian 自身の行は置き換えられません。保存すると DeepSeek Harness が再起動し、実行中のターンは停止します。プランモードなど、Claudian に UI がないプラグインは動作しない場合があります。"
+        "desc": "上級者向け。BetterAgent のチャットプリセットに追加するネイティブ dsh プラグイン行の YAML リスト（dsh の形式）です。各行には固有の \"id\" と \"name\" が必要です。BetterAgent 自身の行は置き換えられません。保存すると DeepSeek Harness が再起動し、実行中のターンは停止します。プランモードなど、BetterAgent に UI がないプラグインは動作しない場合があります。"
       },
       "presetPreview": "プリセットのプレビュー",
       "environment": {
@@ -1218,7 +1225,7 @@
     "executionTarget": {
       "installationMethod": {
         "name": "インストール方式",
-        "desc": "Windows で Claudian が {provider} を起動する方法です。ネイティブ Windows は Windows の実行ファイルパスを使用し、WSL は選択したディストリビューション内で Linux CLI を起動します。",
+        "desc": "Windows で BetterAgent が {provider} を起動する方法です。ネイティブ Windows は Windows の実行ファイルパスを使用し、WSL は選択したディストリビューション内で Linux CLI を起動します。",
         "nativeWindows": "ネイティブ Windows",
         "wsl": "WSL"
       },

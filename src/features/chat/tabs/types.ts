@@ -113,7 +113,7 @@ export interface TabUIComponents {
   readonly toolbarMenus: ToolbarMenus;
   readonly navigationSidebar: NavigationSidebar;
   /** The conversation's project in the composer info row. */
-  readonly projectChip: ProjectChip;
+  readonly projectChip: ProjectChip | null;
 }
 
 /**

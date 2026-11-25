@@ -4,6 +4,7 @@ import { DEFAULT_CLAUDIAN_SETTINGS } from '@test/helpers/defaultSettings';
 import { createObsidianPlugin } from '@test/helpers/ObsidianSettingsHost';
 import { App } from 'obsidian';
 
+import { ProjectStore } from '@/app/projects/ProjectStore';
 import { SettingsCoordinator } from '@/app/settings/SettingsCoordinator';
 import { type ApplicationDomains, startApplication } from '@/app/startup/ApplicationStartup';
 import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
@@ -72,7 +73,6 @@ describe('startApplication', () => {
     disposals.push(async () => {
       await domains.sessionMetadata.dispose();
       await domains.nativeSessionArchives.dispose();
-      await domains.projects?.dispose();
     });
     return domains;
   }
@@ -488,7 +488,7 @@ describe('startApplication', () => {
     });
   });
   describe('projects', () => {
-    it('loads project records before startup completes and keeps member metadata, preserving unparsable files', async () => {
+    it('does not load project storage, but still adopts member sessions and preserves legacy files', async () => {
       const timestamp = Date.now();
       const vault = await DesktopVault.create();
       disposals.push(() => vault.dispose());
@@ -496,6 +496,7 @@ describe('startApplication', () => {
         id: 'project-a', name: 'Launch', instructions: 'Ship.', memoryPath: '.claudian/projects/launch-project.md',
         isPinned: true, createdAt: timestamp,
       }));
+      await vault.write('.claudian/projects/launch-project.md', 'Keep this project memory.');
       await vault.write('.claudian/projects/broken.json', '{"id": "broken"');
       await vault.write('.claudian/sessions/conv-member.meta.json', JSON.stringify({
         id: 'conv-member', title: 'Member', createdAt: timestamp, lastActivityAt: timestamp,
@@ -509,9 +510,9 @@ describe('startApplication', () => {
 
       let markLoaded!: () => void;
       const metadataLoaded = new Promise<void>(resolve => { markLoaded = resolve; });
+      const loadProjects = vi.spyOn(ProjectStore.prototype, 'load');
       const domains = await loadApplication({ onAllMetadataLoaded: markLoaded });
-
-      expect(domains.projects.list()).toEqual([expect.objectContaining({ id: 'project-a', name: 'Launch' })]);
+      expect(loadProjects).not.toHaveBeenCalled();
       domains.sessionMetadata.scheduleRemainingLoad();
       await metadataLoaded;
       expect(domains.conversations.getConversationList()).toEqual([

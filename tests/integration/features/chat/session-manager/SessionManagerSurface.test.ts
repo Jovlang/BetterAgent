@@ -406,6 +406,24 @@ describe('SessionManagerSurface session header', () => {
       .toBe('expand');
   });
 
+  it('keeps former project sessions in normal history without project actions', async () => {
+    const h = await createHarness({
+      conversations: [conversation('member', { projectId: 'retired-project' })],
+    });
+    Object.defineProperty(h.plugin, 'projects', { value: undefined });
+    h.surface.renderSidebar();
+
+    expect(renderedIds(h.sessionSurfaceEl)).toEqual(['member']);
+    expect(h.sessionSurfaceEl.querySelector('.claudian-session-projects-header')).toBeNull();
+    const row = findItem(h.sessionSurfaceEl, 'member');
+    fireEvent.contextMenu(row);
+    const menu = menuInstances().at(-1)!;
+    expect(menu.items.map(item => item.title)).not.toContain(t('chat.projects.menu.moveTo'));
+    expect(menu.items.map(item => item.title)).not.toContain(t('chat.projects.menu.removeFrom'));
+    fireEvent.click(within(row).getByRole('button', { name: /^member\b/i }));
+    expect(h.navigation.openSessionConversation).toHaveBeenCalledWith('member');
+  });
+
   it('persists linked-content pins through the feature host', async () => {
     const h = await createHarness({
       conversations: [conversation('linked', { linkedContentPath: 'Projects/Plan.md' })],

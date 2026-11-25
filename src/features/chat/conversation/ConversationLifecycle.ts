@@ -37,7 +37,7 @@ export interface ConversationLifecycleSessions {
 export interface ConversationLifecycleDeps {
   readonly sessions: ConversationLifecycleSessions;
   readonly conversations: ConversationLifecycleStore;
-  readonly projects: Pick<ProjectReader, 'get'> & Pick<ProjectMutations, 'setArchived'>;
+  readonly projects?: Pick<ProjectReader, 'get'> & Pick<ProjectMutations, 'setArchived'>;
   readonly views: { getAllViews(): readonly ChatViewHost[] };
 }
 
@@ -95,6 +95,7 @@ export class ConversationLifecycle {
 
   /** Archives every active member, then the project; it stays active when any member is skipped. */
   async archiveProject(projectId: string): Promise<void> {
+    if (!this.deps.projects) return;
     await this.deps.conversations.ensureAllConversationMetadataLoaded();
     const memberIds = this.#memberIds(projectId, false);
     if (await this.#archiveClosing(memberIds) === memberIds.length) {
@@ -104,8 +105,10 @@ export class ConversationLifecycle {
 
   /** Restores the project, then its archived members. */
   async restoreProject(projectId: string): Promise<void> {
+    const { projects } = this.deps;
+    if (!projects) return;
     await this.deps.conversations.ensureAllConversationMetadataLoaded();
-    await this.deps.projects.setArchived(projectId, false);
+    await projects.setArchived(projectId, false);
     const memberIds = this.#memberIds(projectId, true);
     if (memberIds.length > 0) await this.deps.conversations.restoreConversations(memberIds);
   }

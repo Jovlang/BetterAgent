@@ -44,12 +44,14 @@ export function moveProject(
   targetId: string,
   placement: ProjectPlacement,
 ): Promise<void> {
+  const { projects } = host;
+  if (!projects) return Promise.resolve();
   return host.mutateSettings((settings) => {
-    const ids = orderProjects(host.projects.list(), savedProjectOrder(settings))
+    const ids = orderProjects(projects.list(), savedProjectOrder(settings))
       .map(project => project.id)
       .filter(id => id !== projectId);
     const targetIndex = ids.indexOf(targetId);
-    if (projectId === targetId || targetIndex < 0 || !host.projects.get(projectId)) return;
+    if (projectId === targetId || targetIndex < 0 || !projects.get(projectId)) return;
     ids.splice(placement === 'before' ? targetIndex : targetIndex + 1, 0, projectId);
     settings.projectOrder = ids;
   });

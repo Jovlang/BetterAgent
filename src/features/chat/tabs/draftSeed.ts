@@ -12,9 +12,9 @@ export function sessionProjectId(runtime: ChatSessionRuntime): string | undefine
  * with no project. Explicit seeds (a project row's New, Linked content) do not pass through here.
  */
 export function inheritedDraftSeed(
-  projects: Pick<ProjectReader, 'get'>,
+  projects: Pick<ProjectReader, 'get'> | undefined,
   source: { readonly session: { readonly runtime: ChatSessionRuntime } } | null | undefined,
 ): DraftSeed {
-  const project = source ? projects.get(sessionProjectId(source.session.runtime)) : null;
+  const project = source ? projects?.get(sessionProjectId(source.session.runtime)) : null;
   return project && !project.isArchived ? { projectId: project.id } : {};
 }

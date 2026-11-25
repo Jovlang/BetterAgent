@@ -11,7 +11,6 @@ import { Notice, Plugin } from 'obsidian';
 
 import type { NativeSessionArchiveSync } from './app/conversations/NativeSessionArchiveSync';
 import type { SessionMetadataLoader } from './app/conversations/SessionMetadataLoader';
-import type { ProjectService } from './app/projects/ProjectService';
 import { createDefaultClaudianSettings } from './app/settings/defaultSettings';
 import { EnvironmentSettingsService } from './app/settings/EnvironmentSettingsService';
 import { ProviderChatOptionsReconciler } from './app/settings/ProviderChatOptionsReconciler';
@@ -71,7 +70,6 @@ export default class ClaudianPlugin extends Plugin {
   private storage!: SharedStorageService;
   private sessionMetadata!: SessionMetadataLoader;
   private nativeSessionArchives!: NativeSessionArchiveSync;
-  private projects!: ProjectService;
   private providerChatOptions!: ProviderChatOptionsReconciler;
   private inactiveSessionArchiver!: InactiveSessionArchiver;
   private conversationLifecycle!: ConversationLifecycle;
@@ -231,9 +229,6 @@ export default class ClaudianPlugin extends Plugin {
     this.storage = domains.storage;
     this.sessionMetadata = domains.sessionMetadata;
     this.nativeSessionArchives = domains.nativeSessionArchives;
-    this.projects = domains.projects;
-    // Project sections and chips render from live records, so record changes refresh session lists.
-    domains.projects.onChanged(() => this.chatViews.notifyConversationListChanged());
 
     this.providerChatOptions = new ProviderChatOptionsReconciler({
       settings,
@@ -303,7 +298,6 @@ export default class ClaudianPlugin extends Plugin {
     this.api = createClaudianAPI(this.sessionMessaging, { openSession: (id, options) => this.views.openSession(id, options) });
     this.conversationLifecycle = new ConversationLifecycle({
       conversations: domains.conversations,
-      projects: domains.projects,
       views: this.views,
       sessions: this.sessionRuntimes,
     });
@@ -319,7 +313,6 @@ export default class ClaudianPlugin extends Plugin {
       conversationLifecycle: this.conversationLifecycle,
       executionPersistence: domains.conversationRepository,
       chatModelSelection: domains.chatModelSelection,
-      projects: domains.projects,
     });
     this.inactiveSessionArchiver = new InactiveSessionArchiver(this.chatHost);
   }
@@ -348,7 +341,6 @@ export default class ClaudianPlugin extends Plugin {
       await this.sessionMessaging?.dispose();
       await this.sessionRuntimes?.dispose().catch(() => undefined);
       await this.nativeSessionArchives?.dispose();
-      await this.projects?.dispose();
     } finally {
       try {
         await this.executionLifecycleRegistry.dispose();

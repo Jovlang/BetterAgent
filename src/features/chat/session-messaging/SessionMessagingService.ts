@@ -174,7 +174,7 @@ export class SessionMessagingService {
     const host = this.deps.getHost();
     let candidates = host.getConversationList();
     if (args.project) {
-      const project = host.projects.get(caller.projectId);
+      const project = host.projects?.get(caller.projectId);
       if (!project) throw new Error('This session is not in a project.');
       candidates = candidates.filter(record => record.projectId === project.id);
     }

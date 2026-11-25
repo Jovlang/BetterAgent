@@ -1,6 +1,5 @@
 import { Notice, type Plugin } from 'obsidian';
 
-import { StartupProfiler } from '@/core/performance/StartupProfiler';
 import type { ProviderRegistry } from '@/core/providers/ProviderRegistry';
 import type { ProviderSettingsCoordinator } from '@/core/providers/ProviderSettingsCoordinator';
 import type { ProviderId, ProviderSessionArchive } from '@/core/providers/types';
@@ -13,7 +12,6 @@ import { ConversationRepository } from '../conversations/ConversationRepository'
 import { ConversationService } from '../conversations/ConversationService';
 import { NativeSessionArchiveSync } from '../conversations/NativeSessionArchiveSync';
 import { SessionMetadataLoader } from '../conversations/SessionMetadataLoader';
-import { ProjectService } from '../projects/ProjectService';
 import { ChatModelSelectionCoordinator } from '../settings/ChatModelSelectionCoordinator';
 import { PinnedLinkedContentPathCoordinator } from '../settings/PinnedLinkedContentPathCoordinator';
 import { RuntimeSettingsCoordinator } from '../settings/RuntimeSettingsCoordinator';
@@ -67,7 +65,6 @@ export interface ApplicationDomains {
   readonly nativeSessionArchives: NativeSessionArchiveSync;
   readonly runtimeSettings: RuntimeSettingsCoordinator;
   readonly sessionMetadata: SessionMetadataLoader;
-  readonly projects: ProjectService;
 }
 
 /**
@@ -79,13 +76,7 @@ export async function startApplication(options: ApplicationStartupOptions): Prom
   const { plugin, providers, providerSettings } = options;
   const workspace = plugin.app.workspace;
   const storage = new SharedStorageService(plugin, options.defaultSettings);
-  // Projects load before any chat turn can resolve a member's project.
-  const [{ claudian }, loadedProjects] = await Promise.all([
-    storage.initialize(),
-    storage.projects.load(),
-  ]);
-  StartupProfiler.recordCount('project-count', loadedProjects.records.length);
-  StartupProfiler.recordCount('invalid-project-count', loadedProjects.invalidCount);
+  const { claudian } = await storage.initialize();
   const settings: ClaudianSettings = {
     ...structuredClone(options.defaultSettings),
     ...claudian,
@@ -101,10 +92,6 @@ export async function startApplication(options: ApplicationStartupOptions): Prom
   );
   const chatModelSelection = new ChatModelSelectionCoordinator(settingsCoordinator);
   const pinnedLinkedContentPaths = new PinnedLinkedContentPathCoordinator(settingsCoordinator);
-  const projects = new ProjectService(loadedProjects.records, {
-    store: storage.projects,
-    memory: storage.getAdapter(),
-  });
   const conversationRepository = new ConversationRepository({
     providers,
     providerSettings,
@@ -113,7 +100,6 @@ export async function startApplication(options: ApplicationStartupOptions): Prom
     getVaultPath: () => getVaultPath(plugin.app),
     persistence: storage.conversationPersistence,
     onConversationDeleted: conversationId => options.onConversationDeleted(conversationId),
-    projects,
   });
   const runtimeSettings = new RuntimeSettingsCoordinator({
     settings: settingsCoordinator,
@@ -141,7 +127,6 @@ export async function startApplication(options: ApplicationStartupOptions): Prom
   });
   const conversations = new ConversationService({
     repository: conversationRepository,
-    projects,
     sessionMetadata,
     pinnedLinkedContentPaths,
     nativeSessionArchives,
@@ -174,6 +159,5 @@ export async function startApplication(options: ApplicationStartupOptions): Prom
     nativeSessionArchives,
     runtimeSettings,
     sessionMetadata,
-    projects,
   };
 }

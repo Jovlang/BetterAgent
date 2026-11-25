@@ -365,12 +365,14 @@ export function buildTabRuntimeUI(
   const infoRow = new ComposerInfoRow(dom.infoRowEl);
   options.registerCleanup('tab composer info row', () => infoRow.destroy());
   // The session's own conversation owner, so the chip is right before the runtime is published (draft handoff).
-  const projectChip = new ProjectChip(infoRow, {
+  const projectChip = plugin.projects ? new ProjectChip(infoRow, {
     projects: plugin.projects,
     conversation: core.session.runtime.model.conversationController,
-  });
-  options.registerCleanup('tab project chip', () => projectChip.destroy());
-  projectChip.refresh();
+  }) : null;
+  if (projectChip) {
+    options.registerCleanup('tab project chip', () => projectChip.destroy());
+    projectChip.refresh();
+  }
 
   const toolbar = buildInputToolbar(core, options, runtimeRef, onUserModified);
   const contextManagers = buildContextManagers(

@@ -78,7 +78,7 @@ export interface SessionRowActionInput {
   attention: TabAttention | null;
   /** The surface presents attention, so the user can change its unread state. */
   tracksAttention?: boolean;
-  /** The session's live project; a stale `projectId` resolves to none. */
+  /** Live project, null for no membership, or omitted when projects are unavailable. */
   project?: ProjectRecord | null;
   /** The active session that started this one, if it still exists. */
   parentId?: string | null;
@@ -244,9 +244,9 @@ export function resolveRowActions(
     const readAction = readStateAction(input);
     if (readAction) actions.push(readAction);
   }
-  // The ID lets the user point an agent's claudian_send_message at this session.
+  // The ID lets other Obsidian plugins refer to this session through the plugin API.
   actions.push(action('rename'), action('copy-session-id'));
-  if (mode === 'active') {
+  if (mode === 'active' && input.project !== undefined) {
     actions.push(action('move-to-project'));
     if (input.project) actions.push(action('remove-from-project'));
   }
@@ -316,7 +316,7 @@ export class SessionActions {
   rowMenu(row: SessionRow, options: SessionActionOptions & SessionStatusDisplay, anchorEl: HTMLElement): Menu {
     const menu = new Menu().setUseNativeMenu(false);
     const tracksAttention = canShowAttention(options);
-    const project = this.deps.plugin.projects.get(row.conversation.projectId);
+    const project = this.deps.plugin.projects?.get(row.conversation.projectId);
     // Archived sessions are not opened; the archive offers only restore and delete.
     const parentId = row.conversation.origin?.conversationId;
     const parent = parentId
@@ -395,32 +395,34 @@ export class SessionActions {
         }));
 
       const { projects } = this.deps.plugin;
-      const ids = selected.map(conversation => conversation.id);
-      const projectIds = new Set(selected.map(conversation => projects.get(conversation.projectId)?.id ?? null));
-      const sharedProjectId = projectIds.size === 1 ? [...projectIds][0] : null;
-      menu.addItem(menuItem => menuItem
-        .setTitle(t('chat.projects.menu.moveSelectionTo', { count: ids.length }))
-        .setIcon(ROW_ACTION_ICONS['move-to-project'])
-        .onClick((event) => {
-          this.#showProjectPicker(ids, sharedProjectId, event, anchorEl);
-        }));
-      const memberIds = selected
-        .filter(conversation => projects.get(conversation.projectId) !== null)
-        .map(conversation => conversation.id);
-      if (memberIds.length > 0) {
+      if (projects) {
+        const ids = selected.map(conversation => conversation.id);
+        const projectIds = new Set(selected.map(conversation => projects.get(conversation.projectId)?.id ?? null));
+        const sharedProjectId = projectIds.size === 1 ? [...projectIds][0] : null;
         menu.addItem(menuItem => menuItem
-          .setTitle(t(
-            memberIds.length === 1 ? 'chat.projects.menu.removeSelectionFrom' : 'chat.projects.menu.removeSelectionFromPlural',
-            { count: memberIds.length },
-          ))
-          .setIcon(ROW_ACTION_ICONS['remove-from-project'])
-          .onClick(() => {
-            selection.clear();
-            runSessionAction(
-              () => lifecycle.setPlacement(memberIds, { projectId: null }),
-              t('chat.projects.errors.remove'),
-            );
+          .setTitle(t('chat.projects.menu.moveSelectionTo', { count: ids.length }))
+          .setIcon(ROW_ACTION_ICONS['move-to-project'])
+          .onClick((event) => {
+            this.#showProjectPicker(ids, sharedProjectId, event, anchorEl);
           }));
+        const memberIds = selected
+          .filter(conversation => projects.get(conversation.projectId) !== null)
+          .map(conversation => conversation.id);
+        if (memberIds.length > 0) {
+          menu.addItem(menuItem => menuItem
+            .setTitle(t(
+              memberIds.length === 1 ? 'chat.projects.menu.removeSelectionFrom' : 'chat.projects.menu.removeSelectionFromPlural',
+              { count: memberIds.length },
+            ))
+            .setIcon(ROW_ACTION_ICONS['remove-from-project'])
+            .onClick(() => {
+              selection.clear();
+              runSessionAction(
+                () => lifecycle.setPlacement(memberIds, { projectId: null }),
+                t('chat.projects.errors.remove'),
+              );
+            }));
+        }
       }
     }
 
@@ -508,6 +510,8 @@ export class SessionActions {
   ): Menu {
     const { plugin } = this.deps;
     const menu = new Menu().setUseNativeMenu(false);
+    const { projects } = plugin;
+    if (!projects) return menu;
     if (project.isArchived) {
       menu.addItem(menuItem => menuItem
         .setTitle(t('chat.projects.menu.restore'))
@@ -526,7 +530,7 @@ export class SessionActions {
       .setIcon(ROW_ACTION_ICONS[project.isPinned ? 'unpin' : 'pin'])
       .onClick(() => {
         runSessionAction(
-          () => plugin.projects.setPinned(project.id, !project.isPinned),
+          () => projects.setPinned(project.id, !project.isPinned),
           t('chat.projects.errors.pin'),
         );
       }));
@@ -603,6 +607,13 @@ export class SessionActions {
       runSessionAction(() => plugin.conversationLifecycle.setPinned(conversationIds, true), 'Failed to pin sessions');
       return;
     }
+    if (!plugin.projects) {
+      // Unpin without clearing a legacy project id.
+      if (target.kind === 'sessions') {
+        runSessionAction(() => plugin.conversationLifecycle.setPinned(conversationIds, false), 'Failed to unpin sessions');
+      }
+      return;
+    }
     const projectId = target.kind === 'project' ? target.projectId : null;
     runSessionAction(
       () => plugin.conversationLifecycle.setPlacement(conversationIds, { projectId, isPinned: false }),
@@ -619,6 +630,7 @@ export class SessionActions {
   ): void {
     const { plugin, selection } = this.deps;
     const moveFailure = t('chat.projects.errors.move');
+    if (!plugin.projects) return;
     const projects = projectsForPicker(plugin.projects.list());
     const menu = new Menu().setUseNativeMenu(false);
     for (const project of projects) {
@@ -741,7 +753,7 @@ export class SessionActions {
       return;
     }
     if (kind === 'move-to-project') {
-      const currentProjectId = this.deps.plugin.projects.get(row.conversation.projectId)?.id ?? null;
+      const currentProjectId = this.deps.plugin.projects?.get(row.conversation.projectId)?.id ?? null;
       this.#showProjectPicker([id], currentProjectId, event, anchorEl);
       return;
     }

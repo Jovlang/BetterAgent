@@ -87,7 +87,7 @@ export function createTabComposerPort(
     },
     setHiddenCommands: commands => ui.composerDropdown.setHiddenCommands(commands),
     invalidateSessionMentions: () => ui.fileContextManager.getMentionSource().invalidate(),
-    refreshProject: () => ui.projectChip.refresh(),
+    refreshProject: () => ui.projectChip?.refresh(),
   };
 }
 

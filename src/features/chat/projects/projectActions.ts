@@ -13,14 +13,17 @@ export type ProjectUIHost = Pick<ChatFeatureHost, 'app' | 'projects'>;
 export type ProjectDeletionHost = ProjectUIHost & Pick<ChatFeatureHost, 'conversationLifecycle' | 'getConversationList'>;
 
 export function openProjectMemory(host: ProjectUIHost, project: ProjectRecord): void {
+  if (!host.projects) return;
   new ProjectMemoryModal(host.app, { project, memory: host.projects }).open();
 }
 
 export function editProject(host: ProjectUIHost, project: ProjectRecord): void {
+  const { projects } = host;
+  if (!projects) return;
   new ProjectEditorModal(host.app, {
     project,
     // Another window may have committed unrelated changes since this editor opened.
-    save: input => host.projects.update(project.id, {
+    save: input => projects.update(project.id, {
       ...(input.name !== project.name ? { name: input.name } : {}),
       ...(input.instructions !== project.instructions ? { instructions: input.instructions } : {}),
       ...(input.memoryPath !== project.memoryPath ? { memoryPath: input.memoryPath } : {}),
@@ -38,10 +41,12 @@ export function createProject(
   host: ProjectUIHost,
   afterCreate?: { run: (project: ProjectRecord) => Promise<void>; failureMessage: string },
 ): void {
+  const { projects } = host;
+  if (!projects) return;
   new ProjectEditorModal(host.app, {
     project: null,
     save: async (input) => {
-      const project = await host.projects.create(input);
+      const project = await projects.create(input);
       if (afterCreate) runSessionAction(() => afterCreate.run(project), afterCreate.failureMessage);
     },
   }).open();
@@ -52,13 +57,15 @@ export function createProject(
  * no longer be joined.
  */
 export async function deleteProject(host: ProjectDeletionHost, project: ProjectRecord): Promise<void> {
+  const { projects } = host;
+  if (!projects) return;
   const confirmed = await confirm(
     host.app,
     t('chat.projects.deleteConfirm', { name: project.name }),
     t('common.delete'),
   );
   if (!confirmed) return;
-  await host.projects.delete(project.id);
+  await projects.delete(project.id);
   const memberIds = host.getConversationList()
     .filter(conversation => conversation.projectId === project.id)
     .map(conversation => conversation.id);

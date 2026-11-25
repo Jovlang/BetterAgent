@@ -118,8 +118,8 @@ export interface ChatFeatureHost extends FeatureHost {
   ensureConversationMetadataLoaded(conversationIds: readonly string[]): Promise<void>;
 
   readonly executionPersistence: ChatExecutionPersistence;
-  /** Resolve a conversation's raw `projectId` through `projects.get`; null means no project. */
-  readonly projects: ChatProjects;
+  /** Optional project capability; without it legacy project ids remain inert metadata. */
+  readonly projects?: ChatProjects;
 
   /** Offers a view's presentation to the single zen workspace owner; returns its unregistration. */
   registerZenModeSource?(source: ZenModeSource): () => void;

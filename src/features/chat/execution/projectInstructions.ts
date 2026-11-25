@@ -6,9 +6,9 @@ import type { Conversation, ProjectReader } from '@/core/types';
  * turn; a side chat renders its parent's once at start, since its ephemeral session cannot change prompt.
  */
 export function resolveSessionInstructions(
-  projects: Pick<ProjectReader, 'get'>,
+  projects: Pick<ProjectReader, 'get'> | undefined,
   conversation: Pick<Conversation, 'projectId'> | null | undefined,
 ): string | undefined {
-  const project = projects.get(conversation?.projectId);
+  const project = projects?.get(conversation?.projectId);
   return project ? renderProjectMemberInstructions(project) : undefined;
 }

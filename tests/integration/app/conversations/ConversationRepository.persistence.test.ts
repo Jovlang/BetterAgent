@@ -8,8 +8,6 @@ import { clearWriteFaults, failWritesUnder } from '@test/helpers/core/fsWriteFau
 import { testDate, testTime } from '@test/helpers/testClock';
 
 import { ConversationRepository } from '@/app/conversations/ConversationRepository';
-import { ProjectService } from '@/app/projects/ProjectService';
-import { ProjectStore } from '@/app/projects/ProjectStore';
 import { ConversationPersistenceStore } from '@/app/storage/ConversationPersistenceStore';
 import { getDeviceSessionsPath, SESSIONS_PATH } from '@/core/bootstrap/storagePaths';
 import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
@@ -25,7 +23,6 @@ vi.mock('node:fs/promises', async () => {
 const devicePath = getDeviceSessionsPath(`device-${'a'.repeat(64)}`);
 let vault: DesktopVault;
 let store: ConversationPersistenceStore;
-let projects: ProjectService;
 let repository: ConversationRepository;
 
 function createRepository(settings: Record<string, unknown> = {}): ConversationRepository {
@@ -36,7 +33,6 @@ function createRepository(settings: Record<string, unknown> = {}): ConversationR
     getVaultPath: () => vault.root,
     persistence: store,
     onConversationDeleted: async () => undefined,
-    projects,
   });
 }
 
@@ -55,7 +51,6 @@ function readMetadata(id: string, folder = devicePath): Promise<SessionMetadata>
 beforeEach(async () => {
   vault = await DesktopVault.create();
   store = new ConversationPersistenceStore(vault.files, `device-${'a'.repeat(64)}`);
-  projects = new ProjectService([], { store: new ProjectStore(vault.files), memory: vault.files });
   repository = createRepository();
 });
 
@@ -241,47 +236,18 @@ test('persists the creation origin through save and reload, and keeps it out of 
   expect(reloaded.list().find(({ id }) => id === plain.id)).not.toHaveProperty('origin');
 });
 
-test('persists live project membership across create, join, move and leave', async () => {
-  const first = await projects.create({ name: 'First', instructions: '', memoryPath: 'First.md' });
-  const second = await projects.create({ name: 'Second', instructions: '', memoryPath: 'Second.md' });
-  const member = await repository.create({ projectId: first.id });
-  const stray = await repository.create({ projectId: 'project-deleted' });
-  expect(repository.getSync(member.id)!.projectId).toBe(first.id);
-  expect((await readMetadata(member.id)).projectId).toBe(first.id);
-  expect(repository.getSync(stray.id)).not.toHaveProperty('projectId');
-  expect((await readMetadata(stray.id)).projectId).toBeUndefined();
-  for (const projectId of [first.id, second.id, null]) {
-    await repository.setPlacement(stray.id, { projectId });
-    expect((await readMetadata(stray.id)).projectId).toBe(projectId ?? undefined);
-    expect(repository.list().find(({ id }) => id === stray.id)!.projectId).toBe(projectId ?? undefined);
-    expect(repository.getSync(stray.id)!.projectId).toBe(projectId ?? undefined);
-  }
-});
+test('keeps a legacy project id when a restored conversation is pinned', async () => {
+  const { id } = await repository.create();
+  const metadata = await readMetadata(id);
+  const projectId = 'old-project';
+  await vault.write(devicePath + '/' + id + '.meta.json', JSON.stringify({ ...metadata, projectId }));
+  const reloaded = createRepository();
+  await adoptStored(reloaded);
 
-test('commits placement atomically, preserves omitted fields and rejects invalid projects before writing', async () => {
-  const first = await projects.create({ name: 'First', instructions: '', memoryPath: 'First.md' });
-  const second = await projects.create({ name: 'Second', instructions: '', memoryPath: 'Second.md' });
-  const { id } = await repository.create({ projectId: first.id });
-  await repository.setPlacement(id, { isPinned: true });
-  const write = vi.spyOn(vault.files, 'write');
-  await expect(repository.setPlacement(id, { projectId: 'project-deleted', isPinned: false })).rejects.toThrow('Unknown project: project-deleted');
-  expect(repository.getSync(id)).toMatchObject({ projectId: first.id, isPinned: true });
-  expect(await readMetadata(id)).toMatchObject({ projectId: first.id, isPinned: true });
-  expect(write).not.toHaveBeenCalled();
-  await repository.setPlacement(id, { projectId: second.id });
-  expect(repository.getSync(id)).toMatchObject({ projectId: second.id, isPinned: true });
-  await repository.setPlacement(id, { isPinned: false });
-  expect(repository.getSync(id)).toMatchObject({ projectId: second.id, isPinned: false });
-  await repository.setPlacement(id, { isPinned: true });
-  write.mockClear();
-  await repository.setPlacement(id, { projectId: first.id, isPinned: false });
-  expect(write).toHaveBeenCalledTimes(1);
-  expect(await readMetadata(id)).toMatchObject({ projectId: first.id, isPinned: false });
-  expect(repository.list().find(conversation => conversation.id === id)).toMatchObject({ projectId: first.id, isPinned: false });
-  write.mockClear();
-  await repository.setPlacement(id, { projectId: first.id, isPinned: false });
-  await repository.setPlacement(id, {});
-  expect(write).not.toHaveBeenCalled();
+  await reloaded.setPlacement(id, { isPinned: true });
+
+  expect(reloaded.getSync(id)).toMatchObject({ projectId, isPinned: true });
+  expect(await readMetadata(id)).toMatchObject({ projectId, isPinned: true });
 });
 
 test('preserves subagent history through pending-write release veto, eviction, rename and native replay', async () => {

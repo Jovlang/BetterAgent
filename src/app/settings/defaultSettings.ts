@@ -21,7 +21,6 @@ export const DEFAULT_CLAUDIAN_SETTINGS: ClaudianSettings = {
   enableAutoTitleGeneration: true,
   titleGenerationLocale: '',
   titleGenerationModel: '',
-  showTabTitlesByDefault: true,
   chatFontScale: 100,
 
   excludedTags: [],
@@ -55,8 +54,6 @@ export const DEFAULT_CLAUDIAN_SETTINGS: ClaudianSettings = {
   pluginRenderedFenceLanguages: [],
   expandFileEditsByDefault: false,
   chatViewPlacement: 'right-sidebar',
-  enableZenMode: true,
-  zenModePosition: null,
   enableDualPane: true,
   dualPaneSide: 'right',
   restoreTabsOnStartup: true,

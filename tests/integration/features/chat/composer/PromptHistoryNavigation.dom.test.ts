@@ -12,7 +12,6 @@ import { claudeCatalogFixture } from '@test/helpers/claudeModels';
 import { createFeatureHostFixture } from '@test/helpers/FeatureHostFixture';
 import { createChatFeatureHost } from '@test/helpers/features/chat/ChatFeatureHostFixture';
 import { createClaudianView } from '@test/helpers/features/chat/ClaudianViewHarness';
-import { createProjectsFake } from '@test/helpers/features/chat/ProjectsFake';
 import { createSessionRuntimePool } from '@test/helpers/features/chat/SessionRuntimePoolHarness';
 import { FakeSideBackend } from '@test/helpers/features/chat/SideChatSessionHarness';
 import { testDate } from '@test/helpers/testClock';
@@ -76,9 +75,9 @@ async function createView(provisional = false, options: { managed?: boolean; dra
     getResolvedProviderCliPath: async () => '/bin/claude',
   } });
   const pool = createSessionRuntimePool(() => plugin);
-  const messaging = new SessionMessagingService({ getHost: () => plugin, getActiveConversationId: () => conversation.id, refreshModelControls: () => {} });
+  const messaging = new SessionMessagingService({ getHost: () => plugin, getActiveConversationId: () => conversation.id });
   const plugin: ChatFeatureHost = await createChatFeatureHost({ fixture, sessionRuntimes: pool,
-    bindSessionTools: id => messaging.bindSessionTools(id),
+
     executionPersistence: {
       registerExecutionBinding() {}, releaseExecutionBinding() {},
       assertConversationExecutionAuthority: async () => {},
@@ -86,7 +85,7 @@ async function createView(provisional = false, options: { managed?: boolean; dra
       recordConversationActivity: async () => {},
     },
     getConversationSummary: (id: string) => conversations.get(id) ?? null,
-    projects: createProjectsFake(),
+
     getConversationSync: (id: string) => conversations.get(id) ?? null,
     getCachedConversation: (id: string) => conversations.get(id) ?? null,
     getConversationById: async (id: string) => conversations.get(id) ?? null,

@@ -2,9 +2,7 @@ import type { Component, TFile, WorkspaceLeaf } from 'obsidian';
 
 import type { ProviderId, TitleGenerationService } from '@/core/providers/types';
 import type { TabId } from '@/features/chat/ChatFeatureHost';
-import type { TabAttention } from '@/features/chat/state/types';
 import type { TabIdentity } from '@/features/chat/tabs/TabIdentity';
-import type { ZenPresentationPort } from '@/features/chat/zen/types';
 
 /**
  * Minimal interface for the ClaudianView methods used by TabManager and Tab.
@@ -73,15 +71,6 @@ export interface TabComposerPort {
   dismissDropdownFor(target: EventTarget | null): void;
   setHiddenCommands(commands: ReadonlySet<string>): void;
   /** Invalidates session mentions after the conversation list changes. */
-  invalidateSessionMentions(): void;
-  /** Re-reads the project chip after membership, the project records, or the draft seed change. */
-  refreshProject(): void;
-}
-
-/** Restores a transcript moved by `TabPlacementPort.placeTranscript`. */
-export interface TabTranscriptPlacement {
-  isPlacedIn(hostEl: HTMLElement | null): boolean;
-  restore(): void;
 }
 
 /**
@@ -97,7 +86,6 @@ export interface TabPlacementPort {
   /** Returns the composer to the tab's own content. */
   restoreComposer(): void;
   /** Moves the transcript into `hostEl`, leaving an anchor that the returned handle restores. */
-  placeTranscript(hostEl: HTMLElement): TabTranscriptPlacement;
   setSideChatChipHost(hostEl: HTMLElement | null): void;
   /** Lends the view element that a full height side chat takes over; null outside the view footer. */
   setSideChatFullHeightHost(hostEl: HTMLElement | null): void;
@@ -130,24 +118,6 @@ export interface ChatTab {
   readonly composer: TabComposerPort;
   readonly linkedContent: TabLinkedContentPort;
   readonly placement: TabPlacementPort;
-  readonly zenPresentation: ZenPresentationPort;
   /** Re-renders model, mode, effort, permission, service-tier, and context-usage controls. */
   refreshProviderControls(): void;
-}
-
-/**
- * Tab bar item representation for rendering.
- */
-export interface TabBarItem {
-  id: TabId;
-  /** 1-based index for display. */
-  index: number;
-  title: string;
-  /** The user's custom name for the tab, shown instead of the title when set. */
-  label?: string;
-  isActive: boolean;
-  /** True while any foreground, continuation, provider-background, or async-subagent work remains. */
-  isWorking: boolean;
-  attention: TabAttention;
-  canClose: boolean;
 }

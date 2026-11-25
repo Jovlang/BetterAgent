@@ -9,10 +9,10 @@ import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 
 import type { LaunchPatchEntry, LaunchPlugin } from '@test/helpers/deepseek/LaunchPatch';
+import { LoopbackSessionToolServer } from '@test/helpers/LoopbackSessionToolServer';
 import { createWindowsHostFS } from '@test/helpers/WindowsHostFS';
 
 import { createExecutionPathMapper } from '@/core/process/execution-target/WSLPathMapper';
-import { LoopbackSessionToolServer } from '@/core/session-tools/LoopbackSessionToolServer';
 import { SESSION_TOOL_SPECS } from '@/core/session-tools/sessionToolSpecs';
 import { prepareDeepSeekLaunchArtifacts } from '@/providers/deepseek/runtime/DeepSeekLaunchArtifacts';
 

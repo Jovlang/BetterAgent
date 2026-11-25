@@ -1,6 +1,5 @@
 import { createChatFeatureHost } from '@test/helpers/features/chat/ChatFeatureHostFixture';
 import { conversationRecord } from '@test/helpers/features/chat/ConversationFixture';
-import { createProjectsFake } from '@test/helpers/features/chat/ProjectsFake';
 import { createSessionRuntimePool } from '@test/helpers/features/chat/SessionRuntimePoolHarness';
 import { App } from 'obsidian';
 
@@ -19,7 +18,6 @@ interface Options {
 export async function createSessionBrowserHost(options: Options = {}) {
   const records = options.conversations ?? [];
   const getConversationList = vi.fn(options.host?.getConversationList ?? (() => records));
-  const projects = options.host?.projects ?? createProjectsFake();
   const pool = createSessionRuntimePool(() => plugin, { onChanged: options.onSessionChanged });
   const find = (id: string) => getConversationList().find(record => record.id === id);
   const store = {
@@ -46,9 +44,6 @@ export async function createSessionBrowserHost(options: Options = {}) {
         if (record) record.isArchived = false;
       }
     }),
-    archiveProjectIfEmpty: vi.fn(async (_id: string) => {
-      throw new Error('Supply the project archive repository port for this test.');
-    }),
     archiveConversationsIf: vi.fn<ConversationLifecycleStore['archiveConversationsIf']>(async (ids, predicate) => {
       let archived = 0;
       for (const id of ids) {
@@ -63,11 +58,11 @@ export async function createSessionBrowserHost(options: Options = {}) {
     ...options.store,
   } satisfies ConversationLifecycleStore;
   const lifecycle = new ConversationLifecycle({
-    sessions: pool, conversations: store, projects,
+    sessions: pool, conversations: store,
     views: { getAllViews: () => plugin.getAllViews() },
   });
   const overrides = options.host ?? {};
-  const hostOptions = { projects, getConversationList, sessionRuntimes: pool, conversationLifecycle: lifecycle };
+  const hostOptions = {  getConversationList, sessionRuntimes: pool, conversationLifecycle: lifecycle };
   const plugin: ChatFeatureHost = await createChatFeatureHost(overrides.fixture
     ? { ...overrides, ...hostOptions }
     : { ...overrides, app: overrides.app ?? new App(), ...hostOptions });

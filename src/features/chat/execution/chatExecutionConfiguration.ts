@@ -10,12 +10,11 @@ export function getChatWorkingDirectory(host: Pick<FeatureHost, 'providerHost'>)
 
 /**
  * The Main Agent prompt a chat destination sends, resolved by the shared core builder from current settings,
- * the execution-visible Vault working directory, and the session's own instructions (for example, a project paragraph).
+ * the execution-visible Vault working directory.
  */
 export function resolveChatSystemInstructions(
   settings: Pick<ClaudianSettings, 'mediaFolder' | 'systemPrompt' | 'userName'>,
   workingDirectory: string,
-  sessionInstructions?: string,
 ): ProviderSystemInstructions {
   return {
     kind: 'main-agent',
@@ -24,7 +23,6 @@ export function resolveChatSystemInstructions(
       mediaFolder: settings.mediaFolder,
       userName: settings.userName,
       vaultPath: workingDirectory,
-      sessionInstructions,
     }),
   };
 }

@@ -19,7 +19,7 @@ export interface ConversationBranchingDeps {
   getExecutionCoordinator: () => ChatExecutionCoordinator | null;
   ensureExecutionInitialized?: () => Promise<boolean>;
   getSelectedModel?: () => string | null;
-  /** The bound conversation's live project instructions, resolved for each branch operation. */
+  /** The conversation's system prompt, resolved for each branch operation. */
   getSystemInstructions: (workingDirectory: string) => Promise<ProviderSystemInstructions>;
   isClosing?: () => boolean;
   /** Persists the current conversation state. */

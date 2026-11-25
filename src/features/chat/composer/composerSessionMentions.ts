@@ -25,3 +25,11 @@ export function findComposerSessionMentions(text: string): ComposerSessionMentio
       conversationId: match[2],
     })), true);
 }
+
+/** Read an old draft's labels without exposing its stored session IDs to a provider. */
+export function stripLegacySessionMentions(text: string): string {
+  for (const mention of findComposerSessionMentions(text).reverse()) {
+    text = text.slice(0, mention.index) + '@"' + mention.title + '"' + text.slice(mention.index + mention.fullMatch.length);
+  }
+  return text;
+}

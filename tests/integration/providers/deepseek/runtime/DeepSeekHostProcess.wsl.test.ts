@@ -5,12 +5,12 @@ import { createServer, type Server } from 'node:net';
 import * as path from 'node:path';
 
 import { NativePeer } from '@test/helpers/deepseek/NativePeer';
+import { LoopbackSessionToolServer } from '@test/helpers/LoopbackSessionToolServer';
 import { createWindowsHostFS } from '@test/helpers/WindowsHostFS';
 import { WSLProcessFixture, type WSLProcessRequest } from '@test/helpers/WSLProcessFixture';
 import spawn from 'cross-spawn';
 
 import type { ExecutionTarget } from '@/core/process/execution-target/types';
-import { LoopbackSessionToolServer } from '@/core/session-tools/LoopbackSessionToolServer';
 import { resolveDeepSeekExecutionContext } from '@/providers/deepseek/runtime/DeepSeekExecutionContext';
 import { DeepSeekHost } from '@/providers/deepseek/runtime/DeepSeekHost';
 import { DeepSeekHostProcess } from '@/providers/deepseek/runtime/DeepSeekHostProcess';

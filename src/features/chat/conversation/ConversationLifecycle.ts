@@ -4,8 +4,6 @@ import type {
   Conversation,
   ConversationMeta,
   ConversationPlacement,
-  ProjectMutations,
-  ProjectReader,
 } from '@/core/types';
 import type { ChatTabManagerHost, ChatViewHost, TabId } from '@/features/chat/ChatFeatureHost';
 import { t } from '@/i18n/i18n';
@@ -13,12 +11,11 @@ import { t } from '@/i18n/i18n';
 /** Application conversation writes the lifecycle applies after its tab policy. */
 export interface ConversationLifecycleStore {
   ensureAllConversationMetadataLoaded(): Promise<void>;
-  getConversationList(): readonly Pick<ConversationMeta, 'id' | 'isArchived' | 'projectId'>[];
+  getConversationList(): readonly Pick<ConversationMeta, 'id' | 'isArchived'>[];
   deleteConversation(id: string): Promise<void>;
   setConversationArchived(id: string, isArchived: boolean): Promise<void>;
   setConversationsPlacement(ids: readonly string[], placement: ConversationPlacement): Promise<void>;
   restoreConversations(ids: readonly string[]): Promise<void>;
-  archiveProjectIfEmpty(projectId: string): Promise<void>;
   archiveConversationsIf(
     ids: readonly string[],
     shouldArchive: (conversation: Readonly<Conversation>) => boolean,
@@ -37,7 +34,6 @@ export interface ConversationLifecycleSessions {
 export interface ConversationLifecycleDeps {
   readonly sessions: ConversationLifecycleSessions;
   readonly conversations: ConversationLifecycleStore;
-  readonly projects?: Pick<ProjectReader, 'get'> & Pick<ProjectMutations, 'setArchived'>;
   readonly views: { getAllViews(): readonly ChatViewHost[] };
 }
 
@@ -49,9 +45,8 @@ interface BoundTab {
 export type ArchivableConversation = Readonly<Pick<Conversation, 'id' | 'isPinned' | 'lastActivityAt'>>;
 
 /**
- * The single owner of archive, restore, pin, project placement, and delete across every chat view. A session
- * counts as running while its runtime has foreground or background work, including without a view. An archived
- * project keeps no active member: it is archived after all of them, and restoring any of them restores it first.
+ * The single owner of archive, restore, pin and delete across every chat view. A session
+ * counts as running while its runtime has foreground or background work, including without a view.
  */
 export class ConversationLifecycle {
   constructor(private readonly deps: ConversationLifecycleDeps) {}
@@ -67,8 +62,7 @@ export class ConversationLifecycle {
   }
 
   /**
-   * Moves sessions into a live project (`projectId`), out of any (`null`), and pins or unpins them, in one write per
-   * session and one list refresh. Omitted fields stay; an unknown project rejects.
+   * Updates session pinning without changing legacy metadata.
    */
   async setPlacement(conversationIds: readonly string[], placement: ConversationPlacement): Promise<void> {
     await this.deps.conversations.setConversationsPlacement(conversationIds, placement);
@@ -91,26 +85,6 @@ export class ConversationLifecycle {
   /** Archives a batch, skipping sessions that are running or reopened before their write. */
   async archive(conversationIds: readonly string[]): Promise<void> {
     await this.#archiveClosing(conversationIds);
-  }
-
-  /** Archives every active member, then the project; it stays active when any member is skipped. */
-  async archiveProject(projectId: string): Promise<void> {
-    if (!this.deps.projects) return;
-    await this.deps.conversations.ensureAllConversationMetadataLoaded();
-    const memberIds = this.#memberIds(projectId, false);
-    if (await this.#archiveClosing(memberIds) === memberIds.length) {
-      await this.deps.conversations.archiveProjectIfEmpty(projectId);
-    }
-  }
-
-  /** Restores the project, then its archived members. */
-  async restoreProject(projectId: string): Promise<void> {
-    const { projects } = this.deps;
-    if (!projects) return;
-    await this.deps.conversations.ensureAllConversationMetadataLoaded();
-    await projects.setArchived(projectId, false);
-    const memberIds = this.#memberIds(projectId, true);
-    if (memberIds.length > 0) await this.deps.conversations.restoreConversations(memberIds);
   }
 
   /** Returns how many sessions were archived. */
@@ -165,11 +139,6 @@ export class ConversationLifecycle {
     await this.deps.conversations.restoreConversations(conversationIds);
   }
 
-  #memberIds(projectId: string, isArchived: boolean): string[] {
-    return this.deps.conversations.getConversationList()
-      .filter(conversation => conversation.projectId === projectId && !!conversation.isArchived === isArchived)
-      .map(conversation => conversation.id);
-  }
 
   /**
    * Deletes sessions in order, skipping any whose runtimes are running. Tabs bound to a

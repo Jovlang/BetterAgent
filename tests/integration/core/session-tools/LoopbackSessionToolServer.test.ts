@@ -3,8 +3,8 @@ import * as http from 'node:http';
 
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import { LoopbackSessionToolServer } from '@test/helpers/LoopbackSessionToolServer';
 
-import { LoopbackSessionToolServer } from '@/core/session-tools/LoopbackSessionToolServer';
 import type { SessionToolRoute, SessionToolRoutedCallRequest } from '@/core/session-tools/SessionToolEndpoint';
 import { SESSION_TOOL_SPECS, type SessionToolCallRequest } from '@/core/session-tools/sessionToolSpecs';
 

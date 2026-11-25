@@ -2,7 +2,6 @@
 import '@/providers';
 
 import { claudeCatalogFixture } from '@test/helpers/claudeModels';
-import { createProjectsFake } from '@test/helpers/features/chat/ProjectsFake';
 import { createSessionBrowserHost } from '@test/helpers/features/chat/SessionBrowserTestHarness';
 import { testDate } from '@test/helpers/testClock';
 import { createEvent, fireEvent, waitFor, within } from '@testing-library/dom';
@@ -1222,7 +1221,6 @@ describe('SessionBrowser', () => {
         const onRerender = vi.fn();
         const onRequestInlineRename = vi.fn();
         // The active row menu offers project membership actions.
-        Object.assign(deps.plugin, { projects: createProjectsFake() });
         (deps.plugin.getConversationList as Mock).mockReturnValue([
           { id: 'active', title: 'Original title', createdAt: 2 },
         ]);

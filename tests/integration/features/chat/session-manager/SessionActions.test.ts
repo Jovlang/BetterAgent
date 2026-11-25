@@ -1,6 +1,5 @@
 /** @vitest-environment jsdom */
 import { createHarness } from '@test/helpers/ChatExecutionHarness';
-import { createProjectsFake } from '@test/helpers/features/chat/ProjectsFake';
 import { createSessionBrowserHost } from '@test/helpers/features/chat/SessionBrowserTestHarness';
 import { fireEvent } from '@testing-library/dom';
 import { Menu, setIcon } from 'obsidian';
@@ -10,14 +9,13 @@ import { SessionBrowser } from '@/features/chat/session-manager/SessionBrowser';
 import type { HistoryConversationStatus } from '@/features/chat/session-manager/SessionStatusPresentation';
 
 async function createFixture(options: { host?: Pick<import('@/features/chat/ChatFeatureHost').ChatFeatureHost, 'executionPersistence'>; onSessionChanged?: () => void } = {}) {
-  const projects = createProjectsFake();
   const { plugin, store, pool } = await createSessionBrowserHost({ ...options, host: {
-    projects, settings: { enableAutoTitleGeneration: true },
+     settings: { enableAutoTitleGeneration: true },
     renameConversation: vi.fn().mockResolvedValue(undefined),
     ...options.host,
   } });
   for (const method of ['delete', 'setPinned', 'archive'] as const) vi.spyOn(plugin.conversationLifecycle, method);
-  const deps = { plugin: Object.assign(plugin, { projects }), store, pool, state: { currentConversationId: null as string | null } };
+  const deps = { plugin: plugin, store, pool, state: { currentConversationId: null as string | null } };
   const controller = new SessionBrowser({
     plugin,
     getCurrentConversationId: () => deps.state.currentConversationId,
@@ -267,7 +265,7 @@ describe('SessionActions', () => {
     let findItem = render();
     expect(findItem('seen').querySelector<HTMLElement>('.claudian-session-status-indicator')!).toBeNull();
     let menu = openMenu(findItem('seen'));
-    expect(menu.items.map(item => item.title)).toEqual(['Pin', 'Mark as unread', 'Rename', 'Copy session ID', 'Move to project…', 'Archive']);
+    expect(menu.items.map(item => item.title)).toEqual(['Pin', 'Mark as unread', 'Rename', 'Copy session ID', 'Archive']);
     menu.items[1].clickHandler?.();
 
     expect(onChanged).toHaveBeenCalled();
@@ -277,7 +275,7 @@ describe('SessionActions', () => {
     expect(badge.getAttribute('aria-label')).toBe('Unread');
     expect(findItem('seen').hasClass('claudian-history-item--attention')).toBe(true);
     menu = openMenu(findItem('seen'));
-    expect(menu.items.map(item => item.title)).toEqual(['Pin', 'Mark as read', 'Rename', 'Copy session ID', 'Move to project…', 'Archive']);
+    expect(menu.items.map(item => item.title)).toEqual(['Pin', 'Mark as read', 'Rename', 'Copy session ID', 'Archive']);
     expect(menu.items[1].icon).toBe('mail-open');
     menu.items[1].clickHandler?.();
 
@@ -288,7 +286,7 @@ describe('SessionActions', () => {
     // A session not loaded since startup gets its session without loading history.
     expect(pool.get('never-opened')).toBeNull();
     menu = openMenu(findItem('never-opened'));
-    expect(menu.items.map(item => item.title)).toEqual(['Pin', 'Mark as unread', 'Rename', 'Copy session ID', 'Move to project…', 'Archive']);
+    expect(menu.items.map(item => item.title)).toEqual(['Pin', 'Mark as unread', 'Rename', 'Copy session ID', 'Archive']);
     menu.items[1].clickHandler?.();
     expect(pool.get('never-opened')?.providerId).toBe('codex');
     expect(pool.get('never-opened')?.peekModel).toBeNull();
@@ -299,7 +297,7 @@ describe('SessionActions', () => {
     pool.get('never-opened')!.attention.markReviewRequired('error');
     findItem = render();
     expect(findItem('never-opened').querySelector<HTMLElement>('.claudian-session-status-indicator--error')!).not.toBeNull();
-    expect(openMenu(findItem('never-opened')).items.map(item => item.title)).toEqual(['Pin', 'Rename', 'Copy session ID', 'Move to project…', 'Archive']);
+    expect(openMenu(findItem('never-opened')).items.map(item => item.title)).toEqual(['Pin', 'Rename', 'Copy session ID', 'Archive']);
     await pool.dispose();
   });
 
@@ -369,8 +367,8 @@ describe('SessionActions', () => {
       getConversationOpenState: (id) => id === 'conv-2' ? 'closed' : 'current',
     });
 
-    const list = container.querySelector<HTMLElement>('.claudian-session-list-items')!;
-    const closedItem = list.children[1];
+    const list = container.querySelector<HTMLElement>('.claudian-history-list')!;
+    const closedItem = list.querySelectorAll('.claudian-history-item')[1];
     const openInNewTabBtn = closedItem.querySelector<HTMLElement>('.claudian-open-new-tab-btn')!;
 
     expect(openInNewTabBtn).toBeTruthy();
@@ -397,8 +395,8 @@ describe('SessionActions', () => {
       getConversationOpenState: (id) => id === 'conv-2' ? 'open' : 'current',
     });
 
-    const list = container.querySelector<HTMLElement>('.claudian-session-list-items')!;
-    const openItem = list.children[1];
+    const list = container.querySelector<HTMLElement>('.claudian-history-list')!;
+    const openItem = list.querySelectorAll('.claudian-history-item')[1];
 
     expect(openItem.querySelector<HTMLElement>('.claudian-open-new-tab-btn')!).toBeNull();
   });
@@ -418,8 +416,8 @@ describe('SessionActions', () => {
       getConversationOpenState: () => 'closed',
     });
 
-    const list = container.querySelector<HTMLElement>('.claudian-session-list-items')!;
-    const otherItem = list.children[1];
+    const list = container.querySelector<HTMLElement>('.claudian-history-list')!;
+    const otherItem = list.querySelectorAll('.claudian-history-item')[1];
     fireEvent.contextMenu(otherItem, {stopPropagation: vi.fn(), preventDefault: vi.fn()});
 
     const menu = (Menu as typeof Menu & { instances: Array<{ items: Array<{ title: string }> }> }).instances[0];
@@ -447,8 +445,8 @@ describe('SessionActions', () => {
       getConversationOpenState: () => 'open',
     });
 
-    const list = container.querySelector<HTMLElement>('.claudian-session-list-items')!;
-    const otherItem = list.children[1];
+    const list = container.querySelector<HTMLElement>('.claudian-history-list')!;
+    const otherItem = list.querySelectorAll('.claudian-history-item')[1];
     fireEvent.contextMenu(otherItem, {stopPropagation: vi.fn(), preventDefault: vi.fn()});
 
     const menu = (Menu as typeof Menu & { instances: Array<{ items: Array<{ title: string }> }> }).instances[0];
@@ -477,8 +475,8 @@ describe('SessionActions', () => {
         : { openState: 'current', isRunning: false, location: 'current-view', tabIndex: 1 },
     });
 
-    const list = container.querySelector<HTMLElement>('.claudian-session-list-items')!;
-    const otherItem = list.children[1];
+    const list = container.querySelector<HTMLElement>('.claudian-history-list')!;
+    const otherItem = list.querySelectorAll('.claudian-history-item')[1];
     fireEvent.contextMenu(otherItem, {stopPropagation: vi.fn(), preventDefault: vi.fn()});
 
     const menu = (Menu as typeof Menu & { instances: Array<{ items: Array<{ title: string }> }> }).instances[0];
@@ -570,7 +568,6 @@ describe('SessionActions', () => {
       'Pin',
       'Rename',
       'Copy session ID',
-      'Move to project…',
       'Archive',
     ]);
   });
@@ -597,7 +594,7 @@ describe('SessionActions', () => {
     let menu = (Menu as typeof Menu & {
       instances: Array<{ items: Array<{ title: string; icon: string; clickHandler: (() => void) | null }> }>;
     }).instances.at(-1)!;
-    expect(menu.items.map(item => item.title)).toEqual(['Pin', 'Rename', 'Copy session ID', 'Move to project…', 'Archive']);
+    expect(menu.items.map(item => item.title)).toEqual(['Pin', 'Rename', 'Copy session ID', 'Archive']);
     menu.items[0].clickHandler?.();
     await Promise.resolve();
     expect(onSetConversationPinned).toHaveBeenCalledWith(['normal'], true);
@@ -608,7 +605,7 @@ describe('SessionActions', () => {
     menu = (Menu as typeof Menu & {
       instances: Array<{ items: Array<{ title: string; icon: string; clickHandler: (() => void) | null }> }>;
     }).instances.at(-1)!;
-    expect(menu.items.map(item => item.title)).toEqual(['Unpin', 'Rename', 'Copy session ID', 'Move to project…', 'Archive']);
+    expect(menu.items.map(item => item.title)).toEqual(['Unpin', 'Rename', 'Copy session ID', 'Archive']);
     menu.items[0].clickHandler?.();
     await Promise.resolve();
     expect(onSetConversationPinned).toHaveBeenCalledWith(['pinned'], false);
@@ -640,7 +637,6 @@ describe('SessionActions', () => {
       'Pin',
       'Rename',
       'Copy session ID',
-      'Move to project…',
       'Archive',
     ]);
   });
@@ -682,7 +678,6 @@ describe('SessionActions', () => {
       ['Mark as unread', 'mail'],
       ['Rename', 'pencil'],
       ['Copy session ID', 'copy'],
-      ['Move to project…', 'folder-input'],
       ['Archive', 'archive'],
     ]);
     expect(buttonIcon(row('closed').querySelector('.claudian-open-new-tab-btn'))).toBe('square-plus');
@@ -694,7 +689,6 @@ describe('SessionActions', () => {
       ['Mark as unread', 'mail'],
       ['Rename', 'pencil'],
       ['Copy session ID', 'copy'],
-      ['Move to project…', 'folder-input'],
       ['Archive', 'archive'],
     ]);
     expect(buttonIcon(row('open').querySelector('.claudian-pin-btn'))).toBe('pin-off');
@@ -737,7 +731,7 @@ describe('SessionActions', () => {
       }>;
     }).instances.at(-1)!;
     expect(menu.useNativeMenu).toBe(false);
-    expect(menu.items.map(item => item.title)).toEqual(['Pin', 'Rename', 'Copy session ID', 'Move to project…', 'Archive']);
+    expect(menu.items.map(item => item.title)).toEqual(['Pin', 'Rename', 'Copy session ID', 'Archive']);
 
     const archivedContainer = document.createElement('div');
     (deps.plugin.getConversationList as Mock).mockReturnValue([

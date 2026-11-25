@@ -52,7 +52,7 @@ async function createTab(linkedContentPath?: string): Promise<AssembledTabRuntim
       assertConversationExecutionAuthority: async () => undefined,
       persistExecutionSnapshot: async () => true, recordConversationActivity: async () => undefined,
     },
-    providerHost: harness.plugin.providerHost, bindSessionTools: harness.plugin.bindSessionTools, projects: harness.plugin.projects, sessionRuntimes: pool,
+    providerHost: harness.plugin.providerHost,   sessionRuntimes: pool,
     app,
     getCommittedSettings: () => plugin.settings,
     settings: {

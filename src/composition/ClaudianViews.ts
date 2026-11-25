@@ -9,7 +9,6 @@ import { VIEW_TYPE_CLAUDIAN } from '@/core/types';
 import type { ChatViewPlacement } from '@/core/types/settings';
 import type { ClaudianView } from '@/features/chat/ClaudianView';
 import type { TabComposerPort } from '@/features/chat/tabs/ChatTab';
-import type { ZenModeController } from '@/features/chat/zen/ZenModeController';
 
 /** Identifies a mounted chat view without relying on class identity across reloads. */
 export function isClaudianView(value: unknown): value is ClaudianView {
@@ -45,11 +44,10 @@ export class ClaudianViews {
   }
 
   /** Chooses a visible composer without opening or revealing a chat. */
-  getInputFocusView(zenLeaf?: WorkspaceLeaf | null): ClaudianView | null {
+  getInputFocusView(): ClaudianView | null {
     const views = this.getAllViews().filter(view => view.getActiveTab()?.composer.isVisible());
     const preferred = this.getView();
     return views.find(view => view.getActiveTab()?.composer.isFocused())
-      ?? views.find(view => view.leaf === zenLeaf)
       ?? views.find(view => view === preferred)
       ?? views[0]
       ?? null;
@@ -96,15 +94,10 @@ export class ClaudianViews {
   }
 
   /**
-   * Hides a chat the user can see, else shows one. A shown zen panel hides itself; a
+   * Hides a chat the user can see, else shows one. A
    * sidebar chat yields to a sibling tab so the sidebar stays open.
    */
-  async toggleView(zen?: Pick<ZenModeController, 'toggleVisibility' | 'hide' | 'getActiveLeaf'>): Promise<void> {
-    if (zen?.toggleVisibility()) {
-      const leaf = zen.getActiveLeaf();
-      if (leaf && isClaudianView(leaf.view)) leaf.view.focusActiveInput();
-      return;
-    }
+  async toggleView(): Promise<void> {
     const leaves = this.workspace.getLeavesOfType(VIEW_TYPE_CLAUDIAN);
     // Main-area chats are revealed rather than closed, since closing shuts down their sessions.
     const shown = leaves.filter(candidate => (
@@ -125,9 +118,8 @@ export class ClaudianViews {
       await this.workspace.revealLeaf(sibling);
       return;
     }
-    // A chat-only tab group can only hide with its sidebar; zen must not replace it.
+    // A chat-only tab group can only hide with its sidebar.
     sidebar.collapse();
-    zen?.hide(leaf);
   }
 
   /**

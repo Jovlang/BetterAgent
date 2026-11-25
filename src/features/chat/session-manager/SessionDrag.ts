@@ -1,7 +1,6 @@
-/** Where a dragged session lands; the target defines its pin state and project. */
+/** Where a dragged session lands; the target defines its pin state. */
 export type SessionDropTarget =
   | { kind: 'pinned' }
-  | { kind: 'project'; projectId: string }
   | { kind: 'sessions' };
 
 /** Marks a drag as Claudian sessions so other drags (files, text) are never accepted. */
@@ -11,7 +10,7 @@ const ACTIVE_TARGET_CLASS = 'claudian-session-drop-target--active';
 const PINNED_DROP_ZONE_CLASS = 'claudian-session-pinned-drop-zone';
 
 function targetKey(target: SessionDropTarget): string {
-  return target.kind === 'project' ? `project:${target.projectId}` : target.kind;
+  return target.kind;
 }
 
 export interface SessionDragDeps {
@@ -69,14 +68,14 @@ export class SessionDrag {
     });
   }
 
-  /** Accepts session drops on `el`. Several elements may share one target, such as a project row and body. */
+  /** Accepts session drops on `el`. Several elements may share one target. */
   attachTarget(el: HTMLElement, target: SessionDropTarget): void {
     const key = targetKey(target);
     el.setAttribute(DROP_TARGET_ATTRIBUTE, key);
     const accept = (event: DragEvent): boolean => {
       if (!this.isDragging || !event.dataTransfer?.types.includes(SESSION_DRAG_MIME)) return false;
       event.preventDefault();
-      // The innermost target owns the drag, such as a pinned project row inside the Pinned section.
+      // The innermost target owns the drag.
       event.stopPropagation();
       event.dataTransfer.dropEffect = 'move';
       this.#highlight(key);

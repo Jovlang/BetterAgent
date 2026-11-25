@@ -17,7 +17,6 @@ export function createChatSessionRuntime(plugin: ChatFeatureHost, identity: Sess
     lifecycleRegistry: plugin.providerHost.executionLifecycleRegistry,
     resolveBackend: providerId => ProviderRegistry.createExecutionBackend(plugin.providerHost, providerId),
     persistence: plugin.executionPersistence,
-    bindSessionTools: plugin.bindSessionTools?.bind(plugin),
     loadConversationBinding: async id => {
       const conversation = await plugin.getConversationById(id);
       return conversation && createConversationExecutionBinding(conversation);

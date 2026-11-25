@@ -2,7 +2,6 @@ import '@/providers';
 
 import { createConversationPorts, createTestSession } from '@test/helpers/ConversationPorts';
 import { createChatFeatureHost } from '@test/helpers/features/chat/ChatFeatureHostFixture';
-import { createProjectsFake } from '@test/helpers/features/chat/ProjectsFake';
 import { Component } from 'obsidian';
 
 import { ImageContextManager } from '@/features/chat/composer/ImageContextManager';
@@ -54,7 +53,7 @@ export async function createConversationControllerDeps(
       }),
       getConversationById: vi.fn().mockResolvedValue(null),
       getConversationSummary: vi.fn().mockReturnValue(null),
-      projects: createProjectsFake([]),
+
       updateConversation: vi.fn().mockResolvedValue(undefined),
       settings: {
         userName: '',

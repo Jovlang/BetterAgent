@@ -202,7 +202,7 @@ async function requestHTTP(
       response.on('end', () => resolve({ status: response.statusCode ?? 0, headers: response.headers, body: Buffer.concat(chunks).toString('utf8') }));
     });
     const timer = timeoutMs === 'none' ? undefined : window.setTimeout(() => request.destroy(new DeepSeekRemoteError('DeepSeek RPC timed out.')), timeoutMs);
-    request.on('error', error => reject(error instanceof DeepSeekRemoteError ? error : new DeepSeekRemoteError('DeepSeek HTTP transport failed.')));
+    request.on('error', error => reject(error instanceof DeepSeekRemoteError ? error : new DeepSeekRemoteError('DeepSeek HTTP transport failed.', (error as NodeJS.ErrnoException).code)));
     request.on('close', () => window.clearTimeout(timer));
     request.end(body);
   });

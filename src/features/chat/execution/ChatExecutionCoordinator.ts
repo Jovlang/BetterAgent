@@ -19,7 +19,6 @@ import type {
   ProviderNativeResumeSeed,
   ProviderSessionEvent,
   ProviderSessionSnapshot,
-  ProviderSessionToolPort,
   ProviderSystemInstructions,
   ProviderToolPolicy,
 } from '@/core/execution';
@@ -53,11 +52,6 @@ import { toError } from '@/utils/error';
 
 
 /** Session tools bound to one conversation; disposing releases the binding. */
-export interface SessionToolBinding {
-  readonly port: ProviderSessionToolPort;
-  dispose(): void;
-}
-
 export type ChatExecutionCoordinatorState =
   | 'absent'
   | 'idle'
@@ -127,7 +121,6 @@ export interface ChatExecutionCoordinatorDeps {
   readonly interactionPort: ProviderInteractionPort;
   readonly workingDirectory: string;
   readonly createId: () => string;
-  readonly bindSessionTools?: (conversationId: string) => SessionToolBinding;
   /** Reads the stored binding, which may have advanced since this coordinator bound it. */
   readonly loadConversationBinding?: (conversationId: string) => Promise<ChatExecutionConversationBinding | null>;
   readonly onRequestedEvent?: (
@@ -179,7 +172,6 @@ interface SessionBinding {
   lastSnapshotRevision: number;
   pendingWorkCount: number;
   readonly events: SessionEventStream;
-  readonly sessionTools?: SessionToolBinding;
   model?: string;
   /** Native history changed outside this process; it must be replaced before it handles another turn. */
   nativeHistoryChanged?: boolean;
@@ -373,27 +365,19 @@ export class ChatExecutionCoordinator {
       );
     }
 
-    const sessionTools = this.deps.bindSessionTools?.(conversation.conversationId);
-    let supervised;
-    try {
-      supervised = this.#supervisor.acquire(
-        backend,
-        {
-          lifecycle: 'persistent',
-          nativePersistence: 'enabled',
-          resumeSeed: conversation.resumeSeed,
-          workingDirectory: this.deps.workingDirectory,
-          interactionPort: this.#interactions,
-          sessionTools: sessionTools?.port,
-          supportsReviewDenialPicker: true,
-        },
-        (reason, released) => this.#handleLeaseInvalidation(reason, released),
-        (event) => this.#handleSessionEvent(event),
-      );
-    } catch (error) {
-      sessionTools?.dispose();
-      throw error;
-    }
+    const supervised = this.#supervisor.acquire(
+      backend,
+      {
+        lifecycle: 'persistent',
+        nativePersistence: 'enabled',
+        resumeSeed: conversation.resumeSeed,
+        workingDirectory: this.deps.workingDirectory,
+        interactionPort: this.#interactions,
+        supportsReviewDenialPicker: true,
+      },
+      (reason, released) => this.#handleLeaseInvalidation(reason, released),
+      (event) => this.#handleSessionEvent(event),
+    );
     const binding: SessionBinding = {
       conversation,
       bindingId: this.deps.createId(),
@@ -402,7 +386,6 @@ export class ChatExecutionCoordinator {
       lastSnapshotRevision: -1,
       pendingWorkCount: 0,
       events: new SessionEventStream(supervised.session.sessionInstanceId),
-      sessionTools,
     };
     this.#sessionBinding = binding;
     this.#stale = false;
@@ -1073,7 +1056,6 @@ export class ChatExecutionCoordinator {
     const binding = this.#sessionBinding;
     if (!binding) return;
     this.#sessionBinding = null;
-    binding.sessionTools?.dispose();
     this.#publishBackgroundWork();
     this.#stale = true;
     this.#pendingSteerAttempts.clear();
@@ -1086,7 +1068,6 @@ export class ChatExecutionCoordinator {
   async #releaseSessionBinding(): Promise<void> {
     const binding = this.#sessionBinding;
     this.#sessionBinding = null;
-    binding?.sessionTools?.dispose();
     this.#pendingSteerAttempts.clear();
     this.#clearIdleTimer();
     this.#publishBackgroundWork();

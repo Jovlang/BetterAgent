@@ -68,15 +68,5 @@ export function createChatTabCommands(deps: ChatTabCommandsDeps): Command[] {
         return true;
       },
     },
-    {
-      id: 'rename-current-tab',
-      name: t('chat.tabNavigation.commandRename'),
-      checkCallback: (checking: boolean) => {
-        const view = views.getView();
-        if (!view?.isTabBarVisible()) return false;
-        if (!checking) view.renameActiveTab();
-        return true;
-      },
-    },
   ];
 }

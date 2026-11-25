@@ -6,7 +6,6 @@ import { createHarness as createExecutionHarness } from '@test/helpers/ChatExecu
 import { createConversationPorts } from '@test/helpers/ConversationPorts';
 import { triggerResize } from '@test/helpers/dom/ResizeObserver';
 import { createChatFeatureHost } from '@test/helpers/features/chat/ChatFeatureHostFixture';
-import { createProjectsFake } from '@test/helpers/features/chat/ProjectsFake';
 import { testDate } from '@test/helpers/testClock';
 import { fireEvent, within } from '@testing-library/dom';
 import { Component, MarkdownRenderer } from 'obsidian';
@@ -184,7 +183,7 @@ it('returns to the reading position after cancelling a branch preview of a revea
     .map(message => message.role === 'user' ? { ...message, userMessageId: `native-${message.id}`, treeBranches: [`native-${message.id}`] } : message);
   const plugin = await createChatFeatureHost({ settings: { mediaFolder: '' }, updateConversation: vi.fn(),
     getConversationById: vi.fn().mockResolvedValue({ id: 'pi-chat', messages: history }),
-    getConversationSummary: vi.fn().mockReturnValue(null), projects: createProjectsFake() });
+    getConversationSummary: vi.fn().mockReturnValue(null) });
   const { renderer, messagesEl } = (await setup('pi', (id, target) => controller.navigateBranch(id, target)));
   const { coordinator, registry } = createExecutionHarness();
   vi.spyOn(coordinator, 'supportsConversationBranches', 'get').mockReturnValue(true);

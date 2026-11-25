@@ -7,7 +7,6 @@ import type {
   ThreadStartResult,
 } from '@/providers/codex/runtime/codexAppServerTypes';
 import type { CodexRPCTransport } from '@/providers/codex/runtime/CodexRPCTransport';
-import { CODEX_SESSION_TOOL_VERSION, isCodexSessionTool } from '@/providers/codex/runtime/CodexSessionTools';
 import type { CodexThreadScope } from '@/providers/codex/runtime/CodexThreadScope';
 import {
   CODEX_WORKSPACE_DEPENDENCY_TOOL_NAME,
@@ -194,8 +193,7 @@ export class CodexThreadBinder {
     this.host.threadStarted(run, {
       threadId: result.thread.id,
       sessionFilePath,
-      sessionToolVersion: dynamicTools.some(spec => isCodexSessionTool(spec.namespace, spec.name))
-        ? CODEX_SESSION_TOOL_VERSION : null,
+      sessionToolVersion: null,
       workspaceDependencyToolVersion: dynamicTools.some(spec =>
         spec.namespace === CODEX_WORKSPACE_DEPENDENCY_TOOL_NAMESPACE
         && spec.name === CODEX_WORKSPACE_DEPENDENCY_TOOL_NAME

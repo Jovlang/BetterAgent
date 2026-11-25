@@ -32,7 +32,6 @@ interface ForkSource {
   sourceSelectedModel?: string;
   sourceTitle?: string;
   linkedContentPath?: string;
-  projectId?: string;
 }
 
 /** Returns the provider-owned id of the transcript's latest completed assistant checkpoint. */
@@ -83,7 +82,6 @@ async function resolveForkSource(
       : getSessionSelectedModel(tab, plugin) ?? undefined,
     sourceTitle: conversation?.title,
     linkedContentPath: conversation?.linkedContentPath,
-    projectId: conversation?.projectId,
   };
 }
 
@@ -133,7 +131,6 @@ export async function captureLatestCompletedForkSource<T extends LiveForkSourceO
       forkAtUserMessage: msgs.filter(isCanonicalUserMessage).length + 1,
       linkedContentPath: source.linkedContentPath,
       messages,
-      projectId: source.projectId,
       providerId: source.providerId,
       resumeAt: lastAssistantUuid,
       sourceConversationId,
@@ -203,6 +200,5 @@ export async function handleForkRequest<T extends ForkSourceOwner>(
     sourceTitle: source.sourceTitle,
     forkAtUserMessage: msgs.slice(0, assistantIdx + 1).filter(isCanonicalUserMessage).length + 1,
     linkedContentPath: source.linkedContentPath,
-    projectId: source.projectId,
   });
 }

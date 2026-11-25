@@ -4,7 +4,6 @@ import '@/providers';
 import * as sdkModule from '@anthropic-ai/claude-agent-sdk';
 import { claudeCatalogFixture } from '@test/helpers/claudeModels';
 import { createChatFeatureHost } from '@test/helpers/features/chat/ChatFeatureHostFixture';
-import { createProjectsFake } from '@test/helpers/features/chat/ProjectsFake';
 import { createSessionRuntimePool } from '@test/helpers/features/chat/SessionRuntimePoolHarness';
 import { FakeSideBackend } from '@test/helpers/features/chat/SideChatSessionHarness';
 import { testDate } from '@test/helpers/testClock';
@@ -53,11 +52,11 @@ async function createView(fakeBackend?: FakeSideBackend) {
   const conversations = new Map([[conversation.id, conversation]]);
   const saved: unknown[] = [];
   const pool = createSessionRuntimePool(() => plugin);
-  const messaging = new SessionMessagingService({ getHost: () => plugin, getActiveConversationId: () => conversation.id, refreshModelControls: () => undefined });
+  const messaging = new SessionMessagingService({ getHost: () => plugin, getActiveConversationId: () => conversation.id });
   onTestFinished(() => messaging.dispose());
   const plugin = await createChatFeatureHost({
     app, settings, sessionRuntimes: pool,
-    bindSessionTools: id => messaging.bindSessionTools(id),
+
     executionPersistence: {
       registerExecutionBinding() {}, releaseExecutionBinding() {},
       assertConversationExecutionAuthority: async () => {},
@@ -65,7 +64,7 @@ async function createView(fakeBackend?: FakeSideBackend) {
       recordConversationActivity: async () => {},
     },
     getConversationSummary: (id: string) => conversations.get(id) ?? null,
-    projects: createProjectsFake(),
+
     getConversationSync: (id: string) => conversations.get(id) ?? null,
     getConversationById: async (id: string) => conversations.get(id) ?? null,
     getConversationList: () => [...conversations.values()].map(value => ({ ...value, messageCount: value.messages.length, preview: '' })),

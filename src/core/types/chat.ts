@@ -185,7 +185,7 @@ export interface Conversation {
   modelRecoverySource?: ConversationModelRecoverySource;
   messages: ChatMessage[];
   readonly linkedContentPath?: string;
-  /** Raw project membership; resolve it through `ProjectReader.get` before use. */
+  /** Legacy project id preserved when saving an existing conversation. */
   readonly projectId?: string;
   /** Creation-only lineage; the named conversation may since have been deleted. */
   readonly origin?: ConversationOrigin;
@@ -216,7 +216,6 @@ export type ConversationMutablePatch = Partial<Omit<
  * project (an unknown id throws at the write). Omitted fields stay unchanged.
  */
 export interface ConversationPlacement {
-  readonly projectId?: string | null;
   readonly isPinned?: boolean;
 }
 
@@ -241,7 +240,7 @@ export interface ConversationMeta {
   preview: string;
   /** Vault-relative path of the file or directory linked to this session. */
   linkedContentPath?: string;
-  /** Raw project membership; resolve it through `ProjectReader.get` before use. */
+  /** Legacy project id preserved when saving an existing conversation. */
   projectId?: string;
   /** Creation-only lineage; the named conversation may since have been deleted. */
   origin?: ConversationOrigin;

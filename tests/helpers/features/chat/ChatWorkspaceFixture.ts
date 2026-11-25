@@ -3,7 +3,6 @@ import { deserialize, serialize } from 'node:v8';
 import { createFeatureHostFixture } from '@test/helpers/FeatureHostFixture';
 import { createChatFeatureHost } from '@test/helpers/features/chat/ChatFeatureHostFixture';
 import { createClaudianView } from '@test/helpers/features/chat/ClaudianViewHarness';
-import { createProjectsFake } from '@test/helpers/features/chat/ProjectsFake';
 import { createSessionRuntimePool } from '@test/helpers/features/chat/SessionRuntimePoolHarness';
 import { FakeSideSession } from '@test/helpers/features/chat/SideChatSessionHarness';
 import { createObsidianWorkspace } from '@test/helpers/ObsidianWorkspace';
@@ -24,11 +23,10 @@ import { TabManager } from '@/features/chat/tabs/TabManager';
 import { createTabRuntime } from '@/features/chat/tabs/TabRuntimeFactory';
 import type { AssembledTabRuntime } from '@/features/chat/tabs/types';
 import { createChatFocusCommand } from '@/features/chat/workspace/ChatFocusCommand';
-import { ZenModeController } from '@/features/chat/zen/ZenModeController';
 import { VaultMentionDataProvider } from '@/shared/mention/VaultMentionDataProvider';
 
 /**
- * Real chat views, zen controller and chat hotkeys mounted in a narrow stand-in for
+ * Real chat views and chat hotkeys mounted in a narrow stand-in for
  * Obsidian's desktop workspace. Suites register the providers they exercise and call
  * `installChatWorkspaceHooks()` once at module level.
  */
@@ -113,16 +111,15 @@ function createWorkspace() {
   return { workspace, rootEl, rootSplit, leftSplit, rightSplit, noteEditor, leaves, otherLeaves, setCollapsed };
 }
 
-function createSettings(enabled: boolean): ClaudianSettings {
+function createSettings(): ClaudianSettings {
   const entry = modelCatalogCases.find(candidate => candidate.id === 'claude')!;
   const settings = JSON.parse(JSON.stringify(DEFAULT_CLAUDIAN_SETTINGS)) as ClaudianSettings;
   entry.populate(settings);
-  settings.enableZenMode = enabled;
   return settings;
 }
 
-export async function createChatWorkspaceFixture(options: { enabled?: boolean; ready?: boolean } = {}) {
-  const settings = createSettings(options.enabled ?? true);
+export async function createChatWorkspaceFixture(options: { ready?: boolean } = {}) {
+  const settings = createSettings();
   ProviderWorkspaceRegistry.setServices('claude', {});
   const { App: HostApp } = await vi.importActual<typeof import('@test/__mocks__/obsidian')>('obsidian');
   const app = new App();
@@ -150,24 +147,16 @@ export async function createChatWorkspaceFixture(options: { enabled?: boolean; r
     },
   }));
   const conversations: Conversation[] = [];
-  const featureFixture = await createFeatureHostFixture({ app, settings: { ...settings, enableAutoTitleGeneration: false }, afterPublish: () => zen.reconcile() });
+  const featureFixture = await createFeatureHostFixture({ app, settings: { ...settings, enableAutoTitleGeneration: false } });
   const settingsCoordinator = featureFixture.coordinator;
-  const zen: ZenModeController = new ZenModeController({
-    app,
-    isEnabled: (): boolean => settingsCoordinator.getCommittedSettings().enableZenMode,
-    getPosition: () => settingsCoordinator.getCommittedSettings().zenModePosition,
-    savePosition: (position) => {
-      void settingsCoordinator.mutate((draft) => { draft.zenModePosition = position; });
-    },
-  });
   const find = (id: string) => conversations.find(entry => entry.id === id) ?? null;
   const pool = createSessionRuntimePool(() => plugin);
-  const messaging = new SessionMessagingService({ getHost: () => plugin, getActiveConversationId: () => conversations[0]?.id ?? null, refreshModelControls: () => undefined });
+  const messaging = new SessionMessagingService({ getHost: () => plugin, getActiveConversationId: () => conversations[0]?.id ?? null });
   cleanups.push(() => messaging.dispose());
   const plugin = await createChatFeatureHost({
     fixture: featureFixture, sessionRuntimes: pool,
-    bindSessionTools: id => messaging.bindSessionTools(id),
-    projects: createProjectsFake(),
+
+
     chatModelSelection: new ChatModelSelectionCoordinator(settingsCoordinator),
     executionPersistence: {
       registerExecutionBinding: () => undefined,
@@ -182,7 +171,6 @@ export async function createChatWorkspaceFixture(options: { enabled?: boolean; r
     getConversationList: () => conversations.map(conversation => ({ ...conversation, messageCount: conversation.messages.length, preview: '' })),
     updateConversation: async () => undefined,
     renameConversation: async () => undefined,
-    registerZenModeSource: (source: Parameters<ZenModeController['register']>[0]) => zen.register(source),
   });
 
   // Obsidian hides the contents of every unselected tab in a group.
@@ -211,7 +199,7 @@ export async function createChatWorkspaceFixture(options: { enabled?: boolean; r
   const addView = async (placement: 'left' | 'right' | 'main', ready = true) => {
     const conversation: Conversation = {
       id: `conversation-${conversations.length + 1}`,
-      title: 'Zen conversation', createdAt: testDate().getTime(), lastActivityAt: testDate().getTime(),
+      title: 'Test conversation', createdAt: testDate().getTime(), lastActivityAt: testDate().getTime(),
       providerId: 'claude',
       selectedModel: modelCatalogCases.find(candidate => candidate.id === 'claude')!.selected,
       messages: [],
@@ -271,29 +259,21 @@ export async function createChatWorkspaceFixture(options: { enabled?: boolean; r
     leaf.view = view;
     layout.leaves.push(leaf);
     view['presentation'].update();
-    view['startZenModeSource']();
     cleanups.push(() => {
-      view['stopZenModeSource']();
       view['sessions'].dispose();
     });
     return { view, tab, leaf, activeInputSlotEl, sideChatChipHostEl };
   };
 
-  zen.start();
-  cleanups.push(() => zen.dispose());
   const primary = await addView('right', options.ready ?? true);
   const views = new ClaudianViews(app.workspace, () => 'right-sidebar');
   const focusCommand = createChatFocusCommand({
-    getComposer: () => views.getInputFocusView(zen.getActiveLeaf())?.getActiveTab()?.composer ?? null,
+    getComposer: () => views.getInputFocusView()?.getActiveTab()?.composer ?? null,
     getBackgroundChat: () => views.getBackgroundSidebarLeaf(),
     revealChat: (leaf, focus) => views.activateView(leaf, focus),
   });
   return {
-    ...layout, ...primary, app, scopes, zen, views, focusCommand, sessions, settingsCoordinator, addView, addSiblingLeaf,
-    toggleChat: () => views.toggleView(zen),
+    ...layout, ...primary, app, scopes, views, focusCommand, sessions, settingsCoordinator, addView, addSiblingLeaf,
+    toggleChat: () => views.toggleView(),
   };
-}
-
-export function zenPanel(): HTMLElement | null {
-  return document.querySelector<HTMLElement>('.claudian-zen');
 }

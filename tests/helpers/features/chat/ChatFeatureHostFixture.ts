@@ -28,7 +28,7 @@ Promise<ChatFeatureHost & { settings: ClaudianSettings }> {
     get conversationLifecycle() { return unconfiguredCapability(); },
     get executionPersistence() { return unconfiguredCapability(); },
     get projects() { return unconfiguredCapability(); },
-    bindSessionTools: unconfiguredCapability,
+
     createConversation: unconfiguredCapability,
     switchConversation: unconfiguredCapability,
     assignConversationToCurrentDevice: unconfiguredCapability,
@@ -44,7 +44,6 @@ Promise<ChatFeatureHost & { settings: ClaudianSettings }> {
     getConversationSync: () => null,
     getConversationList: () => [],
     ensureConversationMetadataLoaded: unconfiguredCapability,
-    registerZenModeSource: unconfiguredCapability,
     getView: () => null,
     getAllViews: () => [],
     findConversationAcrossViews: () => null,

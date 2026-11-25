@@ -23,7 +23,6 @@ import {
   type ConversationOrigin,
   type ConversationPlacement,
   type ConversationSummary,
-  type ProjectReader,
   type SessionMetadata,
 } from '../../core/types';
 import { rewriteVaultPathAfterRename } from '../../utils/path';
@@ -55,8 +54,6 @@ export interface ConversationRepositoryDeps {
   persistence: ConversationPersistence;
   providers: ConversationProviderCatalog;
   providerSettings: ConversationProviderSettings;
-  /** Membership writes accept only existing, unarchived projects. Without it no project is live. */
-  projects?: Pick<ProjectReader, 'get'>;
 }
 
 interface ConversationDeletionState {
@@ -89,7 +86,7 @@ const IMMUTABLE_CONVERSATION_PATCH_FIELDS = [
 ] as const;
 
 /** Mutable fields plus repository-owned membership, which only dedicated methods write. */
-type ConversationMetadataPatch = ConversationMutablePatch & { projectId?: string };
+type ConversationMetadataPatch = ConversationMutablePatch;
 
 type MutableLinkedContentConversation = Omit<
   Conversation,
@@ -325,7 +322,6 @@ export class ConversationRepository {
     sessionId?: string;
     selectedModel?: string;
     linkedContentPath?: string;
-    projectId?: string;
     origin?: ConversationOrigin;
   }): Promise<Conversation> {
     const settings = this.deps.getSettings();
@@ -358,9 +354,6 @@ export class ConversationRepository {
       linkedContentPath: options?.linkedContentPath === undefined
         ? undefined
         : assertLinkedContentPath(options.linkedContentPath),
-      ...(options?.projectId !== undefined && this.#isLiveProject(options.projectId)
-        ? { projectId: options.projectId }
-        : {}),
       ...(options?.origin ? { origin: { kind: options.origin.kind, conversationId: options.origin.conversationId } } : {}),
     };
 
@@ -569,18 +562,12 @@ export class ConversationRepository {
   }
 
   /**
-   * Joins, moves, or leaves a project and pins or unpins in one write; omitted fields stay. The project is checked
-   * at the serialized write, and pinning an archived conversation is ignored.
+   * Updates pinning without altering saved legacy project metadata.
    */
   async setPlacement(id: string, placement: ConversationPlacement): Promise<void> {
-    const { projectId, isPinned } = placement;
+    const { isPinned } = placement;
     await this.#mutateMetadata(id, (conversation) => {
-      if (typeof projectId === 'string' && !this.#isLiveProject(projectId)) {
-        throw new Error(`Unknown project: ${projectId}`);
-      }
       const patch: ConversationMetadataPatch = {};
-      const nextProjectId = projectId ?? undefined;
-      if (projectId !== undefined && conversation.projectId !== nextProjectId) patch.projectId = nextProjectId;
       if (
         isPinned !== undefined
         && conversation.isPinned !== isPinned
@@ -590,11 +577,6 @@ export class ConversationRepository {
       }
       return Object.keys(patch).length > 0 ? patch : null;
     });
-  }
-
-  #isLiveProject(projectId: string): boolean {
-    const project = this.deps.projects?.get(projectId);
-    return project != null && !project.isArchived;
   }
 
   /**

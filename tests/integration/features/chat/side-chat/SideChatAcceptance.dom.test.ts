@@ -2,7 +2,6 @@
 import '@/providers';
 
 import { approvalDecisionOptions } from '@test/helpers/features/chat/approvalDecisionOptions';
-import { createProjectsFake, projectRecord } from '@test/helpers/features/chat/ProjectsFake';
 import {
   createHarness,
   releaseSideChatHarnesses,
@@ -11,8 +10,6 @@ import {
 import { testDate } from '@test/helpers/testClock';
 import { fireEvent, screen, waitFor } from '@testing-library/dom';
 
-import { buildSystemPrompt } from '@/core/prompt/mainAgent';
-import { renderProjectMemberInstructions } from '@/core/prompt/projectPrompt';
 import { t } from '@/i18n/i18n';
 
 afterEach(releaseSideChatHarnesses);
@@ -34,37 +31,6 @@ it('delivers an admitted prompt to the child even when the panel collapses durin
   expect(harness.controller.destination).toBe('main');
   expect(harness.composerEl.classList.contains('claudian-side-chat-expanded')).toBe(false);
   expect(screen.getByRole('button', { name: 'Side chat' })).toBeTruthy();
-});
-
-it.each([true, false])('freezes the side-chat Main Agent prompt and project text at start (live project: %s)', async live => {
-  const harness = await createHarness();
-  const record = projectRecord({ id: 'project-1', name: 'Launch', instructions: 'Ship the beta.' });
-  const projects = createProjectsFake(live ? [record] : []);
-  Object.assign(harness.plugin, {
-    projects,
-    getConversationSync: (id: string) => ({ id, providerId: 'claude', projectId: record.id }),
-  });
-  const { started } = await startSideChat(harness);
-  harness.backend.latest.establishChild('child-session');
-  harness.backend.latest.complete();
-  await started;
-
-  // Later project edits, deletion or the parent leaving never reach the started side chat.
-  projects.put({ ...record, name: 'Renamed', instructions: 'Changed.' });
-  Object.assign(harness.plugin, { getConversationSync: (id: string) => ({ id, providerId: 'claude' }) });
-  Object.assign((harness.plugin as { settings: object }).settings, { systemPrompt: 'Changed custom prompt.', userName: 'Changed user' });
-  const second = harness.controller.runtime!.submit({ content: 'Explore C' });
-  await waitFor(() => expect(harness.backend.latest.requests).toHaveLength(2));
-  harness.backend.latest.complete();
-  await second;
-
-  const expected = {
-    kind: 'main-agent',
-    instructions: buildSystemPrompt({
-      vaultPath: harness.plugin.providerHost.workingDirectory!, sessionInstructions: live ? renderProjectMemberInstructions(record) : undefined,
-    }),
-  };
-  expect(harness.backend.latest.requests.map(request => request.configuration.systemInstructions)).toEqual([expected, expected]);
 });
 
 it('admits only one child per main conversation while startup is pending', async () => {
@@ -197,25 +163,4 @@ it('keeps the side answer completed when cancellation follows native completion'
   await started;
   expect(screen.getByRole('button', { name: /Worked for/ })).toBeTruthy();
   expect(screen.queryByText('Interrupted')).toBeNull();
-});
-
-it('gives the child the parent conversation\'s session tools and releases them with the child', async () => {
-  const harness = await createHarness();
-  const port = { list: vi.fn(), send: vi.fn(), read: vi.fn() };
-  const release = vi.fn();
-  const bindSessionTools = vi.fn((_conversationId: string) => ({ port, dispose: release }));
-  Object.assign(harness.plugin, { bindSessionTools });
-  const { started } = await startSideChat(harness);
-  const native = harness.backend.latest;
-  // The side chat acts for its parent session, with the same tools main chat has.
-  expect(bindSessionTools.mock.calls).toEqual([['conversation-1']]);
-  expect(native.config.sessionTools).toBe(port);
-  native.establishChild('child-session');
-  native.complete();
-  await started;
-  expect(release).not.toHaveBeenCalled();
-
-  await harness.controller.discard();
-  expect(native.disposeCalls).toBe(1);
-  expect(release).toHaveBeenCalledTimes(1);
 });

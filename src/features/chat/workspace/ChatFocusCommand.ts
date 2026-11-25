@@ -14,6 +14,7 @@ export interface ChatFocusTargets {
 export function createChatFocusCommand(targets: ChatFocusTargets): Command {
   return {
     // Retain the original command ID so existing user hotkeys keep working.
+    // Preserve existing Obsidian hotkey bindings.
     id: 'focus-zen-mode-input',
     name: 'Toggle chat input focus',
     checkCallback: (checking: boolean) => {

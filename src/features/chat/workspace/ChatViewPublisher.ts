@@ -26,9 +26,7 @@ export class ChatViewPublisher {
     const commandsChanged = JSON.stringify(settings.hiddenCommands) !== JSON.stringify(previous.hiddenCommands);
     const sessionsChanged = settings.enableAutoTitleGeneration !== previous.enableAutoTitleGeneration
       || settings.sessionManagerOrganization !== previous.sessionManagerOrganization
-      || settings.sessionManagerSort !== previous.sessionManagerSort
-      || JSON.stringify(settings.projectOrder) !== JSON.stringify(previous.projectOrder)
-      || JSON.stringify(settings.expandedProjectIds) !== JSON.stringify(previous.expandedProjectIds);
+      || settings.sessionManagerSort !== previous.sessionManagerSort;
     if (layoutChanged || commandsChanged || sessionsChanged) {
       for (const view of this.deps.views.getAllViews()) {
         if (layoutChanged) publish(() => view.refreshDualPaneLayout());

@@ -4,7 +4,6 @@ import { DEFAULT_CLAUDIAN_SETTINGS } from '@test/helpers/defaultSettings';
 import { createObsidianPlugin } from '@test/helpers/ObsidianSettingsHost';
 import { App } from 'obsidian';
 
-import { ProjectStore } from '@/app/projects/ProjectStore';
 import { SettingsCoordinator } from '@/app/settings/SettingsCoordinator';
 import { type ApplicationDomains, startApplication } from '@/app/startup/ApplicationStartup';
 import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
@@ -18,8 +17,6 @@ import { getCodexProviderSettings } from '@/providers/codex/settings';
 vi.mock('fs');
 
 import '@/providers';
-
-
 
 
 describe('startApplication', () => {
@@ -510,9 +507,7 @@ describe('startApplication', () => {
 
       let markLoaded!: () => void;
       const metadataLoaded = new Promise<void>(resolve => { markLoaded = resolve; });
-      const loadProjects = vi.spyOn(ProjectStore.prototype, 'load');
       const domains = await loadApplication({ onAllMetadataLoaded: markLoaded });
-      expect(loadProjects).not.toHaveBeenCalled();
       domains.sessionMetadata.scheduleRemainingLoad();
       await metadataLoaded;
       expect(domains.conversations.getConversationList()).toEqual([

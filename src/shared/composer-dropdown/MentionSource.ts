@@ -15,11 +15,9 @@ export interface MentionSourceCallbacks {
 }
 
 export interface MentionSourceOptions {
-  readonly getSessionItems?: () => readonly SessionMentionItem[];
   readonly formatVaultFileMention?: (path: string) => string;
 }
 
-type SessionMentionItem = ComposerDropdownValueItem & { readonly mtime: number };
 
 /** Case-insensitive containment shared by the open-trigger check and result filtering. */
 function containsQuery(query: string, ...fields: readonly string[]): boolean {
@@ -51,7 +49,7 @@ export class MentionSource implements ComposerDropdownSource {
     signal: AbortSignal,
   ): readonly ComposerDropdownValueItem[] {
     if (signal.aborted) throw new DOMException('Mention lookup was cancelled.', 'AbortError');
-    return this.#vaultItems(match.query.toLocaleLowerCase(), this.options.getSessionItems?.() ?? []);
+    return this.#vaultItems(match.query.toLocaleLowerCase());
   }
 
   match(input: string, cursor: number): ComposerTriggerMatch | null {
@@ -106,23 +104,21 @@ export class MentionSource implements ComposerDropdownSource {
       const path = normalizeFolderPath(folder.path);
       return path !== '' && containsQuery(query, folder.name, path);
     })
-      || this.callbacks.getCachedVaultFiles().some(file => containsQuery(query, file.name, file.path))
-      || (this.options.getSessionItems?.() ?? []).some(item => containsQuery(query, item.label));
+      || this.callbacks.getCachedVaultFiles().some(file => containsQuery(query, file.name, file.path));
   }
 
-  #vaultItems(query: string, sessions: readonly SessionMentionItem[]): readonly ComposerDropdownValueItem[] {
+  #vaultItems(query: string): readonly ComposerDropdownValueItem[] {
     type Scored = {
       readonly path: string;
       readonly mtime: number;
       readonly name: string;
       readonly starts: boolean;
-      readonly type: 'file' | 'folder' | 'session';
-      readonly item?: ComposerDropdownValueItem;
+      readonly type: 'file' | 'folder';
     };
     const compare = (left: Scored, right: Scored): number => {
       if (left.starts !== right.starts) return left.starts ? -1 : 1;
       if (left.mtime !== right.mtime) return right.mtime - left.mtime;
-      if (left.type !== right.type) return ['file', 'folder', 'session'].indexOf(left.type) - ['file', 'folder', 'session'].indexOf(right.type);
+      if (left.type !== right.type) return ['file', 'folder'].indexOf(left.type) - ['file', 'folder'].indexOf(right.type);
       return left.name.localeCompare(right.name);
     };
     // Keep a small sorted result set instead of sorting every matching vault entry.
@@ -187,13 +183,9 @@ export class MentionSource implements ComposerDropdownSource {
       retain(folders, { ...folder, mtime: folderMtimes.get(folder.path) ?? 0 }, 50);
     }
 
-    const sessionItems: Scored[] = sessions.filter(item => containsQuery(query, item.label))
-      .map(item => ({ path: item.id, name: item.label, mtime: item.mtime,
-        starts: item.label.toLocaleLowerCase().startsWith(query), type: 'session', item }));
-    return [...folders, ...fileItems, ...sessionItems]
+    return [...folders, ...fileItems]
       .sort(compare)
       .map((scored): ComposerDropdownValueItem => {
-        if (scored.item) return scored.item;
         if (scored.type === 'folder') {
           return {
             className: 'is-vault-folder',

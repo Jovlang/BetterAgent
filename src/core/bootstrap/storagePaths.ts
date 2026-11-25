@@ -8,7 +8,6 @@ export const LEGACY_SESSIONS_PATH = '.claude/sessions';
 export const SESSIONS_PATH = `${CLAUDIAN_STORAGE_PATH}/sessions`;
 export const DEVICE_SESSIONS_PATH = `${SESSIONS_PATH}/devices`;
 /** Folder of project record files (`<id>.json`). */
-export const PROJECTS_PATH = `${CLAUDIAN_STORAGE_PATH}/projects`;
 
 const SAFE_METADATA_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 

@@ -1,7 +1,7 @@
 import { decodeTabWorkspaceViewState } from '@/core/bootstrap/tabManagerState';
 
 describe('decodeTabWorkspaceViewState', () => {
-  it('decodes a complete versioned view workspace', () => {
+  it('decodes a versioned workspace, ignoring retired tab display preferences', () => {
     expect(decodeTabWorkspaceViewState({
       version: 1,
       activeTabId: 'tab-2',
@@ -9,14 +9,13 @@ describe('decodeTabWorkspaceViewState', () => {
         { conversationId: 'conversation-1', tabId: 'tab-1', label: 'ACP restore' },
         { conversationId: null, draftModel: 'codex:gpt-5', tabId: 'tab-2' },
       ],
-      expandedTitleTabIds: ['tab-2'],
+      expandedTitleTabIds: ['missing-tab'],
     })).toEqual({
       activeTabId: 'tab-2',
       openTabs: [
         { conversationId: 'conversation-1', tabId: 'tab-1', label: 'ACP restore' },
         { conversationId: null, draftModel: 'codex:gpt-5', tabId: 'tab-2' },
       ],
-      expandedTitleTabIds: ['tab-2'],
     });
   });
 
@@ -41,12 +40,6 @@ describe('decodeTabWorkspaceViewState', () => {
       version: 1,
       activeTabId: 'missing-tab',
       openTabs: [{ conversationId: null, tabId: 'tab-1' }],
-    },
-    {
-      version: 1,
-      activeTabId: 'tab-1',
-      openTabs: [{ conversationId: null, tabId: 'tab-1' }],
-      expandedTitleTabIds: ['missing-tab'],
     },
     ...['', '   ', ' padded ', 42, null, 'x'.repeat(33)].map(label => ({
       version: 1,

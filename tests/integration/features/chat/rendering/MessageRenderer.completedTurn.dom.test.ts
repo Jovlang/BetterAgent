@@ -6,7 +6,6 @@ import { createHarness as createExecutionHarness, FakeBranchSession } from '@tes
 import { createConversationPorts } from '@test/helpers/ConversationPorts';
 import { createChatFeatureHost } from '@test/helpers/features/chat/ChatFeatureHostFixture';
 import { conversationRecord } from '@test/helpers/features/chat/ConversationFixture';
-import { createProjectsFake } from '@test/helpers/features/chat/ProjectsFake';
 import { createSessionRuntimePool } from '@test/helpers/features/chat/SessionRuntimePoolHarness';
 import { testDate } from '@test/helpers/testClock';
 import { fireEvent, waitFor, within } from '@testing-library/dom';
@@ -523,13 +522,13 @@ it.each([
 });
 
 it.each([
-  [2888, 118846, '24.3 tok/s', '2,888 tokens · 1m 58.8s'],
-  [300, 119960, '2.5 tok/s', '300 tokens · 2m 0s'],
-  [90, 3000, '30.0 tok/s', '90 tokens · 3s'],
-])('summarizes %i tokens over %ims in the tooltip', (outputTokens, durationMs, rate, tooltip) => {
+  [2888, 118846, '24.3 tok/s', '1m 58.8s'],
+  [300, 119960, '2.5 tok/s', '2m 0s'],
+  [90, 3000, '30.0 tok/s', '3s'],
+])('summarizes %i tokens over %ims in the tooltip', (outputTokens, durationMs, rate, durationLabel) => {
   const { renderer, messagesEl } = setup();
   renderer.renderMessages([messages[0], { ...messages[2], turnStats: { outputTokens, durationMs } }], () => 'Hello');
-  expect(within(messagesEl).getByText(rate).getAttribute('aria-label')).toBe(tooltip);
+  expect(within(messagesEl).getByText(rate).getAttribute('aria-label')).toBe(outputTokens.toLocaleString() + ' tokens · ' + durationLabel);
   renderer.dispose();
 });
 
@@ -638,7 +637,7 @@ it.each([true, false])('enables branches after switching and native history corr
     treeBranches: ['native-u2'], ...(hasNativeId ? { userMessageId: 'native-u2' } : {}) };
   const plugin = await createChatFeatureHost({ settings: { mediaFolder: '' }, updateConversation: vi.fn(),
     getConversationById: vi.fn().mockResolvedValue(conversationRecord('pi-chat', { providerId: 'pi', messages: [first, second] })),
-    getConversationSummary: () => conversationRecord('pi-chat', { providerId: 'pi' }), projects: createProjectsFake() });
+    getConversationSummary: () => conversationRecord('pi-chat', { providerId: 'pi' }) });
   const native = new FakeBranchSession('pi', 'pi-session-1');
   native.branchState = { branches: { 'native-u1': ['native-u1'], 'native-u2': ['native-u2'] }, userMessageIds: { u1: 'native-u1', u2: 'native-u2' } };
   native.navigateConversationBranch.mockResolvedValue({ status: 'committed', messages: [first] });
@@ -745,10 +744,10 @@ it('previews a branch without saving it and restores history when focus leaves t
     sessionId: null, createdAt: testDate().getTime(), lastActivityAt: testDate().getTime() };
   const pool = createSessionRuntimePool(() => plugin);
   const messaging = new SessionMessagingService({
-    getHost: () => plugin, getActiveConversationId: () => 'pi-chat', refreshModelControls: () => undefined,
+    getHost: () => plugin, getActiveConversationId: () => 'pi-chat',
   });
   const plugin: ChatFeatureHost = await createChatFeatureHost({
-    sessionRuntimes: pool, bindSessionTools: id => messaging.bindSessionTools(id), updateConversation: vi.fn(), projects: createProjectsFake(),
+    sessionRuntimes: pool,  updateConversation: vi.fn(),
     getConversationById: async id => (id === conversation.id ? conversation : null),
     executionPersistence: {
       registerExecutionBinding: vi.fn(), releaseExecutionBinding: vi.fn(),
@@ -831,11 +830,11 @@ it('reuses created message elements instead of searching the growing history for
 });
 
 it.each([65, undefined])('localizes completed work disclosures (duration: %s)', async durationSeconds => {
-  const englishLabel = durationSeconds === undefined ? t('chat.worked') : t('chat.zen.workedFor', { duration: '01:05' });
+  const englishLabel = durationSeconds === undefined ? t('chat.worked') : t('chat.workedFor', { duration: '01:05' });
   setLocale('zh-CN');
   const { renderer, messagesEl } = setup();
   try {
-    const expectedLabel = durationSeconds === undefined ? t('chat.worked') : t('chat.zen.workedFor', { duration: '01:05' });
+    const expectedLabel = durationSeconds === undefined ? t('chat.worked') : t('chat.workedFor', { duration: '01:05' });
     expect(expectedLabel).not.toBe(englishLabel);
     renderer.renderMessages([...messages.slice(0, 2), { ...messages[2], durationSeconds }], () => 'Hello');
     await Promise.resolve();

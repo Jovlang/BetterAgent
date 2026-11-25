@@ -162,7 +162,7 @@ export class CodexExecutionSession
         this.threads.unload();
         this.serverRequestRouter.setDynamicToolRegistry(null);
       },
-    }, config.sessionTools);
+    });
     this.threads = new CodexThreadBinder(
       {
         threadResumed: thread => this.subagents.seed(thread),

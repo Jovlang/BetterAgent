@@ -2,7 +2,6 @@
 import {
   createChatWorkspaceFixture,
   installChatWorkspaceHooks,
-  zenPanel,
 } from '@test/helpers/features/chat/ChatWorkspaceFixture';
 import { testDate } from '@test/helpers/testClock';
 import { within } from '@testing-library/dom';
@@ -30,60 +29,10 @@ describe('toggle chat view hotkey', () => {
 
     expect(leaf.parent!.selected === outline).toBe(true);
     expect(rightSplit.collapsed).toBe(false);
-    expect(zenPanel()).toBeNull();
 
     await toggleChat();
 
     expect(leaf.parent!.selected).toBe(leaf);
-    expect(document.activeElement).toBe(within(tab.dom.inputComposerEl).getByRole('textbox', { name: 'Message' }));
-  });
-
-  it('hides and re-shows the zen panel while the sidebar stays collapsed', async () => {
-    const { toggleChat, rightSplit, setCollapsed, tab, activeInputSlotEl, workspace, noteEditor } = await createChatWorkspaceFixture();
-    tab.dom.inputEl.value = 'Unsent draft';
-    setCollapsed(rightSplit, true);
-    expect(zenPanel()!.contains(tab.dom.inputComposerEl)).toBe(true);
-
-    await toggleChat();
-
-    expect(zenPanel()).toBeNull();
-    expect(rightSplit.collapsed).toBe(true);
-    expect(tab.dom.inputComposerEl.parentElement).toBe(activeInputSlotEl);
-    workspace.trigger('resize');
-    expect(zenPanel()).toBeNull();
-
-    noteEditor.focus();
-    expect(document.activeElement).toBe(noteEditor);
-    await toggleChat();
-
-    expect(zenPanel()!.contains(tab.dom.inputComposerEl)).toBe(true);
-    expect(rightSplit.collapsed).toBe(true);
-    expect(tab.dom.inputEl.value).toBe('Unsent draft');
-    expect(document.activeElement).toBe(within(tab.dom.inputComposerEl).getByRole('textbox', { name: 'Message' }));
-    expect(workspace.revealLeaf).not.toHaveBeenCalled();
-
-    // Hiding lasts only until the sidebar reopens.
-    await toggleChat();
-    setCollapsed(rightSplit, false);
-    setCollapsed(rightSplit, true);
-    expect(zenPanel()!.contains(tab.dom.inputComposerEl)).toBe(true);
-  });
-
-  it.each([false, true])('collapses a chat-only group with another chat=%s, then shows zen', async (anotherChat) => {
-    const { toggleChat, addView, rightSplit, workspace, tab, noteEditor } = await createChatWorkspaceFixture();
-    if (anotherChat) await addView('right');
-
-    await toggleChat();
-
-    expect(rightSplit.collapsed).toBe(true);
-    workspace.trigger('layout-change');
-    expect(zenPanel()).toBeNull();
-
-    noteEditor.focus();
-    await toggleChat();
-
-    expect(zenPanel()).not.toBeNull();
-    expect(rightSplit.collapsed).toBe(true);
     expect(document.activeElement).toBe(within(tab.dom.inputComposerEl).getByRole('textbox', { name: 'Message' }));
   });
 
@@ -105,22 +54,8 @@ describe('toggle chat view hotkey', () => {
     expect(workspace.revealLeaf).not.toHaveBeenCalledWith(central.leaf);
   });
 
-  it('ends hiding when the hidden chat\'s sidebar reopens while the other stays collapsed', async () => {
-    const { toggleChat, addView, leftSplit, rightSplit, setCollapsed, tab } = await createChatWorkspaceFixture();
-    const left = await addView('left');
-    setCollapsed(leftSplit, true);
-    expect(zenPanel()!.contains(left.tab.dom.inputComposerEl)).toBe(true);
-
-    await toggleChat();
-    setCollapsed(rightSplit, true);
-    expect(zenPanel()).toBeNull();
-
-    setCollapsed(leftSplit, false);
-    expect(zenPanel()!.contains(tab.dom.inputComposerEl)).toBe(true);
-  });
-
-  it('collapses and restores a lone sidebar chat when zen mode is off and a main-area chat comes first', async () => {
-    const { toggleChat, addView, leaves, leaf, rightSplit, workspace } = await createChatWorkspaceFixture({ enabled: false });
+  it('collapses and restores a lone sidebar chat and a main-area chat comes first', async () => {
+    const { toggleChat, addView, leaves, leaf, rightSplit, workspace } = await createChatWorkspaceFixture();
     const central = await addView('main');
     leaves.unshift(leaves.pop()!);
 
@@ -134,15 +69,14 @@ describe('toggle chat view hotkey', () => {
     expect(workspace.revealLeaf).not.toHaveBeenCalledWith(central.leaf);
   });
 
-  it('reveals a sidebar chat when zen mode is off', async () => {
-    const { toggleChat, rightSplit, setCollapsed, workspace, leaf } = await createChatWorkspaceFixture({ enabled: false });
+  it('reveals a sidebar chat', async () => {
+    const { toggleChat, rightSplit, setCollapsed, workspace, leaf } = await createChatWorkspaceFixture();
     setCollapsed(rightSplit, true);
 
     await toggleChat();
 
     expect(workspace.revealLeaf).toHaveBeenCalledWith(leaf);
     expect(rightSplit.collapsed).toBe(false);
-    expect(zenPanel()).toBeNull();
   });
 });
 

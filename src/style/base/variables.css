@@ -53,7 +53,7 @@ body.theme-light .claudian-inline-menu-layer {
   --claudian-selection-check: #16a34a;
 }
 
-/* Active-provider aliases (chat, zen, and the inline edit composer and its menu layer): `--claudian-provider-logo` colours provider icons, `--claudian-brand` the other accents.
+/* Active-provider aliases (chat and the inline edit composer and its menu layer): `--claudian-provider-logo` colours provider icons, `--claudian-brand` the other accents.
    A provider tab in the model menu or settings takes its own provider's. */
 .claudian-container[data-provider="claude"],
 .claudian-inline-input-container[data-provider="claude"],

@@ -2,11 +2,11 @@
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 
+import { LoopbackSessionToolServer } from '@test/helpers/LoopbackSessionToolServer';
 import { hasNativeWSL } from '@test/helpers/WSLNativeTarget';
 
 import { resolveExecutionTargetAsync } from '@/core/process/execution-target/ExecutionTargetResolver';
 import { buildTargetLaunchSpec } from '@/core/process/execution-target/TargetLaunchSpec';
-import { LoopbackSessionToolServer } from '@/core/session-tools/LoopbackSessionToolServer';
 import type { SessionToolRoute } from '@/core/session-tools/SessionToolEndpoint';
 import { createWSLSessionToolRelay } from '@/core/session-tools/WSLSessionToolRelay';
 

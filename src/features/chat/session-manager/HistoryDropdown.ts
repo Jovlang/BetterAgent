@@ -21,7 +21,7 @@ let nextElementId = 0;
 
 export interface HistoryDropdownDeps {
   plugin: ChatFeatureHost;
-  navigation: Pick<SessionSurfaceNavigation, 'getConversationStatus' | 'openConversation' | 'startProjectConversation'>;
+  navigation: Pick<SessionSurfaceNavigation, 'getConversationStatus' | 'openConversation'>;
   shared: SessionSurfaceShared;
 }
 
@@ -43,14 +43,14 @@ interface SearchBar {
 function newSearch(): DropdownSearch {
   return {
     query: '',
-    collapse: new SessionGroupCollapse({ projectsStartExpanded: true }),
+    collapse: new SessionGroupCollapse(),
     activeConversationId: null,
   };
 }
 
 /**
  * The compact layout's history button and drop-up session menu: a search field over the list, tab-aware open
- * states, open-in-new-tab, close-on-select, archive navigation, and the same projects section as the sidebar.
+ * states, open-in-new-tab, close-on-select, and archive navigation.
  */
 export class HistoryDropdown {
   private containerEl: HTMLElement | null = null;
@@ -67,7 +67,7 @@ export class HistoryDropdown {
   private readonly collapse: SessionGroupCollapse;
 
   constructor(private readonly deps: HistoryDropdownDeps) {
-    this.collapse = new SessionGroupCollapse({ host: deps.plugin });
+    this.collapse = new SessionGroupCollapse();
   }
 
   /** True while the search composes IME input; Escape belongs to the composition. */
@@ -367,11 +367,6 @@ export class HistoryDropdown {
       },
       isGroupCollapsed: groupKey => collapse.isCollapsed(groupKey),
       onGroupCollapseChange: (groupKey, collapsed) => collapse.setCollapsed(groupKey, collapsed),
-      onStartProjectConversation: async (projectId: string) => {
-        shared.setArchiveView(false);
-        await navigation.startProjectConversation(projectId);
-        this.close();
-      },
       signal,
     });
   }

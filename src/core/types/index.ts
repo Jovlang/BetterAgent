@@ -27,19 +27,6 @@ export {
   type UsageInfo,
   VIEW_TYPE_CLAUDIAN,
 } from './chat';
-export {
-  type ProjectCreateInput,
-  ProjectMemoryConflictError,
-  type ProjectMemoryContent,
-  type ProjectMemoryOperations,
-  ProjectMemoryPathTakenError,
-  type ProjectMemoryReadResult,
-  type ProjectMemorySaveOptions,
-  type ProjectMutations,
-  type ProjectReader,
-  type ProjectRecord,
-  type ProjectUpdatePatch,
-} from './project';
 export { type ProviderId } from './provider';
 
 // Settings and command types
@@ -56,7 +43,6 @@ export {
   type SlashCommand,
   type StoredChatModelSelection,
   type StoredInlineEditModelSelection,
-  type ZenModePosition,
 } from './settings';
 
 // Diff types

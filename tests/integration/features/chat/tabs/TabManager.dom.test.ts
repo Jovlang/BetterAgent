@@ -5,7 +5,6 @@ import { axe } from '@test/helpers/accessibility';
 import { claudeCatalogFixture } from '@test/helpers/claudeModels';
 import { approvalDecisionOptions } from '@test/helpers/features/chat/approvalDecisionOptions';
 import { createChatFeatureHost } from '@test/helpers/features/chat/ChatFeatureHostFixture';
-import { createProjectsFake } from '@test/helpers/features/chat/ProjectsFake';
 import { createSessionRuntimePool } from '@test/helpers/features/chat/SessionRuntimePoolHarness';
 import { FakeSideBackend } from '@test/helpers/features/chat/SideChatSessionHarness';
 import { testDate } from '@test/helpers/testClock';
@@ -52,16 +51,16 @@ async function setup() {
   const messaging = new SessionMessagingService({
     getHost: () => plugin,
     getActiveConversationId: () => manager.getActiveTab()?.conversationId ?? null,
-    refreshModelControls: () => undefined,
+
   });
   onTestFinished(() => messaging.dispose());
   const pool = createSessionRuntimePool(() => plugin);
   const plugin = await createChatFeatureHost({
     sessionRuntimes: pool,
-    bindSessionTools: id => messaging.bindSessionTools(id),
+
     app, settings,
     getConversationSummary: findConversation, getConversationSync: findConversation,
-    projects: createProjectsFake(),
+
     getCachedConversation: findConversation,
     getConversationById: async (id: string) => structuredClone(findConversation(id)),
     getConversationList: () => [...conversations.values()].map(value => ({ ...value, messageCount: value.messages.length, preview: '' })),
@@ -96,7 +95,7 @@ it('badges the tab and notifies the tab bar while its side chat awaits approval'
     const starting = tab.controllers.sideChatController.handleCommandSubmission('Explain the answer', []);
     await waitFor(() => expect(backend.sessions[0]?.requests).toHaveLength(1));
     const native = backend.latest;
-    expect(manager.getTabBarItems()[0].attention).toBeNull();
+    expect(tab.session.runtime.statusAttention).toBeNull();
 
     const approval = native.config.interactionPort.requestApproval({
       decisionOptions: approvalDecisionOptions(),
@@ -107,13 +106,13 @@ it('badges the tab and notifies the tab bar while its side chat awaits approval'
 
     await waitFor(() => expect(tab.controllers.sideChatController.runtime?.state.requiresAction).toBe(true));
     expect(tab.state.attention).toBeNull();
-    expect(manager.getTabBarItems()[0].attention).toMatchObject({ kind: 'action-required' });
+    expect(tab.session.runtime.statusAttention).toMatchObject({ kind: 'action-required' });
     expect(onTabAttentionChanged).toHaveBeenLastCalledWith(tab.id, expect.objectContaining({ kind: 'action-required' }));
 
     native.config.interactionPort.dismissInteraction('side-approval', 'superseded');
     native.complete();
     await starting;
-    await waitFor(() => expect(manager.getTabBarItems()[0].attention).toBeNull());
+    await waitFor(() => expect(tab.session.runtime.statusAttention).toBeNull());
     expect(onTabAttentionChanged).toHaveBeenLastCalledWith(tab.id, null);
   } finally {
     await manager.destroy();
@@ -133,7 +132,7 @@ it('keeps execution alive across tab rebind and close, restoring the owner and u
   const native = backend.latest;
   first.controllers.drafts.restore('main', { content: 'Unsent draft' });
   try {
-    expect(manager.getTabBarItems()).toEqual([expect.objectContaining({ id: first.id, isWorking: true })]);
+    expect(manager.isTabWorking(first.id)).toBe(true);
     await manager.openConversation('second');
     const current = manager.getActiveTab()!;
     expect([current.id, current.conversationId, current.label]).toEqual([first.id, 'second', 'Research']);
@@ -312,7 +311,7 @@ it('keeps an unread result during background work and acknowledges it only when 
     native.emitText('Ready for review');
     native.complete();
     await sending;
-    const item = () => manager.getTabBarItems().find(tab => tab.id === first.id)!;
+    const item = () => ({ attention: first.session.runtime.statusAttention, isWorking: manager.isTabWorking(first.id) });
     expect(item().attention).toMatchObject({ kind: 'review', outcome: 'completed' });
     const attention = item().attention;
     native.emitBackgroundEvent({ type: 'background_turn_started' });
@@ -343,10 +342,9 @@ it.each(['running', 'idle'] as const)('uses the target session runtime to guard 
       setConversationArchived: async () => undefined,
       setConversationsPlacement: async () => undefined,
       restoreConversations: async () => undefined,
-      archiveProjectIfEmpty: async () => undefined,
       archiveConversationsIf: async () => 0,
     },
-    projects: plugin.projects,
+
     views: { getAllViews: () => [view as unknown as ChatViewHost] },
   });
   Object.defineProperty(plugin, 'conversationLifecycle', { value: lifecycle, configurable: true });
@@ -360,7 +358,6 @@ it.each(['running', 'idle'] as const)('uses the target session runtime to guard 
       openConversation: id => manager.openConversation(id),
       openSessionConversation: id => manager.openConversation(id),
       startLinkedContentConversation: path => manager.viewerSlot.startDraft({ linkedContentPath: path }),
-      startProjectConversation: id => manager.viewerSlot.startDraft({ projectId: id }),
     },
     getActiveTab: () => manager.getActiveTab(), isSidebarVisible: () => wide,
     canCreateTab: () => manager.canCreateTab(), requestNew: () => { void manager.createTab(); },

@@ -1,6 +1,6 @@
 import { Notice } from 'obsidian';
 
-/** Runs a session or project action, reporting any failure once as a notice. */
+/** Runs a session action, reporting any failure once as a notice. */
 export function runSessionAction(action: () => unknown, failureMessage: string): void {
   void (async () => {
     try {

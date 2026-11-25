@@ -11,7 +11,6 @@ import {
   type SideChatDOMHarness,
   startSideChat,
 } from '@test/helpers/features/chat/SideChatDOMHarness';
-import { testDate } from '@test/helpers/testClock';
 import { waitFor } from '@testing-library/dom';
 import { Component } from 'obsidian';
 
@@ -551,36 +550,6 @@ it.each([false, true])('forks from the last completed reply while main runs, mai
   expect(main.routing.state.messages.at(-1)).toMatchObject({ assistantMessageId: 'checkpoint-running', role: 'assistant' });
 });
 
-it('forks the settled transcript while the admitted main turn is still preparing session references', async () => {
-  const harness = await createHarness();
-  const hydration = deferred<unknown>();
-  const entered = deferred<void>();
-  Object.assign(harness.plugin, {
-    getConversationById: () => { entered.resolve(); return hydration.promise; },
-    findConversationAcrossViews: () => null,
-  });
-  const settled = harness.tab.state.messages.map(message => ({ ...message }));
-  const main = createRunningMainRouting(harness, harness.tab.state.messages, 'Compare @[Old](claudian-session:conv-1-source)');
-  await entered.promise;
-  expect(main.routing.state.isStreaming).toBe(true);
-
-  harness.inputEl.value = '/side Explore B';
-  const sideSent = main.routing.controller.sendMessage();
-  await waitFor(() => expect(harness.backend.sessions).toHaveLength(1));
-  expect(harness.backend.latest.requests[0].conversationHistory).toEqual(settled);
-  harness.backend.latest.complete();
-  await sideSent;
-
-  hydration.resolve({
-    id: 'conv-1-source', sessionId: null, title: 'Old', providerId: 'claude', createdAt: testDate().getTime(), lastActivityAt: testDate().getTime(),
-    messages: [{ id: 'u', role: 'user', content: 'source prompt', timestamp: testDate().getTime() }],
-  });
-  await main.mainStarted;
-  main.releaseMain();
-  await main.mainSent;
-  expect(main.routing.state.messages.at(-1)).toMatchObject({ assistantMessageId: 'checkpoint-running', role: 'assistant' });
-});
-
 it('refuses a side chat while main runs when the provider cannot fork beside a running turn', async () => {
   const harness = await createHarness({ supportsForkDuringTurn: false });
   const main = createRunningMainRouting(harness, harness.tab.state.messages);
@@ -681,100 +650,7 @@ it.each([false, true])('keeps side drafts separate while a branch submission set
   expect(harness.drafts.capture('main').content).toBe(cancelled ? 'Edited main' : '');
 });
 
-it.each([false, true])('keeps the captured side mention after collapse (cancel main: %s)', async cancelMain => {
-  let mainCancellationCount = 0;
-  const harness = await createHarness();
-  const routing = createRouting(harness);
-  const { started } = await startSideChat(harness);
-  harness.backend.latest.establishChild('child-session');
-  harness.backend.latest.complete();
-  await started;
-  const hydration = deferred<Awaited<ReturnType<typeof harness.plugin.getConversationById>>>();
-  const entered = deferred<void>();
-  Object.assign(routing.deps.plugin, {
-    getConversationById: () => { entered.resolve(); return hydration.promise; },
-    findConversationAcrossViews: () => null,
-  });
-  harness.inputEl.value = '@[Old](claudian-session:conv-1-source)';
-  const sending = routing.controller.sendMessage();
-  await entered.promise;
-  harness.controller.collapse();
-  if (cancelMain) {
-    routing.native.respond.mockImplementationOnce(run => run.emit({ type: 'turn_started', accepted: true }));
-    const running = routing.controller.sendMessage({ content: 'Main work' });
-    const mainRun = await routing.native.waitForRun();
-    routing.controller.cancelStreaming();
-    await running;
-    mainCancellationCount = mainRun.cancelCalls;
-  }
-  harness.inputEl.value = 'new main draft';
-  hydration.resolve({
-    id: 'conv-1-source', sessionId: null, title: 'Renamed', providerId: 'codex', createdAt: testDate().getTime(), lastActivityAt: testDate().getTime(),
-    messages: [{ id: 'u', role: 'user', content: 'source prompt', timestamp: testDate().getTime() }],
-  });
-  await waitFor(() => expect(harness.backend.latest.requests).toHaveLength(2));
-  expect(harness.backend.latest.requests[1]).toMatchObject({
-    input: [{ type: 'text', text: '@"Renamed"' }],
-    context: { sessionReferences: [{ id: 'conv-1-source' }] },
-  });
-  expect(harness.controller.runtime?.state.messages.find(message => message.content === '@"Renamed"')?.displayContent).toBe('@"Renamed"');
-  harness.backend.latest.complete();
-  await sending;
-  expect(routing.mainExecutions).toEqual(cancelMain ? ['Main work'] : []);
-  expect(mainCancellationCount).toBe(cancelMain ? 1 : 0);
-  expect(harness.inputEl.value).toBe('new main draft');
-});
-
-it('shows side preparation as working and cancels it through the selected destination control', async () => {
-  const harness = await createHarness();
-  const routing = createRouting(harness);
-  const { started } = await startSideChat(harness);
-  harness.backend.latest.establishChild('child-session');
-  harness.backend.latest.complete();
-  await started;
-  const hydration = deferred<Awaited<ReturnType<typeof harness.plugin.getConversationById>>>();
-  const entered = deferred<void>();
-  Object.assign(routing.deps.plugin, { getConversationById: () => { entered.resolve(); return hydration.promise; } });
-  const token = '@[Old](claudian-session:conv-1-source)';
-  harness.inputEl.value = token;
-  const sending = routing.controller.sendMessage();
-  await entered.promise;
-  expect(harness.controller.runtime?.isWorking).toBe(true);
-  expect(cancelSelectedDestinationTurn(routing.tab)).toBe(true);
-  hydration.resolve(null);
-  await sending;
-  expect(harness.backend.latest.requests).toHaveLength(1);
-  expect(harness.inputEl.value).toBe(token);
-});
-
-it('runs a queued side command after mention preparation fails', async () => {
-  const harness = await createHarness();
-  const routing = createRouting(harness);
-  const { started } = await startSideChat(harness);
-  harness.backend.latest.establishChild('child-session');
-  harness.backend.latest.complete();
-  await started;
-  const hydration = deferred<Awaited<ReturnType<typeof harness.plugin.getConversationById>>>();
-  const entered = deferred<void>();
-  Object.assign(routing.deps.plugin, { getConversationById: () => { entered.resolve(); return hydration.promise; } });
-  const token = '@[Old](claudian-session:conv-1-source)';
-  harness.inputEl.value = token;
-  const sending = routing.controller.sendMessage();
-  await entered.promise;
-  harness.controller.collapse();
-  harness.inputEl.value = '/btw Later side question';
-  await routing.controller.sendMessage();
-  expect(harness.controller.runtime?.queuedCount).toBe(1);
-  hydration.resolve(null);
-  await sending;
-  await waitFor(() => expect(harness.backend.latest.requests).toHaveLength(2));
-  expect(harness.backend.latest.requests[1].input).toEqual([{ type: 'text', text: 'Later side question' }]);
-  expect(harness.controller.runtime?.queuedCount).toBe(0);
-  expect(harness.drafts.capture('side').content).toBe(token);
-  harness.backend.latest.complete();
-});
-
-it.each(['side', 'btw'].flatMap(command => ['new', 'collapsed', 'queued'].map(mode => ({ command, mode }))))('resolves mentions in /$command ($mode)', async ({ command, mode }) => {
+it.each(['side', 'btw'].flatMap(command => ['new', 'collapsed', 'queued'].map(mode => ({ command, mode }))))('keeps old mention labels without loading their sessions in /$command ($mode)', async ({ command, mode }) => {
   const harness = await createHarness();
   const routing = createRouting(harness);
   let active: Promise<unknown> | undefined;
@@ -789,13 +665,7 @@ it.each(['side', 'btw'].flatMap(command => ['new', 'collapsed', 'queued'].map(mo
     harness.controller.collapse();
   }
   const token = '@[Old](claudian-session:conv-1-source)';
-  Object.assign(routing.deps.plugin, {
-    getConversationById: async () => ({
-      id: 'conv-1-source', sessionId: null, title: 'Renamed', providerId: 'codex', createdAt: testDate().getTime(), lastActivityAt: testDate().getTime(),
-      messages: [{ id: 'u', role: 'user', content: 'source prompt', timestamp: testDate().getTime() }],
-    }),
-    findConversationAcrossViews: () => null,
-  });
+  const readHistory = vi.spyOn(routing.deps.plugin, 'getConversationById');
   harness.inputEl.value = `/${command} Use ${token}`;
   const sending = routing.controller.sendMessage();
   if (mode === 'queued') {
@@ -807,81 +677,8 @@ it.each(['side', 'btw'].flatMap(command => ['new', 'collapsed', 'queued'].map(mo
   harness.backend.latest.complete();
   await Promise.all([sending, active]);
   expect({ input: request.input, references: request.context?.sessionReferences?.map(value => value.id) ?? [] })
-    .toEqual({ input: [{ type: 'text', text: 'Use @"Renamed"' }], references: ['conv-1-source'] });
-});
-
-
-it('reserves command order and resolves queued mentions before the child becomes idle', async () => {
-  const harness = await createHarness();
-  const routing = createRouting(harness);
-  const { started } = await startSideChat(harness);
-  const native = harness.backend.latest;
-  native.establishChild('child-session');
-  harness.controller.collapse();
-  const hydration = deferred<Awaited<ReturnType<typeof harness.plugin.getConversationById>>>();
-  const entered = vi.fn();
-  Object.assign(harness.plugin, {
-    getConversationById: () => { entered(); return hydration.promise; },
-    findConversationAcrossViews: () => null,
-  });
-  harness.inputEl.value = '/side First @[Old](claudian-session:conv-1-source)';
-  const first = routing.controller.sendMessage();
-  await waitFor(() => expect(harness.controller.runtime?.queuedCount).toBe(1));
-  // Hydration must begin at admission, while the current side turn is still active.
-  expect(entered).toHaveBeenCalledTimes(1);
-  harness.inputEl.value = '/btw Second';
-  await routing.controller.sendMessage();
-  expect(harness.controller.runtime?.queuedCount).toBe(2);
-  native.complete();
-  hydration.resolve({
-    id: 'conv-1-source', sessionId: null, title: 'Captured', providerId: 'codex', createdAt: testDate().getTime(), lastActivityAt: testDate().getTime(),
-    messages: [{ id: 'u', role: 'user', content: 'source prompt', timestamp: testDate().getTime() }],
-  });
-  await first;
-  await waitFor(() => expect(native.requests).toHaveLength(2));
-  expect(native.requests[1].input).toEqual([{ type: 'text', text: 'First @"Captured"' }]);
-  expect(entered).toHaveBeenCalledTimes(1);
-  native.complete();
-  await waitFor(() => expect(native.requests).toHaveLength(3));
-  expect(native.requests[2].input).toEqual([{ type: 'text', text: 'Second' }]);
-  native.complete();
-  await started;
-});
-
-it.each(['failure', 'cancel', 'dispose'])('restores a queued command and attachments after preparation %s', async mode => {
-  const harness = await createHarness();
-  const routing = createRouting(harness);
-  const { started } = await startSideChat(harness);
-  const native = harness.backend.latest;
-  native.establishChild('child-session');
-  harness.controller.collapse();
-  const hydration = deferred<Awaited<ReturnType<typeof harness.plugin.getConversationById>>>();
-  const entered = vi.fn();
-  Object.assign(harness.plugin, { getConversationById: () => { entered(); return hydration.promise; } });
-  const command = '/btw Use @[Old](claudian-session:conv-1-source)';
-  const attachment: ImageAttachment = { id: 'image-1', data: 'aW1hZ2U=', mediaType: 'image/png', name: 'image.png' , size: 5, source: 'paste' };
-  harness.imageContextManager.setImages([attachment]);
-  harness.inputEl.value = command;
-  const sending = routing.controller.sendMessage();
-  await waitFor(() => expect(harness.controller.runtime?.queuedCount).toBe(1));
-  expect(entered).toHaveBeenCalledTimes(1);
-  harness.inputEl.value = 'Later main draft';
-  let disposed = false;
-  const disposal = mode === 'dispose' ? harness.controller.discard().then(() => { disposed = true; }) : null;
-  if (mode === 'cancel') harness.controller.cancelSide();
-  await Promise.resolve();
-  expect(disposed).toBe(false);
-  const cancellationsBeforeHydration = native.cancelCalls;
-  hydration.resolve(null);
-  await Promise.all([sending, disposal]);
-  await waitFor(() => expect(harness.drafts.capture('main').content).toContain(command));
-  expect(harness.drafts.capture('main').content).toContain('Later main draft');
-  expect(harness.drafts.capture('main').images).toEqual([attachment]);
-  expect(native.requests).toHaveLength(1);
-  if (mode === 'failure') native.complete();
-  await started;
-  expect(cancellationsBeforeHydration).toBe(mode === 'failure' ? 0 : 1);
-  expect(harness.drafts.capture('main').content.split(command)).toHaveLength(2);
+    .toEqual({ input: [{ type: 'text', text: 'Use @"Old"' }], references: [] });
+  expect(readHistory).not.toHaveBeenCalledWith('conv-1-source');
 });
 
 it('joins a starting command on disposal before fork capture or hydration settles', async () => {

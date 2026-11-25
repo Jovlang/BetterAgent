@@ -1,6 +1,5 @@
 import { axe } from '@test/helpers/accessibility';
 import { createFeatureHostFixture } from '@test/helpers/FeatureHostFixture';
-import { createProjectsFake, projectRecord } from '@test/helpers/features/chat/ProjectsFake';
 /** @vitest-environment jsdom */
 import { createSessionBrowserHost } from '@test/helpers/features/chat/SessionBrowserTestHarness';
 import { testDate } from '@test/helpers/testClock';
@@ -9,7 +8,6 @@ import { App, Notice } from 'obsidian';
 
 import type { ConversationMeta } from '@/core/types';
 import { SessionManagerSurface } from '@/features/chat/session-manager/SessionManagerSurface';
-import { t } from '@/i18n/i18n';
 
 
 const ACTIVE_TARGET = 'claudian-session-drop-target--active';
@@ -42,17 +40,11 @@ async function setup(conversations: ConversationMeta[] = [
   conversation('pinned', { isPinned: true }),
   conversation('pinned-member', { isPinned: true, projectId: 'launch' }),
 ], options: { launchPinned?: boolean } = {}) {
-  const projects = createProjectsFake([
-    projectRecord({
-      id: 'launch', name: 'Launch', createdAt: testDate({ days: -10 }).getTime(), isPinned: options.launchPinned ?? false,
-    }),
-    projectRecord({ id: 'empty', name: 'Empty', createdAt: testDate({ days: -2 }).getTime() }),
-  ]);
   const fixture = await createFeatureHostFixture({
     app: new App(), settings: { enableAutoTitleGeneration: false, sessionManagerOrganization: 'list' },
     afterPublish: () => surface.invalidate(),
   });
-  const { plugin, lifecycle } = await createSessionBrowserHost({ conversations, host: { fixture, projects } });
+  const { plugin, lifecycle } = await createSessionBrowserHost({ conversations, host: { fixture } });
   vi.spyOn(lifecycle, 'setPinned');
   vi.spyOn(lifecycle, 'setPlacement');
   vi.spyOn(lifecycle, 'archive');
@@ -65,7 +57,6 @@ async function setup(conversations: ConversationMeta[] = [
       openConversation: vi.fn().mockResolvedValue(undefined),
       openSessionConversation: vi.fn().mockResolvedValue(undefined),
       startLinkedContentConversation: vi.fn().mockResolvedValue(undefined),
-      startProjectConversation: vi.fn().mockResolvedValue(undefined),
     },
     getActiveTab: () => null,
     isSidebarVisible: () => true,
@@ -79,7 +70,6 @@ async function setup(conversations: ConversationMeta[] = [
   surface.renderSidebar();
   const view = within(host);
   const row = (title: string) => view.getByText(title).closest<HTMLElement>('.claudian-history-item')!;
-  const projectToggle = (name: string) => view.getByRole('button', { name });
   const region = (name: string) => view.getByRole('region', { name });
 
   const dataTransfer = createDataTransfer();
@@ -102,7 +92,7 @@ async function setup(conversations: ConversationMeta[] = [
     ...vi.mocked(lifecycle.setPlacement).mock.results,
   ].map(result => result.value)); };
   return {
-    dataTransfer, drop, host, hover, lifecycle, projectToggle, region, row, settle, startDrag, surface, view,
+    dataTransfer, drop, host, hover, lifecycle, region, row, settle, startDrag, surface, view,
   };
 }
 
@@ -111,92 +101,17 @@ afterEach(() => {
   vi.mocked(Notice).mockClear();
 });
 
-it('moves a loose session into a project by dropping it on the project row, highlighting the target', async () => {
-  const { dataTransfer, hover, lifecycle, projectToggle, row, settle, startDrag } = await setup();
-  expect(row('loose session').getAttribute('draggable')).toBe('true');
-  // The metadata popover works until a drag starts.
-  fireEvent.mouseEnter(row('pinned session'));
-  expect(within(document.body).getByRole('tooltip')).toBeTruthy();
-
-  await startDrag('loose session');
-  expect(within(document.body).queryByRole('tooltip')).toBeNull();
-  fireEvent.mouseEnter(row('pinned session'));
-  expect(within(document.body).queryByRole('tooltip')).toBeNull();
-
-  const projectRow = projectToggle('Launch').closest<HTMLElement>('.claudian-session-group-header')!;
-  expect(hover(projectToggle('Launch'))).toBe(true);
-  expect(projectRow.classList.contains(ACTIVE_TARGET)).toBe(true);
-  fireEvent.drop(projectToggle('Launch'), { dataTransfer });
-  await settle();
-
-  expect(lifecycle.setPlacement).toHaveBeenCalledWith(['loose'], { projectId: 'launch', isPinned: false });
-  expect(lifecycle.setPinned).not.toHaveBeenCalled();
-  expect(document.querySelector(`.${ACTIVE_TARGET}`)).toBeNull();
-});
-
-it('drops on a pinned project listed under Pinned, highlighting the project rather than Pinned', async () => {
-  const { dataTransfer, hover, lifecycle, projectToggle, region, settle, startDrag } = await setup(undefined, {
-    launchPinned: true,
-  });
-  await startDrag('loose session');
-
-  const projectRow = projectToggle('Launch').closest<HTMLElement>('.claudian-session-group-header')!;
-  expect(region('Pinned').contains(projectRow)).toBe(true);
-  expect(hover(projectToggle('Launch'))).toBe(true);
-  expect(projectRow.classList.contains(ACTIVE_TARGET)).toBe(true);
-  expect(region('Pinned').classList.contains(ACTIVE_TARGET)).toBe(false);
-  fireEvent.drop(projectToggle('Launch'), { dataTransfer });
-  await settle();
-
-  expect(lifecycle.setPlacement).toHaveBeenCalledWith(['loose'], { projectId: 'launch', isPinned: false });
-});
-
-it('joins the project and unpins a pinned session in one placement write', async () => {
-  const { drop, lifecycle, projectToggle, settle, startDrag } = await setup();
-  await startDrag('pinned session');
-  drop(projectToggle('Empty'));
-  await settle();
-
-  expect(vi.mocked(lifecycle.setPlacement).mock.calls).toEqual([[['pinned'], { projectId: 'empty', isPinned: false }]]);
-  expect(lifecycle.setPinned).not.toHaveBeenCalled();
-});
-
 it('reports a placement that fails', async () => {
-  const { drop, lifecycle, projectToggle, region, settle, startDrag } = await setup();
+  const { drop, lifecycle, region, settle, startDrag } = await setup();
   vi.mocked(lifecycle.setPlacement).mockRejectedValue(new Error('write failed'));
-  await startDrag('pinned session');
-  drop(projectToggle('Empty'));
-  await settle();
-  expect(Notice).toHaveBeenLastCalledWith(t('chat.projects.errors.move'));
-
   await startDrag('pinned session');
   drop(region('Sessions'));
   await settle();
   expect(Notice).toHaveBeenLastCalledWith('Failed to move sessions');
 });
 
-it('clears the project, and unpins, when a session is dropped on Sessions', async () => {
-  const { drop, lifecycle, projectToggle, region, settle, startDrag } = await setup();
-  fireEvent.click(projectToggle('Launch'));
-  await settle();
-  await startDrag('member session');
-  drop(region('Sessions'));
-  await settle();
-  await startDrag('pinned-member session');
-  drop(region('Sessions'));
-  await settle();
-
-  expect(vi.mocked(lifecycle.setPlacement).mock.calls).toEqual([
-    [['member'], { projectId: null, isPinned: false }],
-    [['pinned-member'], { projectId: null, isPinned: false }],
-  ]);
-  expect(lifecycle.setPinned).not.toHaveBeenCalled();
-});
-
 it('pins a project member dropped on Pinned without leaving its project', async () => {
-  const { drop, lifecycle, projectToggle, region, settle, startDrag } = await setup();
-  fireEvent.click(projectToggle('Launch'));
-  await settle();
+  const { drop, lifecycle, region, settle, startDrag } = await setup();
   await startDrag('member session');
   drop(region('Pinned'));
   await settle();
@@ -206,13 +121,11 @@ it('pins a project member dropped on Pinned without leaving its project', async 
 });
 
 it('targets the place a dropped session already is, which the conversation owner leaves alone', async () => {
-  const { drop, lifecycle, projectToggle, region, row, settle, startDrag } = await setup();
-  fireEvent.click(projectToggle('Launch'));
-  await settle();
+  const { drop, lifecycle, region, row, settle, startDrag } = await setup();
   await startDrag('pinned session');
   drop(region('Pinned'));
   await startDrag('member session');
-  // Dropped on another member row inside the expanded project.
+  // Dropped on another row inside Sessions.
   drop(row('member session'));
   await startDrag('loose session');
   drop(region('Sessions'));
@@ -220,8 +133,8 @@ it('targets the place a dropped session already is, which the conversation owner
 
   expect(vi.mocked(lifecycle.setPinned).mock.calls).toEqual([[['pinned'], true]]);
   expect(vi.mocked(lifecycle.setPlacement).mock.calls).toEqual([
-    [['member'], { projectId: 'launch', isPinned: false }],
-    [['loose'], { projectId: null, isPinned: false }],
+    [['member'], { isPinned: false }],
+    [['loose'], { isPinned: false }],
   ]);
 });
 
@@ -248,11 +161,11 @@ it('shows a temporary Pinned drop zone while dragging when nothing is pinned', a
 });
 
 it('drags the whole multi-selection when the dragged row is selected', async () => {
-  const { drop, lifecycle, projectToggle, row, settle, startDrag } = await setup();
+  const { drop, lifecycle, region, row, settle, startDrag } = await setup();
   fireEvent.click(row('loose session').querySelector('.claudian-history-item-content')!, { altKey: true });
   fireEvent.click(row('pinned session').querySelector('.claudian-history-item-content')!, { altKey: true });
   await startDrag('loose session');
-  drop(projectToggle('Empty'));
+  drop(region('Sessions'));
   await settle();
 
   expect(lifecycle.setPlacement).toHaveBeenCalledTimes(1);
@@ -262,14 +175,14 @@ it('drags the whole multi-selection when the dragged row is selected', async () 
 });
 
 it('drags only the row when it is outside the selection', async () => {
-  const { drop, lifecycle, projectToggle, row, settle, startDrag } = await setup();
+  const { drop, lifecycle, region, row, settle, startDrag } = await setup();
   fireEvent.click(row('pinned session').querySelector('.claudian-history-item-content')!, { altKey: true });
   fireEvent.click(row('pinned-member session').querySelector('.claudian-history-item-content')!, { altKey: true });
   await startDrag('loose session');
-  drop(projectToggle('Empty'));
+  drop(region('Sessions'));
   await settle();
 
-  expect(lifecycle.setPlacement).toHaveBeenCalledWith(['loose'], { projectId: 'empty', isPinned: false });
+  expect(lifecycle.setPlacement).toHaveBeenCalledWith(['loose'], { isPinned: false });
 });
 
 it('clears the highlight when the drag ends or leaves, and ignores foreign drags', async () => {

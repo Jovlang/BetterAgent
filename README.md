@@ -26,6 +26,8 @@ Open BetterAgent from the ribbon icon or command palette. Configure Codex under 
 
 **Conversation History** — Open **History** next to Linked content below the composer to search for a conversation. History opens automatically beside the chat when the pane is wider than 600 px. In narrow panes it replaces the chat when opened manually; **Back** returns to the same conversation and draft. Find **Archive** under **More** in the same row.
 
+**Migrating from older versions** — The floating Zen panel, chat tab row, project management, and agent-facing session tools are no longer available. Existing Codex conversations remain in History, and BetterAgent does not move or delete [old project files and memory notes](docs/projects.md).
+
 **Plugin API (experimental)** — Let other Obsidian plugins send prompts to sessions, stop them and read their replies. See the [Plugin API guide](docs/plugin-api.md).
 
 **Collaboration** — Collab is now a standalone plugin. See [Claudian Collab](https://github.com/YishenTu/claudian-collab).

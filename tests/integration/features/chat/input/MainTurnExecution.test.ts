@@ -4,13 +4,11 @@ import '@/providers';
 import { FakeBranchSession } from '@test/helpers/ChatExecutionHarness';
 import { createFixture, deferred, waitForCall } from '@test/helpers/ChatInputHarness';
 import { conversationRecord } from '@test/helpers/features/chat/ConversationFixture';
-import { createProjectsFake, projectRecord } from '@test/helpers/features/chat/ProjectsFake';
 import { testDate } from '@test/helpers/testClock';
 import { Notice } from 'obsidian';
 
 import type { ConversationBranchResult, ProviderExecutionErrorEvent, ProviderExecutionEvent } from '@/core/execution';
 import { buildSystemPrompt } from '@/core/prompt/mainAgent';
-import { renderProjectMemberInstructions } from '@/core/prompt/projectPrompt';
 import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
 import type { ChatMessage, Conversation } from '@/core/types';
 import type { ImageAttachment } from '@/core/types';
@@ -192,60 +190,6 @@ describe('MainTurnExecution', () => {
     const submission = fixture.native.requests[0];
     expect(submission.configuration.systemInstructions).toEqual({
       kind: 'main-agent', instructions: buildSystemPrompt({ vaultPath: '/session-vault' }),
-    });
-  });
-
-  describe('project session instructions', () => {
-    const message = { from: 'Sender', sessionId: 'sender', text: 'Please inspect this' };
-    const systemInstructions = (fixture: Awaited<ReturnType<typeof createFixture>>, call: number) => (
-      fixture.native.requests[call].configuration.systemInstructions
-    );
-    const mainAgent = (fixture: Awaited<ReturnType<typeof createFixture>>, sessionInstructions?: string) => ({
-      kind: 'main-agent', instructions: buildSystemPrompt({ vaultPath: fixture.plugin.providerHost.workingDirectory ?? undefined, sessionInstructions }),
-    });
-
-    async function memberFixture() {
-      const record = projectRecord({ id: 'project-1', name: 'Launch', instructions: 'Ship the beta.' });
-      const projects = createProjectsFake([record]);
-      const fixture = (await createFixture());
-      let projectId: string | undefined = record.id;
-      // Membership is read from the detached summary, never by cloning the transcript each turn.
-      Object.assign(fixture.plugin, {
-        projects,
-        getConversationSummary: (id: string) => ({ id, providerId: 'claude', projectId }),
-      });
-      return { fixture, projects, record, leave: () => { projectId = undefined; } };
-    }
-
-    it('resolves the live project paragraph for user and session-message turns, applying edits at the next turn', async () => {
-      const { fixture, projects, record } = await memberFixture();
-
-      await fixture.controller.sendMessage({ content: 'user turn' });
-      await fixture.controller.sendSessionMessage(message, { assertBeforeHandoff: () => undefined, onUnsent: () => undefined });
-      const edited = { ...record, instructions: 'Ship the stable release.' };
-      projects.put(edited);
-      await fixture.controller.sendMessage({ content: 'after edit' });
-
-      expect([0, 1, 2].map(call => systemInstructions(fixture, call))).toEqual([
-        mainAgent(fixture, renderProjectMemberInstructions(record)),
-        mainAgent(fixture, renderProjectMemberInstructions(record)),
-        mainAgent(fixture, renderProjectMemberInstructions(edited)),
-      ]);
-      expect(fixture.plugin.getConversationSync).not.toHaveBeenCalled();
-    });
-
-    it.each(['removed', 'deleted'] as const)('sends the normal prompt once the session is %s from its project', async change => {
-      const { fixture, projects, record, leave } = await memberFixture();
-      await fixture.controller.sendMessage({ content: 'member turn' });
-
-      if (change === 'removed') leave();
-      else projects.remove(record.id);
-      await fixture.controller.sendMessage({ content: 'normal turn' });
-      await fixture.controller.sendSessionMessage(message, { assertBeforeHandoff: () => undefined, onUnsent: () => undefined });
-
-      expect(systemInstructions(fixture, 0)).toEqual(mainAgent(fixture, renderProjectMemberInstructions(record)));
-      expect(systemInstructions(fixture, 1)).toEqual(mainAgent(fixture));
-      expect(systemInstructions(fixture, 2)).toEqual(mainAgent(fixture));
     });
   });
 

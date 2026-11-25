@@ -46,14 +46,6 @@ function createPlacement(tabs: ReturnType<typeof createPlacedTab>[]) {
   };
 }
 
-function createZenSlots() {
-  return {
-    composerEl: document.body.createDiv(),
-    historyEl: document.body.createDiv(),
-    sideChatChipEl: document.body.createDiv(),
-  };
-}
-
 afterEach(() => {
   document.body.replaceChildren();
 });
@@ -145,50 +137,6 @@ describe('ChatPresentationPlacement', () => {
     harness.setWide(true);
     harness.placement.updateChip();
     expect(entry.setSideChatChipHost).toHaveBeenLastCalledWith(null);
-  });
-
-  it('lends the composer, transcript, and chip to zen slots and restores them on release', () => {
-    const entry = createPlacedTab('tab-1');
-    const harness = createPlacement([entry]);
-    harness.placement.update();
-    const slots = createZenSlots();
-
-    const release = harness.placement.attachZen(slots);
-
-    expect(entry.dom.inputComposerEl.parentElement).toBe(slots.composerEl);
-    expect(entry.dom.messagesWrapperEl.parentElement).toBe(slots.historyEl);
-    expect(entry.setSideChatChipHost).toHaveBeenLastCalledWith(slots.sideChatChipEl);
-    expect(entry.setSideChatFullHeightHost).toHaveBeenLastCalledWith(null);
-
-    // A stale release from an earlier attachment must not undo a newer one.
-    const newerSlots = createZenSlots();
-    const releaseNewer = harness.placement.attachZen(newerSlots);
-    release();
-    expect(entry.dom.inputComposerEl.parentElement).toBe(newerSlots.composerEl);
-    expect(entry.dom.messagesWrapperEl.parentElement).toBe(newerSlots.historyEl);
-
-    releaseNewer();
-    expect(entry.setSideChatFullHeightHost).toHaveBeenLastCalledWith(harness.chatPanelEl);
-    expect(entry.dom.inputComposerEl.parentElement).toBe(harness.slotEl);
-    expect(entry.dom.messagesWrapperEl.parentElement).toBe(entry.dom.contentEl);
-    expect(entry.dom.contentEl.firstElementChild).toBe(entry.dom.messagesWrapperEl);
-  });
-
-  it('restores the transcript before placing another tab in zen', () => {
-    const first = createPlacedTab('tab-1');
-    const second = createPlacedTab('tab-2');
-    const harness = createPlacement([first, second]);
-    const slots = createZenSlots();
-    harness.placement.attachZen(slots);
-
-    harness.setActive(second.tab);
-    harness.placement.update();
-
-    expect(first.dom.messagesWrapperEl.parentElement).toBe(first.dom.contentEl);
-    expect(first.dom.inputComposerEl.parentElement).toBe(first.dom.contentEl);
-    expect(second.dom.messagesWrapperEl.parentElement).toBe(slots.historyEl);
-    expect(second.dom.inputComposerEl.parentElement).toBe(slots.composerEl);
-    expect(first.setSideChatChipHost).toHaveBeenLastCalledWith(null);
   });
 
   it('returns the chip and composer to the tab on restoreAll', () => {

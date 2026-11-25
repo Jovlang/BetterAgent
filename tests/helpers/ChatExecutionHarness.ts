@@ -6,7 +6,6 @@ import type { ProviderId, SlashCommand } from '@/core/types';
 import { ChatExecutionCoordinator, type ChatExecutionCoordinatorDeps, type ChatExecutionEventContext, type ChatExecutionPersistence, type ChatTurnSubmission } from '@/features/chat/execution/ChatExecutionCoordinator';
 
 
-
 class EventQueue<T> implements AsyncIterable<T> {
   private readonly values: T[] = [];
   private readonly waiters: Array<{ resolve: (result: IteratorResult<T>) => void; reject: (error: unknown) => void }> = [];
@@ -295,7 +294,6 @@ export function createHarness(options: {
   idleReleaseMs?: number;
   isOwnerIdle?: ChatExecutionCoordinatorDeps['isOwnerIdle'];
   onIdleRelease?: ChatExecutionCoordinatorDeps['onIdleRelease'];
-  bindSessionTools?: ChatExecutionCoordinatorDeps['bindSessionTools'];
 } = {}) {
   const registry = new ProviderExecutionLifecycleRegistry();
   const backends = new Map<ProviderId, FakeBackend>([
@@ -355,7 +353,7 @@ export function createHarness(options: {
     idleReleaseMs: options.idleReleaseMs,
     isOwnerIdle: options.isOwnerIdle,
     onIdleRelease: options.onIdleRelease,
-    bindSessionTools: options.bindSessionTools,
+
   });
 
   return {

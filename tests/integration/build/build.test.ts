@@ -8,7 +8,7 @@ describe('build script', () => {
     const root = await mkdtemp(path.join(tmpdir(), 'claudian-node-builtins-'));
     try {
       await mkdir(path.join(root, 'src'));
-      await Promise.all(['package.json', 'package-lock.json', 'bun.lock'].map(file => (
+      await Promise.all(['manifest.json', 'package.json', 'package-lock.json', 'bun.lock'].map(file => (
         copyFile(path.resolve(file), path.join(root, file))
       )));
       await writeFile(path.join(root, 'src/main.ts'), `

@@ -8,6 +8,7 @@ import {
   type ProviderToolPolicy,
   resolveApprovalChoice,
 } from '@/core/execution';
+import { isSessionTool } from '@/core/tools/toolNames';
 import { t } from '@/i18n/i18n';
 import { normalizeCodexToolName } from '@/providers/codex/normalization/codexToolNormalization';
 import type {
@@ -31,7 +32,6 @@ import type {
   UserInputResponse,
 } from '@/providers/codex/runtime/codexAppServerTypes';
 import type { CodexDynamicToolRegistry } from '@/providers/codex/runtime/CodexDynamicToolRegistry';
-import { isCodexSessionTool } from '@/providers/codex/runtime/CodexSessionTools';
 
 export interface ActiveInteractionTurn {
   readonly localTurnId: string;
@@ -131,10 +131,14 @@ export class CodexExecutionServerRequestRouter {
     params: DynamicToolCallParams,
   ): Promise<DynamicToolCallResponse> {
     const turn = this.#requireActiveTurn(params.threadId, params.turnId);
-    if (
-      !this.dynamicToolRegistry
-      || (!isCodexSessionTool(params.namespace, params.tool) && !isDynamicToolAllowed(turn.toolPolicy))
-    ) {
+    // An existing rollout may still contain specs supplied by an earlier version.
+    if (params.namespace === 'claudian_sessions' && isSessionTool(params.tool)) {
+      return {
+        success: false,
+        contentItems: [{ type: 'inputText', text: 'BetterAgent no longer provides inter-session tools.' }],
+      };
+    }
+    if (!this.dynamicToolRegistry || !isDynamicToolAllowed(turn.toolPolicy)) {
       throw new Error(`Unsupported dynamic tool: ${qualifiedToolName(params)}`);
     }
     return this.dynamicToolRegistry.execute(params, {

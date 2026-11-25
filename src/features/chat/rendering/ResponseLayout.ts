@@ -39,7 +39,7 @@ export function getStopHookElapsedSeconds(element: HTMLElement): number | undefi
 
 /** The interrupt indicator's text, shared by its plain line and the interrupted turn's disclosure header. */
 export function appendInterruptLabel(parent: HTMLElement): void {
-  parent.createSpan({ cls: 'claudian-interrupted', text: t('chat.zen.interrupted') });
+  parent.createSpan({ cls: 'claudian-interrupted', text: t('chat.interrupted') });
   parent.appendText(' ');
   parent.createSpan({ cls: 'claudian-interrupted-hint', text: t('chat.interruptedHint') });
 }

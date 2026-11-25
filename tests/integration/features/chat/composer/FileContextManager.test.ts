@@ -84,30 +84,3 @@ describe('FileContextManager', () => {
   });
 
 });
-
-it('offers only eligible sessions and follows the captured main/parent conversation getter', async () => {
-  const { app } = createMockApp([createFile('Review.md')]);
-  let current = 'conv-1-main';
-  const rows = [
-    { id: current, title: 'Main', hasSessionReference: true },
-    { id: 'conv-2-other', title: 'Other', hasSessionReference: true },
-    { id: 'conv-3-old', title: 'Archived', hasSessionReference: true, isArchived: true },
-    { id: 'conv-4-legacy', title: 'Legacy', hasSessionReference: true, isLegacySession: true },
-    { id: 'conv-5-missing', title: 'Missing', hasSessionReference: false },
-    { id: '../unsafe', title: 'Unsafe identity', hasSessionReference: true },
-  ].map(row => ({ ...row, providerId: 'claude' as const, createdAt: 0, lastActivityAt: 0, messageCount: 1, preview: '' }));
-  const manager = new FileContextManager(new VaultMentionDataProvider(app), {
-    getConversationList: () => rows,
-    getCurrentConversationId: () => current,
-  });
-  try {
-    const source = manager.getMentionSource();
-    const load = () => source.load(source.match('@', 1)!, new AbortController().signal);
-    expect((await load()).map(item => item.label)).toEqual(['Review.md', 'Other']);
-    current = 'conv-2-other';
-    expect((await load()).map(item => item.label)).toEqual(['Review.md', 'Main']);
-    const plain = new FileContextManager(new VaultMentionDataProvider(app));
-    expect((await plain.getMentionSource().load(source.match('@', 1)!, new AbortController().signal)).map(item => item.label)).toEqual(['Review.md']);
-    plain.destroy();
-  } finally { manager.destroy(); }
-});

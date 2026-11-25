@@ -7,7 +7,6 @@ import {
 } from '@/core/bootstrap/tabManagerState';
 import type { ChatFeatureHost } from '@/features/chat/ChatFeatureHost';
 import { TabStatePersistenceCoordinator } from '@/features/chat/tabs/persistence/TabStatePersistenceCoordinator';
-import type { TabBar } from '@/features/chat/tabs/TabBar';
 import type { TabManager } from '@/features/chat/tabs/TabManager';
 
 /** The tab manager operations the workspace lifecycle restores, snapshots, and seals. */
@@ -16,13 +15,11 @@ export type TabWorkspaceTabManager = Pick<
   'getPersistedState' | 'restoreState' | 'beginShutdown' | 'drainForShutdownSnapshot' | 'sealShutdownSnapshot'
 >;
 
-type TabWorkspaceTitleState = Pick<TabBar, 'getExpandedTitleTabIds'>;
 type TabWorkspacePersistence = Pick<TabStatePersistenceCoordinator, 'update' | 'flush'>;
 
 export interface TabWorkspaceLifecycleHost {
   getPlugin(): Pick<ChatFeatureHost, 'app' | 'settings' | 'ensureConversationMetadataLoaded'>;
   getTabManager(): TabWorkspaceTabManager | null;
-  getTabBar(): Pick<TabBar, 'getExpandedTitleTabIds' | 'expandTitles'> | null;
   /** Publishes presentation once the restored workspace owns the view lifecycle. */
   onInitialized(): void;
 }
@@ -175,10 +172,9 @@ export class TabWorkspaceLifecycle {
   snapshotForShutdown(
     tabManager: TabWorkspaceTabManager | null,
     persistence: TabWorkspacePersistence | null,
-    tabBar: TabWorkspaceTitleState | null = this.host.getTabBar(),
   ): Promise<void> {
     if (this.shutdownSnapshotPromise) return this.shutdownSnapshotPromise;
-    const snapshot = this.captureShutdownSnapshot(tabManager, persistence, tabBar);
+    const snapshot = this.captureShutdownSnapshot(tabManager, persistence);
     this.shutdownSnapshotPromise = snapshot;
     return snapshot;
   }
@@ -206,7 +202,6 @@ export class TabWorkspaceLifecycle {
   private async captureShutdownSnapshot(
     tabManager: TabWorkspaceTabManager | null,
     persistence: TabWorkspacePersistence | null,
-    tabBar: TabWorkspaceTitleState | null,
   ): Promise<void> {
     try {
       await tabManager?.drainForShutdownSnapshot();
@@ -215,7 +210,7 @@ export class TabWorkspaceLifecycle {
     }
     let finalState: AppTabManagerState | null = null;
     try {
-      finalState = this.pendingState ?? this.capture(tabManager, tabBar);
+      finalState = this.pendingState ?? this.capture(tabManager);
     } finally {
       this.finalizedState = finalState;
       tabManager?.sealShutdownSnapshot();
@@ -302,8 +297,6 @@ export class TabWorkspaceLifecycle {
     }
     if (!isStillCurrent()) return;
 
-    const tabBar = this.host.getTabBar();
-    tabBar?.expandTitles(restorePlan.expandedTitleTabIds ?? []);
     this.pendingState = null;
     this.persist(tabManager, this.persistence);
   }
@@ -322,18 +315,10 @@ export class TabWorkspaceLifecycle {
 
   private capture(
     tabManager: Pick<TabManager, 'getPersistedState'> | null,
-    tabBar: TabWorkspaceTitleState | null = this.host.getTabBar(),
   ): AppTabManagerState | null {
     const state = tabManager?.getPersistedState();
     if (!state) return null;
     if (state.openTabs.length > 0 && state.activeTabId === null) return null;
-
-    const openTabIds = new Set(state.openTabs.map(tab => tab.tabId));
-    const expandedTitleTabIds = (tabBar?.getExpandedTitleTabIds() ?? [])
-      .filter(tabId => openTabIds.has(tabId));
-    return {
-      ...state,
-      ...(expandedTitleTabIds.length > 0 ? { expandedTitleTabIds } : {}),
-    };
+    return state;
   }
 }

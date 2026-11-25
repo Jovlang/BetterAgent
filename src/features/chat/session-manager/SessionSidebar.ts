@@ -39,7 +39,7 @@ export interface SessionSidebarDeps {
 
 /**
  * The wide layout's persistent session column: New/Search/Archive navigation,
- * IME-aware search with outside dismissal, the projects section with its sorting
+ * IME-aware search with outside dismissal, history controls
  * and expansion, session organization, sorting, section and group collapse, pinned
  * Linked content, inline pins, session drag and drop, and the metadata popover.
  */
@@ -49,7 +49,7 @@ interface SearchSession {
   composing: boolean;
   /** List scroll positions to restore when filtering ends. */
   restoreState: SessionSearchScrollState | undefined;
-  /** Search starts every group and section expanded, matching projects included. */
+  /** Search starts every group and section expanded. */
   readonly collapse: SessionGroupCollapse;
   fieldEl: HTMLElement | null;
   inputEl: HTMLInputElement | null;
@@ -73,7 +73,7 @@ export class SessionSidebar {
   private groupKeys = new Set<string>();
 
   constructor(private readonly deps: SessionSidebarDeps) {
-    this.collapse = new SessionGroupCollapse({ host: deps.plugin });
+    this.collapse = new SessionGroupCollapse();
   }
 
   /** True while search is composing IME input; Escape belongs to the composition. */
@@ -106,7 +106,6 @@ export class SessionSidebar {
     if (!surfaceEl || !this.dirty || !this.deps.isVisible()) return;
     if (this.#search?.composing) return;
     // The whole surface waits, since its list render clears the controls built around it.
-    if (this.deps.shared.browser.deferWhileSortingProjects(() => this.render())) return;
 
     const previousSearchInput = this.deps.flatHistory ? null : this.#search?.inputEl ?? null;
     const shouldRestoreSearchFocus = previousSearchInput?.ownerDocument.activeElement
@@ -251,10 +250,6 @@ export class SessionSidebar {
         shared.setArchiveView(false);
         return navigation.startLinkedContentConversation(contentPath);
       },
-      onStartProjectConversation: (projectId: string) => {
-        shared.setArchiveView(false);
-        return navigation.startProjectConversation(projectId);
-      },
       getProviderIcon: (conversation: ConversationMeta) => {
         try {
           return ProviderRegistry
@@ -395,7 +390,7 @@ export class SessionSidebar {
 
   private createSearchSession(restoreState?: SessionSearchScrollState): SearchSession {
     return {
-      collapse: new SessionGroupCollapse({ projectsStartExpanded: true }),
+      collapse: new SessionGroupCollapse(),
       composing: false,
       fieldEl: null,
       inputEl: null,

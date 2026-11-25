@@ -9,7 +9,6 @@ import type { ImageAttachment } from '@/core/types';
 import type { ChatFeatureHost } from '@/features/chat/ChatFeatureHost';
 import type { ComposerDraftController } from '@/features/chat/composer/ComposerDraftController';
 import type { ForkSourceUnavailableReason } from '@/features/chat/conversation/forkSourceTypes';
-import { resolveSessionInstructions } from '@/features/chat/execution/projectInstructions';
 import { SideChatCommandSubmission } from '@/features/chat/side-chat/SideChatCommandSubmission';
 import { SideChatPanel } from '@/features/chat/side-chat/SideChatPanel';
 import { SideChatRuntime } from '@/features/chat/side-chat/SideChatRuntime';
@@ -149,7 +148,7 @@ export class SideChatController {
     const original = this.deps.drafts.capture('main');
     const consumed = detectSideChatCommand(original.content) !== null;
     if (consumed) this.#clearComposer();
-    const command = new SideChatCommandSubmission(this.deps.plugin, { content: argument, images, context }, error => {
+    const command = new SideChatCommandSubmission({ content: argument, images, context }, error => {
       if (consumed) this.deps.drafts.restore('main', original, { merge: true });
       if (error) new Notice(error instanceof Error ? error.message : 'Could not prepare the side command.');
     });
@@ -287,7 +286,6 @@ export class SideChatController {
         resumeAt: capture.context.resumeAt,
         selectedModel: capture.context.sourceSelectedModel,
         sessionId: capture.context.sourceSessionId,
-        sessionInstructions: resolveSessionInstructions(this.deps.plugin.projects, capture.context),
       };
 
       this.deps.drafts.changeDestination(() => this.#createRuntime(source));

@@ -9,7 +9,6 @@ import type {
 import { setLocale, t } from '@/i18n/i18n';
 import { type ActiveInteractionTurn, CodexExecutionServerRequestRouter } from '@/providers/codex/execution/CodexExecutionServerRequestRouter';
 import { CodexDynamicToolRegistry } from '@/providers/codex/runtime/CodexDynamicToolRegistry';
-import { createCodexSessionTools } from '@/providers/codex/runtime/CodexSessionTools';
 
 const confirmationRequest = {
   threadId: 'thread-confirmation',
@@ -60,18 +59,15 @@ describe('CodexExecutionServerRequestRouter', () => {
   afterEach(() => setLocale('en'));
 
   it.each(['provider-default', 'passive', 'read-only'] as const)(
-    'checks the %s policy when a session or ordinary dynamic tool is called', async kind => {
-      const port = { list: vi.fn(async () => ({ sessions: [] })), send: vi.fn(), read: vi.fn() };
+    'rejects retired session tools and enforces the %s policy on ordinary tools', async kind => {
       const ordinary = vi.fn(async () => ({ success: true, contentItems: [] }));
       const router = createRouter(vi.fn(), { kind });
       const registry = new CodexDynamicToolRegistry();
-      for (const registration of createCodexSessionTools(port)) registry.register(registration);
       registry.register({ includeInThreadStart: true, tool: { type: 'function', name: 'ordinary', description: '', inputSchema: {} }, handler: ordinary });
       router.setDynamicToolRegistry(registry);
       const params = { threadId: 'thread-confirmation', turnId: 'turn-confirmation', callId: 'call', arguments: {} };
       const allowed = kind === 'provider-default';
-      await expect(router.handleServerRequest('session', 'item/tool/call', { ...params, namespace: 'claudian_sessions', tool: 'claudian_list_destinations' })).resolves.toMatchObject({ success: allowed });
-      expect(port.list).toHaveBeenCalledTimes(allowed ? 1 : 0);
+      await expect(router.handleServerRequest('session', 'item/tool/call', { ...params, namespace: 'claudian_sessions', tool: 'claudian_list_destinations' })).resolves.toMatchObject({ success: false });
       const ordinaryCall = await router.handleServerRequest('ordinary', 'item/tool/call', { ...params, namespace: null, tool: 'ordinary' })
         .catch((error: unknown) => error instanceof Error ? error.message : error);
       expect(ordinaryCall).toEqual(allowed ? { success: true, contentItems: [] } : 'Unsupported dynamic tool: ordinary');

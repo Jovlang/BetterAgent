@@ -7,7 +7,7 @@
  * One icon system for every sidebar row: leading glyphs sit in an icon-size slot at the
  * inline inset, so labels after them share one x; trailing controls are action-size
  * boxes whose inline end is the inset, so they line up with the section header buttons.
- * The compact drop-up shares it for its section headers and project rows.
+ * The compact drop-up shares it for its section headers.
  */
 .claudian-session-sidebar,
 .claudian-history-menu {
@@ -445,17 +445,11 @@ body.is-mobile .claudian-chat-body .claudian-session-sidebar .claudian-history-i
   display: none;
 }
 
-/* One ring per destination, on its header: a project's row, or the Pinned/Sessions header. */
-.claudian-session-sidebar .claudian-session-group-header.claudian-session-drop-target--active,
+/* Highlight the Pinned or Sessions drop target on its header. */
 .claudian-session-sidebar .claudian-session-drop-target--active > .claudian-session-section-header {
   border-radius: var(--radius-s);
   background: var(--background-modifier-hover);
   box-shadow: inset 0 0 0 1px var(--interactive-accent);
-}
-
-/* A lifted project keeps its own hovered look. */
-.claudian-session-sidebar .claudian-live-sorting > .claudian-session-group-header.claudian-live-sort-lifted {
-  background: var(--background-modifier-hover);
 }
 
 .claudian-session-sidebar .claudian-history-section--sessions,
@@ -501,11 +495,6 @@ body.is-mobile .claudian-chat-body .claudian-session-sidebar .claudian-history-i
 .claudian-session-group-icon svg {
   width: 14px;
   height: 14px;
-}
-
-/* A chosen project icon does not open with its group, so a collapsed group dims it. */
-.claudian-session-group-toggle[aria-expanded="false"] .claudian-session-group-icon--custom {
-  opacity: 0.6;
 }
 
 .claudian-session-group-label {
@@ -1128,8 +1117,7 @@ body.theme-dark .claudian-nav-dropup-menu {
 }
 
 /*
- * The history drop-up grows to 60% of the view (measured when it opens) and scrolls its
- * projects and sessions as one list.
+ * The history drop-up grows to 60% of the view (measured when it opens) and scrolls sessions as one list.
  */
 .claudian-history-menu.visible {
   display: flex;
@@ -1141,47 +1129,6 @@ body.theme-dark .claudian-nav-dropup-menu {
   flex: 1 1 auto;
   max-height: none;
   min-height: 0;
-}
-
-/*
- * Drop-up project rows take the drop-up's session row look (padding, title type, 16px icon,
- * divider), so its list reads as one design; the sidebar keeps its compact rows. Members keep
- * the session row inset, and the empty hint starts at the project label, where titles do.
- */
-.claudian-history-menu {
-  --claudian-history-menu-label-start: calc(12px + 16px + 10px);
-}
-
-.claudian-history-menu .claudian-session-group-header.claudian-session-group-header--project {
-  padding-block: 8px;
-  border-bottom: 1px solid var(--background-modifier-border);
-  border-radius: 0;
-  color: var(--text-normal);
-  font-size: calc(13 * var(--claudian-font-px));
-  font-weight: 500;
-}
-
-.claudian-history-menu .claudian-session-group-header--project .claudian-session-group-toggle {
-  gap: 10px;
-}
-
-.claudian-history-menu .claudian-session-group-header--project .claudian-session-group-icon {
-  flex-basis: 16px;
-  color: var(--text-muted);
-}
-
-.claudian-history-menu .claudian-session-group-header--project .claudian-session-group-icon svg {
-  width: 16px;
-  height: 16px;
-}
-
-/* A project's last member still divides it from the next project row. */
-.claudian-history-menu .claudian-session-group-body .claudian-history-item:last-child {
-  border-bottom: 1px solid var(--background-modifier-border);
-}
-
-.claudian-history-menu .claudian-session-project-empty.claudian-session-project-empty {
-  padding-inline-start: var(--claudian-history-menu-label-start);
 }
 
 .claudian-history-menu .claudian-history-section--sessions:not(:first-child) {

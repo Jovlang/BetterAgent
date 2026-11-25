@@ -1,5 +1,6 @@
 import { access } from 'node:fs/promises';
 import { isAbsolute, join, posix } from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
 
 import { findNodeExecutable, getEnhancedPath } from '@/core/process/env';
 import { buildTargetLaunchSpec } from '@/core/process/execution-target/TargetLaunchSpec';
@@ -7,7 +8,7 @@ import { ManagedStdioProcess, type ManagedStdioProcessOptions } from '@/core/pro
 import type { SessionToolRoute } from '@/core/session-tools/SessionToolEndpoint';
 import type { WSLSessionToolRelay } from '@/core/session-tools/WSLSessionToolRelay';
 
-import { DeepSeekRemoteClient } from '../remote/DeepSeekRemoteClient';
+import { DeepSeekRemoteClient, DeepSeekRemoteError } from '../remote/DeepSeekRemoteClient';
 import type { DeepSeekProfile } from '../types';
 import type { DeepSeekExecutionContext } from './DeepSeekExecutionContext';
 import { getDeepSeekHome } from './DeepSeekHome';
@@ -110,7 +111,7 @@ export class DeepSeekHostProcess {
     const startup = AbortSignal.any([signal, deadline]);
     try {
       const url = await readLaunchURL(child, startup);
-      try { client = await DeepSeekRemoteClient.open(url, startup); } catch (error) {
+      try { client = await openLaunchClient(url, startup, wsl); } catch (error) {
         if (!wsl || signal.aborted) throw error;
         throw new Error('Could not connect to DeepSeek inside WSL through localhost. Check that dsh is running in the selected distro; for WSL2 NAT, enable localhostForwarding in .wslconfig and restart WSL. Keep the native listener on loopback.', { cause: error });
       }
@@ -148,6 +149,19 @@ export class DeepSeekHostProcess {
       this.disposal = this.process.shutdown().finally(() => this.artifacts.dispose());
     }
     return this.disposal;
+  }
+}
+
+async function openLaunchClient(url: string, signal: AbortSignal, wsl: boolean): Promise<DeepSeekRemoteClient> {
+  // WSL2 may publish the Linux listener before Windows localhost forwarding is ready.
+  // Retry only a refused startup connection, before any authenticated work is sent.
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await DeepSeekRemoteClient.open(url, signal);
+    } catch (error) {
+      if (!wsl || attempt >= 10 || !(error instanceof DeepSeekRemoteError) || error.code !== 'ECONNREFUSED') throw error;
+      await delay(200, undefined, { signal });
+    }
   }
 }
 

@@ -122,7 +122,6 @@ export class ClaudianChatFeatureHost extends ClaudianFeatureHost implements Chat
     sessionId?: string;
     selectedModel?: string;
     linkedContentPath?: string;
-    projectId?: string;
     origin?: ConversationOrigin;
   }): Promise<Conversation> {
     return this.domains.conversations.createConversation(options);

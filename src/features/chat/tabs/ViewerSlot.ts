@@ -3,7 +3,6 @@ import type { App } from 'obsidian';
 import type { TabId } from '@/features/chat/ChatFeatureHost';
 import type { ChatSessionRuntime } from '@/features/chat/sessions/ChatSessionRuntime';
 import type { DraftSessionHold } from '@/features/chat/sessions/SessionRuntimePool';
-import { sessionProjectId } from '@/features/chat/tabs/draftSeed';
 import type { ParkedDrafts } from '@/features/chat/tabs/ParkedDrafts';
 import type { NavigationRequestCheck, TabConversationNavigation } from '@/features/chat/tabs/TabConversationNavigation';
 import type { TabIdentity } from '@/features/chat/tabs/TabIdentity';
@@ -79,16 +78,15 @@ export class ViewerSlot {
   }
 
   /**
-   * Replaces the preview with a blank draft, optionally linked to `linkedContentPath` and seeded with
-   * `projectId`. The project is validated when the draft creates its Conversation; an unknown one joins nothing.
+   * Replaces the preview with a blank draft, optionally linked to `linkedContentPath`.
    */
   async startDraft(options: ViewerSlotRequest & DraftSeed = {}): Promise<void> {
-    const { linkedContentPath, projectId, sourceTab = null } = options;
+    const { linkedContentPath, sourceTab = null } = options;
     if (sourceTab && !this.host.membership.isTabAlive(sourceTab)) return;
     this.#assertLinkedContentExists(linkedContentPath);
 
     await this.host.navigation.enqueue(null, async (isCurrent) => {
-      await this.#startDraft(isCurrent, { linkedContentPath, projectId });
+      await this.#startDraft(isCurrent, { linkedContentPath });
     });
   }
 
@@ -183,7 +181,7 @@ export class ViewerSlot {
 
   /**
    * Shows a blank draft: the given held draft session, else the shown blank draft or the wide layout's last new
-   * session when it already matches the seed's project (a Linked content seed always starts fresh), else a new
+   * session when no explicit Linked content is requested, else a new
    * draft. Resolves to the shown draft.
    */
   async #startDraft(
@@ -192,10 +190,10 @@ export class ViewerSlot {
     source?: DraftSource,
   ): Promise<AssembledTabRuntime | null> {
     const { membership, parkedDrafts } = this.host;
-    const { linkedContentPath, projectId } = seed;
+    const { linkedContentPath } = seed;
     this.#assertLinkedContentExists(linkedContentPath);
     const matchesSeed = (runtime: ChatSessionRuntime): boolean => (
-      linkedContentPath === undefined && sessionProjectId(runtime) === projectId
+      linkedContentPath === undefined
     );
     const active = this.#activePreview();
     // The shown blank draft already is the new session.

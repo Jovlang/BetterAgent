@@ -1,5 +1,3 @@
-import type { ChatFeatureHost } from '@/features/chat/ChatFeatureHost';
-import { resolveSessionMentions } from '@/features/chat/composer/resolveSessionMentions';
 import type { SideChatSubmission } from '@/features/chat/side-chat/SideChatRuntime';
 
 /** A command reserves its queue position while its detached input is prepared. */
@@ -9,22 +7,10 @@ export class SideChatCommandSubmission {
   #released = false;
 
   constructor(
-    host: ChatFeatureHost,
     submission: SideChatSubmission,
     private readonly restore: (error?: unknown) => void,
   ) {
-    const captured = JSON.parse(JSON.stringify(submission)) as SideChatSubmission;
-    this.settled = resolveSessionMentions(host, captured.content, this.#controller.signal)
-      .then(resolved => ({
-        ...captured,
-        content: resolved.text,
-        displayContent: resolved.text,
-        context: { ...captured.context, ...(resolved.references.length ? { sessionReferences: resolved.references } : {}) },
-      }))
-      .catch(error => {
-        this.#restore(this.#controller.signal.aborted ? undefined : error);
-        return null;
-      });
+    this.settled = Promise.resolve(structuredClone(submission));
   }
 
   accept(): boolean {

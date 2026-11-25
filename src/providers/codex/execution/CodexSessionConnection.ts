@@ -1,10 +1,8 @@
-import type { ProviderSessionToolPort } from '@/core/execution';
 import type { TargetLaunchSpec } from '@/core/process/execution-target/types';
 import type { CodexAppServerConnection } from '@/providers/codex/runtime/CodexAppServerRuntime';
 import { CodexDynamicToolRegistry } from '@/providers/codex/runtime/CodexDynamicToolRegistry';
 import type { CodexRPCTransport } from '@/providers/codex/runtime/CodexRPCTransport';
 import type { CodexRuntimeContext } from '@/providers/codex/runtime/CodexRuntimeContext';
-import { createCodexSessionTools } from '@/providers/codex/runtime/CodexSessionTools';
 import type { CodexThreadObserver, CodexThreadScope } from '@/providers/codex/runtime/CodexThreadScope';
 import { createCodexWorkspaceDependencyTool } from '@/providers/codex/runtime/CodexWorkspaceDependencyTool';
 
@@ -39,7 +37,6 @@ export class CodexSessionConnection {
 
   constructor(
     private readonly host: CodexSessionConnectionHost,
-    private readonly sessionTools?: ProviderSessionToolPort,
   ) {}
 
   get transport(): CodexRPCTransport | null {
@@ -111,9 +108,6 @@ export class CodexSessionConnection {
     const runtimeContext = await connection.initialized;
     this.#dynamicToolRegistry = new CodexDynamicToolRegistry();
     this.#dynamicToolRegistry.register(createCodexWorkspaceDependencyTool(runtimeContext));
-    if (this.sessionTools) {
-      for (const tool of createCodexSessionTools(this.sessionTools)) this.#dynamicToolRegistry.register(tool);
-    }
     const scope = connection.createThreadScope(this.host.observer);
     const offExit = connection.onExit(() => {
       if (this.#attachment?.connection === connection) this.host.onExit();

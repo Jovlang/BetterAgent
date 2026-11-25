@@ -268,8 +268,7 @@ describe('LinkedContentController DOM', () => {
     const harness = createHarness({ entries: [note, folder] });
     const rowEl = document.body.createDiv();
     harness.controller.mountInfoRow(new ComposerInfoRow(rowEl as unknown as HTMLElement));
-    const linkedSlot = () => [...rowEl.querySelectorAll<HTMLElement>('.claudian-input-info-linked')]
-      .find(el => !el.hasClass('claudian-input-info-project'))!;
+    const linkedSlot = () => [...rowEl.querySelectorAll<HTMLElement>('.claudian-input-info-linked')][0]!;
 
     harness.controller.selectExplicit(note.path);
     let item = linkedSlot();

@@ -1,10 +1,7 @@
 const LIST_SELECTOR = '.claudian-history-list';
 const ITEM_SELECTOR = '.claudian-history-item';
-/**
- * Rows a rerender keeps in place: sessions, and project headers, so expanding a project in a list that scrolls as
- * one keeps its header still instead of a session below it.
- */
-const ANCHOR_SELECTOR = '.claudian-history-item[data-conversation-id], .claudian-session-group-header[data-project-id]';
+/** Conversation rows that can anchor scroll position across a rerender. */
+const ANCHOR_SELECTOR = '.claudian-history-item[data-conversation-id]';
 
 type ScrollAnchor = {
   key: string;
@@ -13,9 +10,7 @@ type ScrollAnchor = {
 
 function anchorKey(element: HTMLElement): string | null {
   const conversationId = element.getAttribute('data-conversation-id');
-  if (conversationId) return `conversation:${conversationId}`;
-  const projectId = element.getAttribute('data-project-id');
-  return projectId ? `project:${projectId}` : null;
+  return conversationId ? 'session:' + conversationId : null;
 }
 
 /**
@@ -27,7 +22,6 @@ export interface SessionListPosition {
   readonly visibleCount: number;
   readonly sessionScrollTop: number;
   readonly pinnedScrollTop: number;
-  readonly projectsScrollTop: number;
   readonly anchors: readonly ScrollAnchor[];
 }
 
@@ -35,7 +29,6 @@ export const INITIAL_SESSION_LIST_POSITION: SessionListPosition = {
   visibleCount: 0,
   sessionScrollTop: 0,
   pinnedScrollTop: 0,
-  projectsScrollTop: 0,
   anchors: [],
 };
 
@@ -77,9 +70,6 @@ export function captureSessionListPosition(container: HTMLElement, sectionScroll
   const pinnedList = list
     .querySelector<HTMLElement>('.claudian-history-section--pinned')
     ?.querySelector<HTMLElement>('.claudian-history-section-items');
-  const projectsList = sectionScrolling
-    ? list.querySelector<HTMLElement>('.claudian-session-project-items')
-    : null;
   const recordedVisibleCount = Number(list.dataset.visibleCount);
   return {
     visibleCount: Number.isFinite(recordedVisibleCount) && recordedVisibleCount > 0
@@ -87,7 +77,6 @@ export function captureSessionListPosition(container: HTMLElement, sectionScroll
       : list.querySelectorAll(ITEM_SELECTOR).length,
     sessionScrollTop: sessionList.scrollTop,
     pinnedScrollTop: pinnedList?.scrollTop ?? 0,
-    projectsScrollTop: projectsList?.scrollTop ?? 0,
     anchors: captureScrollAnchors(sessionList),
   };
 }
@@ -101,9 +90,7 @@ export function restoreSessionListPosition(
   position: SessionListPosition,
   sessionList: HTMLElement,
   pinnedList: HTMLElement | null,
-  projectsList: HTMLElement | null,
 ): void {
-  if (projectsList) projectsList.scrollTop = position.projectsScrollTop;
   if (pinnedList) pinnedList.scrollTop = position.pinnedScrollTop;
   sessionList.scrollTop = position.sessionScrollTop;
   if (position.anchors.length === 0) return;

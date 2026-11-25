@@ -63,7 +63,7 @@ async function createWSLWorkspace(vaultPath: string, linuxEnvironment: Record<st
     ensureConversationMetadataLoaded: async () => undefined,
     getConversationById: id => repository.getById(id),
   });
-  const service = new SessionMessagingService({ getHost: () => host, getActiveConversationId: () => null, refreshModelControls: () => undefined });
+  const service = new SessionMessagingService({ getHost: () => host, getActiveConversationId: () => null });
   onTestFinished(() => service.dispose());
   return { wsl, peer, fixture, workspace, lifecycle, repository, api: createClaudianAPI(service, unmodeledChatViews) };
 }

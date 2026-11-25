@@ -1,20 +1,17 @@
 /** @vitest-environment jsdom */
-import { createProjectsFake, projectRecord } from '@test/helpers/features/chat/ProjectsFake';
 import { createSessionBrowserHost } from '@test/helpers/features/chat/SessionBrowserTestHarness';
 import type { Mock } from 'vitest';
 
 import { SessionBrowser } from '@/features/chat/session-manager/SessionBrowser';
 
 
-
 async function createFixture() {
-  const projects = createProjectsFake();
   const { plugin, store } = await createSessionBrowserHost({ host: {
-    projects, settings: { enableAutoTitleGeneration: true },
+    settings: { enableAutoTitleGeneration: true },
     renameConversation: vi.fn().mockResolvedValue(undefined),
   } });
   for (const method of ['delete', 'setPinned', 'archive'] as const) vi.spyOn(plugin.conversationLifecycle, method);
-  const deps = { plugin: Object.assign(plugin, { projects }), store, state: { currentConversationId: null as string | null } };
+  const deps = { plugin, store, state: { currentConversationId: null as string | null } };
   const controller = new SessionBrowser({
     plugin,
     getCurrentConversationId: () => deps.state.currentConversationId,
@@ -66,33 +63,11 @@ describe('SessionListPosition', () => {
     expect(rerenderedList.scrollTop).toBe(320);
   });
 
-  it('preserves the projects section scroll across a rerender, such as expanding a project', () => {
+  it('preserves the compact history menu scroll', () => {
     const container = document.body.createDiv();
-    for (let index = 0; index < 30; index += 1) {
-      deps.plugin.projects.put(projectRecord({ id: `project-${index}`, name: `Project ${index}` }));
-    }
-    const options = {
-      onSelectConversation: vi.fn(),
-      showPinnedSection: true,
-      scrollLayout: 'sections' as const,
-      sessionScope: 'active' as const,
-      preserveListState: true,
-    };
-
-    controller.renderHistoryDropdown(container, options);
-    container.querySelector<HTMLElement>('.claudian-session-project-items')!.scrollTop = 180;
-    controller.renderHistoryDropdown(container, options);
-
-    expect(container.querySelector<HTMLElement>('.claudian-session-project-items')!.scrollTop).toBe(180);
-  });
-
-  it('preserves the compact menu scroll, which moves its projects and sessions as one list', () => {
-    const container = document.body.createDiv();
-    deps.plugin.projects.put(projectRecord({ id: 'project-1', name: 'Project 1' }));
     (deps.plugin.getConversationList as Mock).mockReturnValue(
       Array.from({ length: 40 }, (_, index) => ({ id: `conv-${index}`, title: `Conversation ${index}`, createdAt: 40 - index })),
     );
-    // The drop-up lists projects without the sidebar's Pinned section.
     const options = {
       onSelectConversation: vi.fn(),
       sessionScope: 'active' as const,
@@ -104,7 +79,7 @@ describe('SessionListPosition', () => {
     controller.renderHistoryDropdown(container, options);
 
     const list = container.querySelector<HTMLElement>('.claudian-history-list')!;
-    expect(list.querySelector<HTMLElement>('.claudian-session-list-items')!).not.toBeNull();
+    expect(list.querySelector('.claudian-history-item')).not.toBeNull();
     expect(list.scrollTop).toBe(220);
   });
 

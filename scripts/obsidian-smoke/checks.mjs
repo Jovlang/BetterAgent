@@ -63,7 +63,7 @@ export async function checkHost(cdp, { vault, artifactDir, signal, check }) {
     assert.deepEqual(actual.previous, expected.previous, message);
   }
 
-  async function modal(label, open, name, { field, menu, ready } = {}) {
+  async function modal(label, open, name, { field, ready } = {}) {
     return check(label, async () => {
       const marker = { key: `__claudianSmokeOwner_${ownerRun}_${++ownerAction}`, token: randomUUID() };
       try {
@@ -76,33 +76,9 @@ export async function checkHost(cdp, { vault, artifactDir, signal, check }) {
           Object.defineProperty(state.ownerWindow, key, { value: ${JSON.stringify(marker.token)}, configurable: true });
           return state.snapshot();
         })()`);
-        let menuId;
-        let menuPage;
-        if (menu) {
-          const action = await cdp.waitFor('button', 'Actions for Smoke project');
-          await assertOwner(action, baseline.window, marker);
-          await cdp.click('button', 'Actions for Smoke project');
-          const caption = await cdp.waitFor('menuitem', menu);
-          menuPage = caption.page;
-          assert.equal(menuPage, action.page, 'Launch menu stays on the source button page');
-          await assertOwner(caption, baseline.window, marker);
-          const acquired = await until(async () => {
-            const snapshot = await scopeSnapshot();
-            return snapshot.events.length ? snapshot : undefined;
-          }, 'launch menu Scope acquisition', signal);
-          assert.equal(acquired.events.length, 1, 'Launch menu acquires one Scope');
-          const event = acquired.events[0];
-          assert.equal(event.method, 'pushScope');
-          assert.equal(event.window, baseline.window);
-          menuId = event.id;
-          assert.notEqual(menuId, baseline.current);
-          assert.ok(!baseline.previous.includes(menuId));
-          assertStack(acquired, { ...baseline, current: menuId, previous: [...baseline.previous, baseline.current] }, 'Launch menu preserves the underlying stack');
-        }
         await open();
         const dialog = await cdp.waitFor('dialog', name);
         await assertOwner(dialog, baseline.window, marker);
-        if (menu) assert.equal(dialog.page, menuPage, 'Project modal stays on the launch menu page');
         assert.equal(await cdp.onNode(dialog, 'function(){return this.getAttribute("aria-modal");}'), 'true');
         writeFileSync(path.join(artifactDir, `${label}.ax.json`), JSON.stringify(await cdp.tree(dialog.page), null, 2));
         if (field) {
@@ -113,26 +89,14 @@ export async function checkHost(cdp, { vault, artifactDir, signal, check }) {
           }`);
         }
         if (ready) await ready();
-        if (menu) await until(async () => {
-          const snapshot = await scopeSnapshot();
-          return snapshot.events.some(event => event.method === 'popScope' && event.id === menuId)
-            && !await cdp.locate('menuitem', menu, false);
-        }, 'launch menu closes and releases its Scope', signal);
         const beforeEscape = await scopeSnapshot();
-        const modalEvents = beforeEscape.events.filter(event => event.id !== menuId);
+        const modalEvents = beforeEscape.events;
         assert.equal(modalEvents.length, 1, 'One modal Scope acquisition before Escape');
         const modalEvent = modalEvents[0];
         assert.equal(modalEvent.method, 'pushScope');
         const modalId = modalEvent.id;
         assert.notEqual(modalId, baseline.current);
         assert.ok(!baseline.previous.includes(modalId));
-        const expectedEvents = menu
-          ? [{ method: 'pushScope', id: menuId, window: baseline.window }, { method: 'popScope', id: menuId, window: baseline.window }]
-          : [];
-        const menuEvents = beforeEscape.events.filter(event => event.id === menuId);
-        assert.deepEqual(menuEvents, expectedEvents, 'The same owned launch menu Scope is acquired and released once');
-        assert.equal(beforeEscape.events[0].method, 'pushScope');
-        if (menu) assert.equal(beforeEscape.events[0].id, menuId, 'Menu acquisition precedes modal acquisition');
         assert.equal(modalEvent.window, baseline.window, 'Modal Scope belongs to the captured window');
         assertStack(beforeEscape, { ...baseline, current: modalId, previous: [...baseline.previous, baseline.current] }, 'Only the modal remains above the exact baseline');
         await assertOwner(dialog, baseline.window, marker);
@@ -168,33 +132,9 @@ export async function checkHost(cdp, { vault, artifactDir, signal, check }) {
     await cdp.waitFor('textbox', 'Message');
     assert.equal(await evaluate('app.workspace.getLeavesOfType("claudian-view").length'), 1);
   });
-  await modal('project-modal', async () => {
-    await cdp.click('button', 'Chat history');
-    await cdp.click('button', 'New project');
-  }, 'New project');
-
-  async function ensureHistoryOpen() {
-    if (!await cdp.locate('button', 'New project', false)) {
-      await cdp.click('button', 'Chat history');
-    }
-    await cdp.waitFor('button', 'New project');
-  }
-
-  await check('project-fixture', async () => {
-    await cdp.click('button', 'New project');
-    await cdp.onNode(await cdp.waitFor('textbox', 'Name'), `function(){this.value='Smoke project';this.dispatchEvent(new this.ownerDocument.defaultView.Event('input',{bubbles:true}));this.dispatchEvent(new this.ownerDocument.defaultView.Event('change',{bubbles:true}));}`);
-    await cdp.click('button', 'Save');
-    await until(async () => !await cdp.locate('dialog', 'New project', false), 'New project closes after Save', signal);
-    await ensureHistoryOpen();
-    await cdp.waitFor('button', 'Actions for Smoke project');
-  });
-  await modal('project-memory', () => cdp.click('menuitem', 'Open project memory'), 'Project memory: Smoke project', { menu: 'Open project memory', ready: () => cdp.waitFor('button', 'Edit') });
-  await ensureHistoryOpen();
-  await modal('confirm-delete-project', () => cdp.click('menuitem', 'Delete project'), 'Confirm', { menu: 'Delete project' });
-
   await check('settings-accessibility', async () => {
     await evaluate(`app.setting.open();app.setting.openTabById('betteragent');true`);
-    const toggle = await cdp.waitFor('switch', 'Enable zen mode');
+    const toggle = await cdp.waitFor('switch', 'Auto-generate conversation titles');
     const nodes = await cdp.tree(toggle.page);
     const switches = nodes.filter(node => !node.ignored && node.role?.value === 'switch');
     assert.ok(switches.length > 0);

@@ -193,7 +193,6 @@ export default class ClaudianPlugin extends Plugin {
   onunload(): void {
     this.lifetime.abort();
     this.fenceLoadedDomains();
-    // Return any zen presentation to its view before asynchronous shutdown.
     this.fontScale.dispose();
     if (this.sessionInputCleanupTimer !== null) {
       window.clearTimeout(this.sessionInputCleanupTimer);
@@ -298,7 +297,6 @@ export default class ClaudianPlugin extends Plugin {
     this.sessionMessaging = new SessionMessagingService({
       getHost: () => this.chatHost,
       getActiveConversationId: () => this.views.getInputFocusView()?.getActiveTab()?.conversationId ?? null,
-      refreshModelControls: providerId => this.chatViews.refreshModelSelector(providerId),
     });
     this.api = createClaudianAPI(this.sessionMessaging, { openSession: (id, options) => this.views.openSession(id, options) });
     this.conversationLifecycle = new ConversationLifecycle({

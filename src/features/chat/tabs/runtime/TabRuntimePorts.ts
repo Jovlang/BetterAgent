@@ -1,17 +1,13 @@
 import type { ChatFeatureHost } from '@/features/chat/ChatFeatureHost';
-import type { TranscriptFollow } from '@/features/chat/rendering/TranscriptFollow';
-import type { ChatState } from '@/features/chat/state/ChatState';
-import type { TabComposerPort, TabLinkedContentPort, TabPlacementPort, TabTranscriptPlacement } from '@/features/chat/tabs/ChatTab';
+import type { TabComposerPort, TabLinkedContentPort, TabPlacementPort } from '@/features/chat/tabs/ChatTab';
 import type { TabRuntimeControllerBundle } from '@/features/chat/tabs/runtime/TabRuntimeConstruction';
 import { refreshTabContextUsage } from '@/features/chat/tabs/tabProviderUI';
 import type { AssembledTabRuntime, TabDOMElements, TabUIComponents } from '@/features/chat/tabs/types';
-import type { ZenPresentationPort } from '@/features/chat/zen/types';
 
 export interface TabRuntimePorts {
   readonly composer: TabComposerPort;
   readonly linkedContent: TabLinkedContentPort;
   readonly placement: TabPlacementPort;
-  readonly zenPresentation: ZenPresentationPort;
   refreshProviderControls(): void;
 }
 
@@ -19,13 +15,12 @@ export interface TabRuntimePorts {
 export function buildTabRuntimePorts(
   dom: TabDOMElements,
   ui: TabUIComponents,
-  controllerBundle: Pick<TabRuntimeControllerBundle, 'controllers' | 'renderer'>,
+  controllerBundle: Pick<TabRuntimeControllerBundle, 'controllers'>,
   plugin: ChatFeatureHost,
   getRuntime: () => AssembledTabRuntime,
 ): TabRuntimePorts {
-  const { controllers, renderer } = controllerBundle;
+  const { controllers } = controllerBundle;
   return {
-    zenPresentation: createTabZenPresentation(() => getRuntime().state, dom.messagesEl, renderer.follow),
     composer: createTabComposerPort(dom.inputEl, ui),
     linkedContent: ui.linkedContentController,
     placement: createTabPlacementPort(
@@ -47,7 +42,7 @@ export function buildTabRuntimePorts(
 /** Composer operations over a tab's own input and toolbar controls. */
 export function createTabComposerPort(
   inputEl: TabDOMElements['inputEl'],
-  ui: Pick<TabUIComponents, 'toolbarMenus' | 'composerDropdown' | 'fileContextManager' | 'projectChip'>,
+  ui: Pick<TabUIComponents, 'toolbarMenus' | 'composerDropdown' | 'fileContextManager'>,
 ): TabComposerPort {
   let previousFocus: HTMLElement | null = null;
   const isFocused = () => inputEl.contains(inputEl.ownerDocument.activeElement);
@@ -86,18 +81,16 @@ export function createTabComposerPort(
       if (!dropdown.containsElement(target as Node) && target !== inputEl) dropdown.hide();
     },
     setHiddenCommands: commands => ui.composerDropdown.setHiddenCommands(commands),
-    invalidateSessionMentions: () => ui.fileContextManager.getMentionSource().invalidate(),
-    refreshProject: () => ui.projectChip?.refresh(),
   };
 }
 
 /** Placement over a tab's own composer and transcript nodes; nothing is rebuilt or cloned. */
 export function createTabPlacementPort(
-  dom: Pick<TabDOMElements, 'contentEl' | 'inputComposerEl' | 'messagesWrapperEl' | 'inputEl' | 'infoRowEl'>,
+  dom: Pick<TabDOMElements, 'contentEl' | 'inputComposerEl' | 'inputEl' | 'infoRowEl'>,
   setSideChatChipHost: (hostEl: HTMLElement | null) => void,
   setSideChatFullHeightHost: (hostEl: HTMLElement | null) => void,
 ): TabPlacementPort {
-  const { contentEl, inputComposerEl: composerEl, messagesWrapperEl: transcriptEl } = dom;
+  const { contentEl, inputComposerEl: composerEl } = dom;
   return {
     placeComposer: (slotEl) => {
       const ownerDocument = composerEl.ownerDocument;
@@ -115,31 +108,7 @@ export function createTabPlacementPort(
     restoreComposer: () => {
       contentEl.appendChild(composerEl);
     },
-    placeTranscript: (hostEl): TabTranscriptPlacement => {
-      const anchorEl = transcriptEl.ownerDocument.createComment('claudian-zen-transcript');
-      transcriptEl.replaceWith(anchorEl);
-      hostEl.appendChild(transcriptEl);
-      return {
-        isPlacedIn: candidate => transcriptEl.parentElement === candidate,
-        restore: () => anchorEl.replaceWith(transcriptEl),
-      };
-    },
     setSideChatChipHost,
     setSideChatFullHeightHost,
-  };
-}
-
-/** Keeps scroll mutation with the tab's follow owner while zen can relocate its transcript. */
-function createTabZenPresentation(
-  getState: () => ChatState,
-  messagesEl: HTMLElement,
-  follow: TranscriptFollow,
-): ZenPresentationPort {
-  return {
-    get state() { return getState(); },
-    get window() { return messagesEl.ownerDocument.defaultView; },
-    subscribeActivity: listener => getState().subscribeActivity(listener),
-    captureScroll: () => follow.capture(),
-    restoreScroll: snapshot => follow.restore(snapshot),
   };
 }

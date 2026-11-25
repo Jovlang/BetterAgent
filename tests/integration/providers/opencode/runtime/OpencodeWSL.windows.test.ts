@@ -152,7 +152,7 @@ describe.skipIf(!available || !cli)('native OpenCode WSL adoption', () => {
         ensureConversationMetadataLoaded: async () => undefined,
         getConversationById: id => repository.getById(id),
       });
-      messaging = new SessionMessagingService({ getHost: () => chatHost, getActiveConversationId: () => null, refreshModelControls: () => undefined });
+      messaging = new SessionMessagingService({ getHost: () => chatHost, getActiveConversationId: () => null });
       expect(await createClaudianAPI(messaging, unmodeledChatViews).read('conversation')).toContain('Reply from OpenCode in WSL.');
       const requests = (await readFile(log, 'utf8')).trim().split('\n').map(line => JSON.parse(line) as { messages?: Array<{ role: string; content: unknown }> });
       expect(requests.flatMap(request => request.messages ?? [])).toEqual(expect.arrayContaining([expect.objectContaining({ role: 'tool', content: expect.stringContaining('WSL relay 中文') })]));

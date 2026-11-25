@@ -6,7 +6,6 @@ import type {
   DynamicToolFunctionSpec,
   LegacyDynamicToolSpec,
 } from './codexAppServerTypes';
-import { invokeCodexSessionTool, isCodexSessionTool } from './CodexSessionTools';
 
 export interface CodexDynamicToolContext {
   readonly signal: AbortSignal;
@@ -61,9 +60,6 @@ export class CodexDynamicToolRegistry {
   async execute(params: DynamicToolCallParams, context: CodexDynamicToolContext): Promise<DynamicToolCallResponse> {
     const registration = this.registrations.get(registrationKey(params.namespace, params.tool));
     if (!registration) {
-      if (isCodexSessionTool(params.namespace, params.tool)) {
-        return invokeCodexSessionTool(params, { ...context, port: undefined });
-      }
       const qualifiedName = params.namespace
         ? `${params.namespace}.${params.tool}`
         : params.tool;

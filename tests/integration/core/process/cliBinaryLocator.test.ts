@@ -13,7 +13,8 @@ import { probeCLIInstallation } from '@/core/providers/cli/CLIInstallationProbe'
 
 const describeUnix = process.platform === 'win32' ? describe.skip : describe;
 
-describe('enhanced CLI discovery and subprocess PATH', () => {
+// On Windows, Defender may scan each real fixture executable before launch.
+describe('enhanced CLI discovery and subprocess PATH', { timeout: 30_000 }, () => {
   const originalEnv = { ...process.env };
   const isWindows = process.platform === 'win32';
   let directory: string;
@@ -111,6 +112,7 @@ describe('enhanced CLI discovery and subprocess PATH', () => {
         cwd: directory,
         env: { ...process.env, PATH: enhancedPath },
         encoding: 'utf8',
+        timeout: 20_000,
       }).trim()).toBe('mise probe ok');
     },
   );
@@ -130,7 +132,7 @@ describe('enhanced CLI discovery and subprocess PATH', () => {
       else symlinkSync(process.execPath, nodePath);
       const discovered = findNodeExecutable();
       expect(discovered).toBe(nodePath);
-      expect(execFileSync(discovered!, ['-p', 'process.versions.node'], { encoding: 'utf8' }).trim())
+      expect(execFileSync(discovered!, ['-p', 'process.versions.node'], { encoding: 'utf8', timeout: 20_000 }).trim())
         .toBe(process.versions.node);
     } finally {
       availability.mockRestore();

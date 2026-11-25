@@ -13,9 +13,6 @@ import { SessionBrowser } from '@/features/chat/session-manager/SessionBrowser';
 import type { HistoryConversationStatus } from '@/features/chat/session-manager/SessionStatusPresentation';
 
 
-
-
-
 type MockMenu = {
   items: Array<{ title: string; icon: string; disabled: boolean; clickHandler: (() => void) | null }>;
 };
@@ -65,7 +62,6 @@ async function renderList(options: {
     onSelectConversation,
 
 
-
     onRerender: render,
     showMetadataPopover: true,
     sessionActionMode: 'active',
@@ -96,8 +92,8 @@ describe('SessionActions selection menu', () => {
     fireEvent.click(button('Running session'), { altKey: true });
     fireEvent.contextMenu(button('Alpha session'));
     const menu = lastMenu();
-    expect(menu.items.map(menuItem => menuItem.title)).toEqual(['Pin 2 sessions', 'Move 2 sessions to project…', 'Archive 1 session']);
-    menu.items[2].clickHandler?.();
+    expect(menu.items.map(menuItem => menuItem.title)).toEqual(['Pin 2 sessions', 'Archive 1 session']);
+    menu.items[1].clickHandler?.();
 
     expect(onSetConversationsArchived).toHaveBeenCalledWith(['alpha']);
   });

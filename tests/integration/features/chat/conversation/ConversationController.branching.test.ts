@@ -1,11 +1,8 @@
 // @vitest-environment jsdom
 import { createConversationControllerDeps as createBaseDeps } from '@test/helpers/features/chat/ConversationControllerFixture';
 import { conversationRecord } from '@test/helpers/features/chat/ConversationFixture';
-import { createProjectsFake, projectRecord } from '@test/helpers/features/chat/ProjectsFake';
 import { testDate } from '@test/helpers/testClock';
 
-import { buildSystemPrompt } from '@/core/prompt/mainAgent';
-import { renderProjectMemberInstructions } from '@/core/prompt/projectPrompt';
 import type { ImageAttachment } from '@/core/types';
 import { ConversationController } from '@/features/chat/conversation/ConversationController';
 
@@ -127,39 +124,4 @@ it.each(['conversation', 'coordinator'])('does not publish recovery after its %s
   expect(await controller.commitBranchDraft()).toMatchObject({ status: 'failed' });
   expect(deps.state.messages).toEqual([first, prompt]);
   expect(deps.plugin.updateConversation).not.toHaveBeenCalled();
-});
-
-it('carries the live project paragraph on branch navigation and recovery, and drops it once the project is deleted', async () => {
-  const record = projectRecord({ id: 'project-1', name: 'Launch' });
-  const projects = createProjectsFake([record]);
-  const first = { id: 'first', role: 'user' as const, content: 'First', timestamp: testDate().getTime() };
-  const prompt = { id: 'second', role: 'user' as const, content: 'Second', timestamp: testDate().getTime(), userMessageId: 'native-second' };
-  const coordinator = {
-    workingDirectory: '/vault',
-    navigateConversationBranch: vi.fn().mockResolvedValue({ status: 'recovery-required', error: 'Moved' }),
-    reconcileConversationBranch: vi.fn().mockResolvedValue({ status: 'recovery-required', error: 'Still moving' }),
-  };
-  const deps = (await createConversationControllerDeps({ getExecutionCoordinator: () => coordinator, getSelectedModel: () => 'model-a' }));
-  Object.assign(deps.plugin, {
-    projects,
-    getConversationSummary: (id: string) => ({ id, providerId: 'claude', projectId: record.id }),
-  });
-  // The prompt names the coordinator's captured directory, never the host's current vault.
-  expect(deps.plugin.providerHost.workingDirectory).not.toBe(coordinator.workingDirectory);
-  deps.state.currentConversationId = 'conversation';
-  deps.state.messages = [first, prompt];
-  const controller = new ConversationController(deps);
-  await controller.navigateBranch('second');
-  deps.getInputEl().value = 'Edited';
-  await controller.commitBranchDraft();
-  projects.remove(record.id);
-  await controller.commitBranchDraft();
-
-  const member = { model: 'model-a', systemInstructions: {
-    kind: 'main-agent', instructions: buildSystemPrompt({ userName: '', vaultPath: '/vault', sessionInstructions: renderProjectMemberInstructions(record) }),
-  } };
-  expect(coordinator.navigateConversationBranch).toHaveBeenCalledWith(expect.objectContaining({ configuration: member }));
-  // Each recovery attempt resolves the project again: the first follows navigation, the later two the deletion.
-  const normal = { model: 'model-a', systemInstructions: { kind: 'main-agent', instructions: buildSystemPrompt({ userName: '', vaultPath: '/vault' }) } };
-  expect(coordinator.reconcileConversationBranch.mock.calls.map(([request]) => request.configuration)).toEqual([member, normal, normal]);
 });

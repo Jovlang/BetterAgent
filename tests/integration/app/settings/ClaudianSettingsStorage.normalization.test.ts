@@ -307,45 +307,23 @@ describe('ClaudianSettingsStorage', () => {
       expect(writtenContent.restoreTabsOnStartup).toBe(false);
     });
 
-    it.each([
-      ['missing', {}, true],
-      ['disabled', { enableZenMode: false }, false],
-      ['enabled', { enableZenMode: true }, true],
-    ])('loads a %s zen mode preference', async (_label, stored, expected) => {
+    it('drops retired presentation settings without discarding other preferences', async () => {
       mockAdapter.exists.mockResolvedValue(true);
-      mockAdapter.read.mockResolvedValue(JSON.stringify(stored));
+      mockAdapter.read.mockResolvedValue(JSON.stringify({
+        enableZenMode: true,
+        zenModePosition: { x: 0.1, y: 0.2 },
+        showTabTitlesByDefault: true,
+        restoreTabsOnStartup: false,
+      }));
 
       const result = await storage.load();
-
-      expect(result.enableZenMode).toBe(expected);
-      const writtenValues = mockAdapter.write.mock.calls
-        .map(([, content]) => (JSON.parse(content) as Record<string, unknown>).enableZenMode)
-        .filter(value => value !== undefined);
-      expect(writtenValues.every(value => value === expected)).toBe(true);
-    });
-
-    it('persists a normalized invalid zen mode preference', async () => {
-      mockAdapter.exists.mockResolvedValue(true);
-      mockAdapter.read.mockResolvedValue(JSON.stringify({ enableZenMode: 'yes' }));
-
-      const result = await storage.load();
-
-      expect(result.enableZenMode).toBe(true);
-      expect(JSON.parse(mockAdapter.write.mock.calls.at(-1)![1]).enableZenMode).toBe(true);
-    });
-
-    it.each([
-      ['missing', {}, null],
-      ['docked', { zenModePosition: null }, null],
-      ['moved', { zenModePosition: { x: -0.2, y: 0.375 } }, { x: -0.2, y: 0.375 }],
-      ['malformed', { zenModePosition: { x: '1', y: 0.5 } }, null],
-    ])('loads a %s zen panel position', async (_label, stored, expected) => {
-      mockAdapter.exists.mockResolvedValue(true);
-      mockAdapter.read.mockResolvedValue(JSON.stringify(stored));
-
-      const result = await storage.load();
-
-      expect(result.zenModePosition).toEqual(expected);
+      const persisted = JSON.parse(mockAdapter.write.mock.calls.at(-1)![1]);
+      for (const settings of [result, persisted]) {
+        expect(settings.restoreTabsOnStartup).toBe(false);
+        expect(settings).not.toHaveProperty('enableZenMode');
+        expect(settings).not.toHaveProperty('zenModePosition');
+        expect(settings).not.toHaveProperty('showTabTitlesByDefault');
+      }
     });
 
     it('normalizes claude provider CLI paths from loaded data', async () => {

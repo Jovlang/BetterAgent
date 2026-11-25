@@ -1,7 +1,6 @@
 import { createExecutionPersistence } from '@test/helpers/ChatExecutionHarness';
 import { createChatFeatureHost } from '@test/helpers/features/chat/ChatFeatureHostFixture';
 import { conversationRecord } from '@test/helpers/features/chat/ConversationFixture';
-import { createProjectsFake } from '@test/helpers/features/chat/ProjectsFake';
 import { createSessionRuntimePool } from '@test/helpers/features/chat/SessionRuntimePoolHarness';
 import { FakeSideBackend } from '@test/helpers/features/chat/SideChatSessionHarness';
 import { testDate } from '@test/helpers/testClock';
@@ -89,18 +88,18 @@ export async function createHarness(options: {
   const messaging = new SessionMessagingService({
     getHost: () => plugin,
     getActiveConversationId: () => tab.conversationId,
-    refreshModelControls: () => undefined,
+
   });
   const plugin = await createChatFeatureHost({
     sessionRuntimes: pool, executionPersistence: createExecutionPersistence(),
-    bindSessionTools: id => messaging.bindSessionTools(id),
+
     getConversationSync: () => conversation,
     getConversationById: async () => conversation,
     updateConversation: async () => undefined,
     renameConversation: async () => undefined,
     getConversationSummary: id => plugin.getConversationSync(id),
     settings: { enableAutoTitleGeneration: false, ...options.settings },
-    projects: createProjectsFake(),
+
   });
 
   const component = new Component();

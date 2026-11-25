@@ -48,9 +48,6 @@ beforeEach(() => {
     expect(tab.session.turns.isActive).toBe(true);
     expect(tab.session.canNavigateConversation).toBe(false);
     expect(manager.isTabWorking(tab.id)).toBe(false);
-    expect(manager.getTabBarItems()).toEqual([
-      expect.objectContaining({ id: tab.id, isWorking: false }),
-    ]);
     navigation.resolve();
     await pending;
     expect(tab.session.turns.isActive).toBe(false);
@@ -343,7 +340,6 @@ beforeEach(() => {
 
     expect(preview.lifecycleState).toBe('open');
     expect(onTabLabelChanged).toHaveBeenCalledWith(preview.id, 'Research');
-    expect(manager.getTabBarItems()[0]).toEqual(expect.objectContaining({ label: 'Research' }));
     expect(manager.getPersistedState()).toEqual({
       activeTabId: preview.id,
       openTabs: [{ tabId: preview.id, conversationId: 'conversation-1', label: 'Research' }],
@@ -399,7 +395,7 @@ beforeEach(() => {
     manager.moveTab('three', 'one');
     manager.moveTab('one', null);
 
-    expect(manager.getTabBarItems().map(item => [item.id, item.index, item.isActive])).toEqual([
+    expect(manager.getTabIdentities().map((tab, index) => [tab.id, index + 1, manager.getActiveTabId() === tab.id])).toEqual([
       ['three', 1, false], ['two', 2, true], ['one', 3, false],
     ]);
     expect(manager.getTab('two')).toBe(active);
@@ -557,7 +553,7 @@ it('projects provider background work only after the coordinator publishes its t
   const native = provider.sessions[0];
   let nativeWork = true;
   Object.assign(native, { hasBackgroundWork: () => nativeWork });
-  const isWorking = () => manager.getTabBarItems().find(item => item.id === tab.id)?.isWorking;
+  const isWorking = () => manager.isTabWorking(tab.id);
   expect(tab.executionCoordinator.hasBackgroundWork).toBe(true);
   expect(isWorking()).toBe(false);
   native.emit({ type: 'session_state_changed', scope: { kind: 'session', sessionInstanceId: native.sessionInstanceId, sequence: 1 }, snapshot: native.getSnapshot() });
@@ -999,7 +995,7 @@ it('reports an unloaded narrow tab from its running session and review attention
   narrow.state.markReviewRequired('completed');
   expect(manager.getTab(narrow.id)).toBeNull();
   expect(manager.isTabWorking(narrow.id)).toBe(true);
-  expect(manager.getTabBarItems().find(item => item.id === narrow.id)).toMatchObject({ isWorking: true, attention: { kind: 'review', outcome: 'completed' } });
+  expect(narrow.session.runtime.statusAttention).toMatchObject({ kind: 'review', outcome: 'completed' });
   narrow.controllers.inputController.queue.clear();
   expect(manager.isTabWorking(narrow.id)).toBe(false);
 });

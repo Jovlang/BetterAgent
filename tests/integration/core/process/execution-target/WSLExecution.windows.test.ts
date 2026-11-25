@@ -64,7 +64,7 @@ describe.skipIf(!available)('native Windows to WSL execution', { timeout: 60_000
     hostCwd = await fs.mkdtemp(path.join(tmpdir(), 'claudian WSL '));
     env = Object.fromEntries(Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined));
   });
-  afterAll(async () => { if (hostCwd) await fs.rm(hostCwd, { recursive: true, force: true }); });
+  afterAll(async () => { if (hostCwd) await fs.rm(hostCwd, { recursive: true, force: true, maxRetries: 20, retryDelay: 150 }); });
 
   describe('Pi adoption with a Linux-only fixture CLI', () => {
     let linuxRoot: string;
@@ -191,7 +191,7 @@ describe.skipIf(!available)('native Windows to WSL execution', { timeout: 60_000
         getConversationById: async () => ({ ...conversation, ...(await history.hydrateConversationHistory(conversation, hostCwd, context)) }),
         sessionRuntimes: createSessionRuntimePool(() => host),
       });
-      const messaging = new SessionMessagingService({ getHost: () => host, getActiveConversationId: () => null, refreshModelControls() {} });
+      const messaging = new SessionMessagingService({ getHost: () => host, getActiveConversationId: () => null });
       expect(await createClaudianAPI(messaging, unmodeledChatViews).read('pi-chat')).toBe('Reply stored in WSL.');
       const fork = await createPiForkSessionFile(sessionFile, 'answer-1', { targetCwd: piTargetPath(hostCwd, resolvedTarget), parentSession: piTargetPath(sessionFile, resolvedTarget) });
       expect((await readPiSessionEntries(fork.sessionFile)).header).toMatchObject({ cwd: piTargetPath(hostCwd, resolvedTarget), parentSession: piTargetPath(sessionFile, resolvedTarget) });

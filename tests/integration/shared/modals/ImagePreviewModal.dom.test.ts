@@ -5,7 +5,6 @@ import { axe } from '@test/helpers/accessibility';
 import { claudeCatalogFixture } from '@test/helpers/claudeModels';
 import { createChatFeatureHost } from '@test/helpers/features/chat/ChatFeatureHostFixture';
 import { createClaudianView } from '@test/helpers/features/chat/ClaudianViewHarness';
-import { createProjectsFake } from '@test/helpers/features/chat/ProjectsFake';
 import { createSessionRuntimePool } from '@test/helpers/features/chat/SessionRuntimePoolHarness';
 import { FakeSideBackend, type FakeSideSession } from '@test/helpers/features/chat/SideChatSessionHarness';
 import { testDate } from '@test/helpers/testClock';
@@ -54,12 +53,12 @@ async function createView() {
   const conversations = new Map([[conversation.id, conversation]]);
   const pool = createSessionRuntimePool(() => plugin);
   const messaging = new SessionMessagingService({
-    getHost: () => plugin, getActiveConversationId: () => conversation.id, refreshModelControls: () => {},
+    getHost: () => plugin, getActiveConversationId: () => conversation.id,
   });
   onTestFinished(() => messaging.dispose());
   const plugin = await createChatFeatureHost({
     app, settings, sessionRuntimes: pool,
-    bindSessionTools: id => messaging.bindSessionTools(id),
+
     executionPersistence: {
       registerExecutionBinding() {}, releaseExecutionBinding() {},
       assertConversationExecutionAuthority: async () => {},
@@ -67,7 +66,7 @@ async function createView() {
       recordConversationActivity: async () => {},
     },
     getConversationSummary: id => conversations.get(id) ?? null,
-    projects: createProjectsFake(),
+
     getConversationSync: id => conversations.get(id) ?? null,
     getCachedConversation: id => conversations.get(id) ?? null,
     getConversationById: async id => conversations.get(id) ?? null,

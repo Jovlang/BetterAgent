@@ -33,15 +33,15 @@ function holdProviderState() {
   return { started: started.promise, release: () => reply.resolve({ fork: true }) };
 }
 
-it('preserves linked content, source project, messages, and provider state in a new fork', async () => {
+it('preserves linked content, messages, and provider state in a new fork', async () => {
   const { manager, plugin } = await createManager();
   const source = (await manager.createTab('source-conversation'))!;
   const messages: ForkContext['messages'] = [{ id: 'latest', role: 'assistant', content: 'Done', timestamp: Date.now() }];
-  const fork = forkRequestFrom(manager, source)(forkContext({ linkedContentPath: 'Projects', projectId: 'project-1', messages, sourceConversationId: source.conversationId }));
+  const fork = forkRequestFrom(manager, source)(forkContext({ linkedContentPath: 'Projects', messages, sourceConversationId: source.conversationId }));
   choose();
   await fork;
   expect(plugin.createConversation).toHaveBeenCalledWith(expect.objectContaining({
-    linkedContentPath: 'Projects', providerId: 'claude', projectId: 'project-1',
+    linkedContentPath: 'Projects', providerId: 'claude',
     origin: { kind: 'fork', conversationId: source.conversationId },
   }));
   expect(plugin.updateConversation).toHaveBeenCalledWith('forked', expect.objectContaining({ messages, providerState: { fork: true } }));

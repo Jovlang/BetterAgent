@@ -16,8 +16,7 @@ import { encodeSessionMessage, type MailboxMessage } from '@/core/session-tools/
 import type { AskUserAnswers, ChatMessage, ToolCallInfo } from '@/core/types';
 import type { ChatFeatureHost } from '@/features/chat/ChatFeatureHost';
 import type { ChatSettings } from '@/features/chat/ChatSettings';
-import { findComposerSessionMentions } from '@/features/chat/composer/composerSessionMentions';
-import { resolveSessionMentions } from '@/features/chat/composer/resolveSessionMentions';
+import { stripLegacySessionMentions } from '@/features/chat/composer/composerSessionMentions';
 import type { SessionComposerPort } from '@/features/chat/composer/SessionComposer';
 import type { ConversationController } from '@/features/chat/conversation/ConversationController';
 import { FirstTurnAdmission } from '@/features/chat/conversation/FirstTurnAdmission';
@@ -348,7 +347,7 @@ export class InputController {
 
     const contentOverride = options?.content;
     const shouldUseInput = contentOverride === undefined;
-    const content = (contentOverride ?? composerDraft.content).trim();
+    const content = stripLegacySessionMentions(contentOverride ?? composerDraft.content).trim();
     const imageOverride = options?.images;
     const hasImages = imageOverride !== undefined
       ? imageOverride.length > 0
@@ -432,79 +431,13 @@ export class InputController {
       return queued ? 'queued' : 'handled';
     }
 
-    const hasSessionMentions = !options?.turnRequestOverride && findComposerSessionMentions(content).length > 0;
-    if (destination === 'side' && (sideChat || hasSessionMentions)) {
-      // An immediate side submission settles deferred main review; reference preparation does not.
-      if (!hasSessionMentions) this.execution.reportDeferredReview();
+    if (destination === 'side' && sideChat) {
+      this.execution.reportDeferredReview();
       const mainOnly = detectMainOnlyBuiltInCommand(content, this.#getActiveProviderId());
       if (mainOnly) {
         new Notice(t('chat.sideChat.mainOnlyCommand', { command: mainOnly.name }));
         return 'rejected';
       }
-    }
-
-    if (hasSessionMentions) {
-      const conversationId = state.currentConversationId;
-      const capturedSideRuntime = sideChat?.runtime;
-      const images = [...(imageOverride ?? composerDraft.images)];
-      const captured = this.#buildTurnSubmission(content, images, options);
-      const sideContext = this.#captureSideContext();
-      const original = shouldUseInput ? this.deps.drafts.consume(destination) : { content, images };
-      const preparation = new AbortController();
-      const ownsMainTurn = destination === 'main' && !this.turns.isActive && !this.queue.message;
-      const releaseAdmission = destination === 'main' && !ownsMainTurn && !skipPreparationBarrier
-        ? this.preparations.reserveMainAdmission() : onAdmitted;
-      let queued = false;
-      const prepare = async (signal: AbortSignal): Promise<void> => {
-        const cancelSidePreparation = () => { if (destination === 'side') capturedSideRuntime?.cancel(); };
-        signal.addEventListener('abort', cancelSidePreparation, { once: true });
-        this.deps.getInputEl()?.setAttribute?.('aria-busy', 'true');
-        let handedOff = false;
-        try {
-          const resolved = destination === 'side' && capturedSideRuntime
-            ? await capturedSideRuntime.prepareSubmission(sideSignal => resolveSessionMentions(this.deps.plugin, content, sideSignal))
-            : await resolveSessionMentions(this.deps.plugin, content, signal);
-          signal.throwIfAborted();
-          if (state.currentConversationId !== conversationId || !this.deps.canStartTurn()
-            || (destination === 'side' && sideChat?.runtime !== capturedSideRuntime)) {
-            throw new Error('The destination changed while preparing session references.');
-          }
-          const turnRequest = { ...captured.turnRequest, text: resolved.text, draftContent: original.content,
-            sessionReferences: resolved.references };
-          if (destination === 'side') {
-            const accepted = await sideChat?.submitToSide(resolved.text, images,
-              { ...sideContext, sessionReferences: resolved.references }, resolved.text);
-            if (!accepted) throw new Error('The side chat could not accept this message.');
-          } else if (ownsMainTurn) {
-            handedOff = true;
-            releaseAdmission?.();
-            await this.execution.run(this.#resolveMainTurn(resolved.text, { ...options, images, turnRequestOverride: turnRequest,
-              draftConsumed: shouldUseInput || options?.draftConsumed }), signal);
-          } else {
-            handedOff = true;
-            const result = await this.#dispatchMessage({ ...options, destination: 'main', content: resolved.text, images, turnRequestOverride: turnRequest }, true, releaseAdmission);
-            if (result === 'rejected') this.deps.drafts.restore(destination, original, { merge: true });
-            queued = result === 'queued';
-          }
-          handedOff = true;
-        } catch (error) {
-          if (!handedOff) {
-            this.deps.drafts.restore(destination, original, { merge: true });
-            if (!signal.aborted) new Notice(error instanceof Error ? error.message : String(error));
-          } else throw error;
-        } finally {
-          signal.removeEventListener('abort', cancelSidePreparation);
-          this.deps.getInputEl()?.removeAttribute?.('aria-busy');
-          if (ownsMainTurn && !handedOff) this.queue.restoreToComposer();
-        }
-      };
-      const pending = ownsMainTurn ? this.turns.run(prepare) : prepare(preparation.signal);
-      try {
-        await this.preparations.track(preparation, destination, pending);
-      } finally {
-        releaseAdmission?.();
-      }
-      return queued ? 'queued' : 'handled';
     }
 
     if (destination === 'side' && sideChat) {

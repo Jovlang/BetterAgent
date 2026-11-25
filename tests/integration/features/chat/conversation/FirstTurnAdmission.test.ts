@@ -1,12 +1,10 @@
 import '@/providers';
 
 // @vitest-environment jsdom
-import { createFixture, deferred, waitForCall } from '@test/helpers/ChatInputHarness';
+import { createFixture } from '@test/helpers/ChatInputHarness';
 import { conversationRecord } from '@test/helpers/features/chat/ConversationFixture';
-import { createProjectsFake } from '@test/helpers/features/chat/ProjectsFake';
 
 import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
-import type { Conversation } from '@/core/types';
 
 const nativeCapabilities = ProviderRegistry.getCapabilities('claude');
 beforeEach(() => {
@@ -100,24 +98,6 @@ describe('FirstTurnAdmission', () => {
     expect(fixture.input.value).toBe('Start linked session');
   });
 
-  it('creates a project-seeded draft with its raw frozen seed, keeping the seed across failed creation', async () => {
-    const fixture = (await createFixture());
-    // No live record: whether the seed still names a project is the repository's decision at creation, not admission's.
-    Object.assign(fixture.plugin, { projects: createProjectsFake([]) });
-    fixture.state.currentConversationId = null;
-    fixture.deps.conversationController.seedDraftProject('project-1');
-    fixture.plugin.createConversation
-      .mockRejectedValueOnce(new Error('storage unavailable'))
-      .mockResolvedValue(conversationRecord('project-conversation'));
-
-    await expect(fixture.controller.sendMessage({ content: 'First attempt' })).rejects.toThrow('storage unavailable');
-    await fixture.controller.sendMessage({ content: 'Retry' });
-
-    const expected = { providerId: 'claude', selectedModel: 'claude-model', projectId: 'project-1' };
-    expect(fixture.plugin.createConversation.mock.calls).toEqual([[expected], [expected]]);
-    expect(fixture.state.currentConversationId).toBe('project-conversation');
-  });
-
   it('keeps a created zero-message Conversation locked and retries ordinal one', async () => {
     const fixture = await createFixture();
     const linkedContentController = fixture.linkedContentController;
@@ -204,36 +184,4 @@ describe('FirstTurnAdmission', () => {
     const submission = fixture.native.requests[0];
     expect(submission.context).not.toHaveProperty('linkedContent');
   });
-});
-
-it('does not steer Linked content captured while the first turn resolves session references', async () => {
-  const fixture = await createFixture();
-  fixture.linkedContentController.selectExplicit('Projects/Plan.md');
-  fixture.state.currentConversationId = null;
-  fixture.plugin.createConversation.mockResolvedValue(conversationRecord('linked-conversation'));
-  const source = deferred<Conversation | null>();
-  fixture.plugin.getConversationById.mockReturnValueOnce(source.promise);
-  Object.assign(fixture.plugin, {
-    findConversationAcrossViews: () => null,
-  });
-  const turn = fixture.holdNextResponse();
-
-  const first = fixture.controller.sendMessage({ content: 'Use @[Source](claudian-session:conv-1-source)' });
-  await waitForCall(fixture.plugin.getConversationById);
-  await fixture.controller.sendMessage({ content: 'steered follow-up' });
-  source.resolve({
-    id: 'conv-1-source', title: 'Source', providerId: 'claude', sessionId: null, createdAt: 1, lastActivityAt: 2,
-    messages: [{ id: 'u', role: 'user', content: 'source prompt', timestamp: 1 }],
-  });
-  await turn.started;
-  await fixture.controller.queue.steerNow();
-  (await turn.started).complete();
-  await first;
-
-  expect(fixture.native.requests[0]).toMatchObject({
-    context: expect.objectContaining({ linkedContent: { path: 'Projects/Plan.md' } }),
-  });
-  expect(fixture.native.steerRequests).toHaveLength(1);
-  expect(fixture.native.steerRequests[0].input).toEqual([{ type: 'text', text: 'steered follow-up' }]);
-  expect(fixture.native.steerRequests[0].context).not.toHaveProperty('linkedContent');
 });

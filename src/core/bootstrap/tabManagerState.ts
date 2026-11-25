@@ -14,7 +14,6 @@ export interface AppTabManagerState {
     preview?: true;
   }>;
   activeTabId: string | null;
-  expandedTitleTabIds?: string[];
 }
 
 /** Longest custom tab label, in Unicode code points. */
@@ -100,27 +99,8 @@ export function decodeTabWorkspaceViewState(data: unknown): AppTabManagerState |
     return null;
   }
 
-  const expandedTitleTabIds: string[] = [];
-  if ('expandedTitleTabIds' in data) {
-    if (!Array.isArray(data.expandedTitleTabIds)) return null;
-
-    const seenExpandedTabIds = new Set<string>();
-    for (const tabId of data.expandedTitleTabIds) {
-      if (
-        !isNonBlankString(tabId)
-        || !openTabIds.has(tabId)
-        || seenExpandedTabIds.has(tabId)
-      ) {
-        return null;
-      }
-      expandedTitleTabIds.push(tabId);
-      seenExpandedTabIds.add(tabId);
-    }
-  }
-
   return {
     openTabs,
     activeTabId: data.activeTabId,
-    ...(expandedTitleTabIds.length > 0 ? { expandedTitleTabIds } : {}),
   };
 }

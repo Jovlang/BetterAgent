@@ -10,7 +10,7 @@ import { type CodexNativeRequest, type CodexNativeTestProcess as FakeProcess,Cod
 import { testClock } from '@test/helpers/testClock';
 import spawn from 'cross-spawn';
 
-import type { ProviderExecutionEvent, ProviderExecutionRequest, ProviderInteractionPort, ProviderSessionConfig, ProviderSessionToolPort, ProviderToolPolicy } from '@/core/execution';
+import type { ProviderExecutionEvent, ProviderExecutionRequest, ProviderInteractionPort, ProviderSessionConfig, ProviderToolPolicy } from '@/core/execution';
 import type { ProviderHost } from '@/core/providers/ProviderHost';
 import type { ProviderRuntimeHost } from '@/core/providers/ProviderRuntimeHost';
 import { createCodexWorkspaceServices } from '@/providers/codex/app/CodexWorkspaceServices';
@@ -33,7 +33,6 @@ const createBackend = (host: ProviderHost, runtime: CodexAppServerRuntime): Code
 const mockNative = new CodexRuntimeHarness();
 
 vi.mock('cross-spawn', () => ({ default: vi.fn(() => mockNative.createProcess()) }));
-
 
 
 describe('Codex shared runtime', () => {
@@ -264,7 +263,7 @@ describe('Codex shared runtime', () => {
     });
   }
 
-  it.each([true, false])('registers session specs and their version only with a port (%s)', async ported => {
+  it.each([true, false])('does not expose retired session tools even if a port was supplied (%s)', async ported => {
     mockNative.autoReconcile = true;
     const port = { list: vi.fn(async () => ({ sessions: [] })), send: vi.fn(), read: vi.fn() };
     const session = createBackend(plugin, createRuntime()).createSession({ ...config, ...(ported ? { sessionTools: port } : {}) });
@@ -272,14 +271,13 @@ describe('Codex shared runtime', () => {
     const process = await waitForRequest('turn/start');
     const specs = process.requests.find(call => call.method === 'thread/start')!.params.dynamicTools ?? [];
     expect(specs.filter((spec) => spec.namespace === 'claudian_sessions').map((spec) => spec.name))
-      .toEqual(ported ? ['claudian_list_destinations', 'claudian_send_message', 'claudian_read_session'] : []);
+      .toEqual([]);
     expect(specs.every((spec) => !('type' in spec))).toBe(true);
-    expect(await sessionToolCall(process, 'thread-1')).toMatchObject({ result: { success: ported } });
-    expect(port.list.mock.calls).toHaveLength(ported ? 1 : 0);
+    expect(await sessionToolCall(process, 'thread-1')).toMatchObject({ result: { success: false } });
+    expect(port.list).not.toHaveBeenCalled();
     complete(process, 'thread-1');
     await output;
-    // The version is published with the thread once Codex accepts its first turn.
-    expect(session.getSnapshot().providerState?.sessionToolVersion).toBe(ported ? 4 : undefined);
+    expect(session.getSnapshot().providerState?.sessionToolVersion).toBeUndefined();
     await session.dispose();
   });
 
@@ -337,72 +335,9 @@ describe('Codex shared runtime', () => {
     });
     const output = collect(session.execute(request).events);
     const process = await waitForRequest('turn/start');
-    expect(await sessionToolCall(process, 'fork-child')).toMatchObject({ result: { success: false, contentItems: [{ type: 'inputText', text: expect.stringContaining('main chat') }] } });
+    expect(await sessionToolCall(process, 'fork-child')).toMatchObject({ result: { success: false, contentItems: [{ type: 'inputText', text: expect.stringContaining('no longer provides inter-session tools') }] } });
     complete(process, 'fork-child');
     await output;
-    await session.dispose();
-  });
-
-  it.each(['interrupt', 'settlement', 'release'] as const)('revokes a deferred send on %s before port admission', async stop => {
-    mockNative.autoReconcile = true;
-    let signal: AbortSignal | undefined;
-    let finishCreation!: () => void;
-    const creation = new Promise<void>(resolve => { finishCreation = resolve; });
-    let enter!: () => void;
-    const entered = new Promise<void>(resolve => { enter = resolve; });
-    const admitted: string[] = [];
-    const port: ProviderSessionToolPort = { list: async () => ({ sessions: [] }), send: async (args, runSignal) => {
-      signal = runSignal;
-      enter();
-      await creation;
-      runSignal.throwIfAborted();
-      admitted.push(args.text!);
-      return { sessionId: 'recipient', title: 'Review', provider: 'codex', status: 'started' };
-    }, read: vi.fn() };
-    const session = createBackend(plugin, createRuntime()).createSession({ ...config, sessionTools: port });
-    const run = session.execute(request);
-    const output = collect(run.events);
-    const process = await waitForRequest('turn/start');
-    const response = sessionToolCall(process, 'thread-1', 'claudian_send_message', { text: 'hello' });
-    await entered;
-    expect(signal).toBeDefined();
-    if (stop === 'interrupt') run.cancel();
-    else if (stop === 'settlement') complete(process, 'thread-1');
-    else await session.dispose();
-    await output;
-    expect(signal?.aborted).toBe(true);
-    finishCreation();
-    expect(await response).toMatchObject({ result: { success: false } });
-    expect(admitted).toEqual([]);
-    await session.dispose();
-  });
-
-  it('keeps an admitted recipient independent and rejects old calls during the next run', async () => {
-    mockNative.autoReconcile = true;
-    const admitted: string[] = [];
-    let signal: AbortSignal | undefined;
-    const port: ProviderSessionToolPort = { list: vi.fn(async () => ({ sessions: [] })), send: async (args, runSignal) => {
-      signal = runSignal;
-      admitted.push(args.text!);
-      return { sessionId: 'recipient', title: 'Review', provider: 'codex', status: 'started' };
-    }, read: vi.fn() };
-    const session = createBackend(plugin, createRuntime()).createSession({ ...config, sessionTools: port });
-    const run = session.execute(request);
-    const output = collect(run.events);
-    const process = await waitForRequest('turn/start');
-    const oldTurn = process.turns.get('thread-1')!.id;
-    expect(await sessionToolCall(process, 'thread-1', 'claudian_send_message', { text: 'hello' })).toMatchObject({ result: { success: true } });
-    run.cancel();
-    await output;
-    expect(signal?.aborted).toBe(true);
-    expect(admitted).toEqual(['hello']);
-    const nextOutput = collect(session.execute(request).events);
-    await waitForRequest('turn/start', 0, 2);
-    expect(await sessionToolCall(process, 'thread-1', 'claudian_list_destinations', {}, oldTurn)).toMatchObject({ error: expect.anything() });
-    expect(port.list).not.toHaveBeenCalled();
-    expect(await sessionToolCall(process, 'thread-1')).toMatchObject({ result: { success: true } });
-    complete(process, 'thread-1');
-    await nextOutput;
     await session.dispose();
   });
 

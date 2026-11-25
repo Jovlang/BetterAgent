@@ -8,9 +8,9 @@ import { pathToFileURL } from 'node:url';
 
 import type { LaunchPatchEntry } from '@test/helpers/deepseek/LaunchPatch';
 import { NativePeer } from '@test/helpers/deepseek/NativePeer';
+import { LoopbackSessionToolServer } from '@test/helpers/LoopbackSessionToolServer';
 import { testDate } from '@test/helpers/testClock';
 
-import { LoopbackSessionToolServer } from '@/core/session-tools/LoopbackSessionToolServer';
 import { DeepSeekHostProcess } from '@/providers/deepseek/runtime/DeepSeekHostProcess';
 
 // Forward the native namespace so the spawn observer still starts real processes.

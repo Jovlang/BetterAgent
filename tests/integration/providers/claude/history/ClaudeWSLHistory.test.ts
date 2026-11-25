@@ -85,7 +85,7 @@ it.skipIf(onWindows)('plugin API read hydrates a WSL transcript through the repo
   const chatHost = await createChatFeatureHost({ sessionRuntimes: pool,
     ensureConversationMetadataLoaded: async () => {}, getConversationById: async id => repository.getById(id),
   });
-  const service = new SessionMessagingService({ getHost: () => chatHost, getActiveConversationId: () => null, refreshModelControls: () => {} });
+  const service = new SessionMessagingService({ getHost: () => chatHost, getActiveConversationId: () => null });
   try {
     expect(await createClaudianAPI(service, unmodeledChatViews).read('conversation-1')).toBe('Answer from WSL history');
     // The Linux HOME comes from distro environment probes (availability, then the read), run from the host vault.

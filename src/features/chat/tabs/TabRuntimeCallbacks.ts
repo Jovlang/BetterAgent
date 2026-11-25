@@ -17,8 +17,6 @@ export interface TabRuntimeCallbackHost {
   readonly forkTargetHost: ForkTargetHost;
   /** Rebinds the tab to a new blank draft carrying `seed`. */
   startNew(tab: AssembledTabRuntime, seed?: DraftSeed): Promise<void>;
-  /** What New started from `tab` begins with: its project, if any. */
-  inheritedSeed(tab: AssembledTabRuntime): DraftSeed;
 }
 
 export type TabRuntimeCallbacks = Omit<
@@ -59,10 +57,9 @@ export function createTabRuntimeCallbacks(
     startNewConversation: async () => {
       const sourceTab = liveRuntime();
       if (!sourceTab) return;
-      const seed = host.inheritedSeed(sourceTab);
-      if (await host.layoutPolicy.startNew(sourceTab, seed)) return;
+      if (await host.layoutPolicy.startNew(sourceTab, {})) return;
       if (!membership.isTabAlive(sourceTab)) return;
-      await host.startNew(sourceTab, seed);
+      await host.startNew(sourceTab);
     },
     onStreamingChanged: (runtime, isStreaming) => {
       if (membership.isTabStateMutable(runtime)) callbacks.onTabStreamingChanged?.(runtime.id, isStreaming);

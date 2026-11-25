@@ -6,7 +6,6 @@ import { approvalDecisionOptions } from '@test/helpers/features/chat/approvalDec
 import { createChatFeatureHost } from '@test/helpers/features/chat/ChatFeatureHostFixture';
 import { registerChatTestProvider } from '@test/helpers/features/chat/ChatProviderFixture';
 import { createClaudianView } from '@test/helpers/features/chat/ClaudianViewHarness';
-import { createProjectsFake, projectRecord } from '@test/helpers/features/chat/ProjectsFake';
 import { createSessionBrowserHost } from '@test/helpers/features/chat/SessionBrowserTestHarness';
 import { fireEvent } from '@testing-library/dom';
 import { App, Component, MarkdownRenderer, WorkspaceLeaf } from 'obsidian';
@@ -85,16 +84,16 @@ async function createPlugin(overrides: Omit<NonNullable<Parameters<typeof create
     onChanged: () => undefined,
     onError: () => undefined,
   });
-  const messaging: SessionMessagingService = new SessionMessagingService({ getHost: () => plugin, getActiveConversationId: () => null, refreshModelControls: () => undefined });
+  const messaging: SessionMessagingService = new SessionMessagingService({ getHost: () => plugin, getActiveConversationId: () => null });
   onTestFinished(() => messaging.dispose());
   const ports = {
-    bindSessionTools: (id: string) => messaging.bindSessionTools(id),
+
     executionPersistence: {
       registerExecutionBinding() {}, releaseExecutionBinding() {},
       assertConversationExecutionAuthority: async () => undefined,
       persistExecutionSnapshot: async () => true, recordConversationActivity: async () => undefined,
     },
-    projects: createProjectsFake([]),
+
     chatModelSelection: {
       beginIntent: vi.fn(() => ++nextModelSelectionIntent),
       commitIntent: vi.fn<ChatFeatureHost['chatModelSelection']['commitIntent']>(async (_intent, selection) => {
@@ -328,7 +327,6 @@ describe('Tab provider execution ownership', () => {
     const { store } = await createSessionBrowserHost();
     const lifecycle = new ConversationLifecycle({
       sessions: plugin.sessionRuntimes,
-      projects: { get: () => null, setArchived: async () => undefined },
       conversations: store,
       views: { getAllViews: () => [view] },
     });
@@ -359,7 +357,6 @@ describe('Tab provider execution ownership', () => {
     const { store } = await createSessionBrowserHost();
     const lifecycle = new ConversationLifecycle({
       sessions: plugin.sessionRuntimes,
-      projects: { get: () => null, setArchived: async () => undefined },
       conversations: store,
       views: { getAllViews: () => [view] },
     });
@@ -2089,11 +2086,11 @@ describe('Tab provider execution ownership', () => {
     } finally { await release(); }
   });
 
-  it('numbers a fork from canonical user turns while retaining non-canonical history and the source project', async () => {
-    const conversation = { ...createConversation(), projectId: 'project-1' };
+  it('numbers a fork from canonical user turns while retaining non-canonical history', async () => {
+    const conversation = createConversation();
     const plugin = await createPlugin({
       getConversationSync: vi.fn().mockReturnValue(conversation),
-      projects: createProjectsFake([projectRecord({ id: 'project-1' })]),
+
     });
     const forkRequest = vi.fn().mockResolvedValue(undefined);
     const tab = await createTestTab({
@@ -2158,7 +2155,6 @@ describe('Tab provider execution ownership', () => {
     );
     expect(forkRequest).toHaveBeenCalledWith(expect.objectContaining({
       forkAtUserMessage: 3,
-      projectId: 'project-1',
       messages: expect.arrayContaining([
         expect.objectContaining({ id: 'interrupt-a', isInterrupt: true }),
         expect.objectContaining({ id: 'rebuilt-a', isRebuiltContext: true }),

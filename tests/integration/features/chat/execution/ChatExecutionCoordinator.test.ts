@@ -2,11 +2,11 @@ import type { FakeRun } from '@test/helpers/ChatExecutionHarness';
 import { beginExecution, createHarness, createSubmission, deferred, FakeSession, requestedScope } from '@test/helpers/ChatExecutionHarness';
 import { approvalDecisionOptions } from '@test/helpers/features/chat/approvalDecisionOptions';
 import { testDate } from '@test/helpers/testClock';
-import type { Mock, MockedFunction } from 'vitest';
+import type { MockedFunction } from 'vitest';
 
 import { ConversationExecutionBindings } from '@/app/conversations/ConversationExecutionBindings';
 import type { ConversationRecordFence } from '@/app/conversations/ConversationRecordFence';
-import { type ProviderExecutionEvent, type ProviderSessionSnapshot, type ProviderSessionToolPort } from '@/core/execution';
+import { type ProviderExecutionEvent, type ProviderSessionSnapshot } from '@/core/execution';
 import type { ChatMessage, Conversation } from '@/core/types';
 import { ChatExecutionInteractionStaleError, ChatExecutionPreHandoffError } from '@/features/chat/execution/ChatExecutionCoordinator';
 import { t } from '@/i18n/i18n';
@@ -15,81 +15,8 @@ const IDLE_MS = 30 * 60_000;
 
 afterEach(() => vi.useRealTimers());
 
-const listArgs = { includeProviders: false, limit: 50 };
 
 describe('ChatExecutionCoordinator', () => {
-  function createSessionToolHarness() {
-    const bindings: { port: ProviderSessionToolPort; dispose: Mock }[] = [];
-    const bindSessionTools = vi.fn((_conversationId: string) => {
-      const controller = new AbortController();
-      const port: ProviderSessionToolPort = {
-        list: async () => { controller.signal.throwIfAborted(); return { sessions: [] }; },
-        send: async () => {
-          controller.signal.throwIfAborted();
-          return { sessionId: 'recipient', title: 'Review', provider: 'codex', status: 'queued' };
-        },
-        read: vi.fn(),
-      };
-      const binding = { port, dispose: vi.fn(() => controller.abort(new Error('Binding revoked'))) };
-      bindings.push(binding);
-      return binding;
-    });
-    return { ...createHarness({ bindSessionTools }), bindSessionTools, bindings };
-  }
-
-  it.each(['bind', 'invalidation', 'dispose'] as const)(
-    'revokes session tools before provider teardown on %s', async mode => {
-      const harness = createSessionToolHarness();
-      await harness.coordinator.bindConversation({ conversationId: 'caller', providerId: 'claude' });
-      expect(harness.bindSessionTools).not.toHaveBeenCalled();
-      await harness.coordinator.prepare();
-      await harness.coordinator.prepare();
-      const backend = harness.backends.get('claude')!;
-      const port = backend.configs[0].sessionTools!;
-      expect(harness.bindSessionTools).toHaveBeenCalledTimes(1);
-      expect(harness.bindSessionTools).toHaveBeenCalledWith('caller');
-      expect(port).toBe(harness.bindings[0].port);
-      await expect(port.list(listArgs, new AbortController().signal)).resolves.toEqual({ sessions: [] });
-      const teardown = deferred<void>();
-      const dispose = vi.spyOn(backend.sessions[0], 'dispose').mockImplementationOnce(async () => {
-        await expect(port.list(listArgs, new AbortController().signal)).rejects.toThrow('Binding revoked');
-        await teardown.promise;
-      });
-      const release = mode === 'bind' ? harness.coordinator.bindConversation(null)
-        : mode === 'invalidation' ? harness.registry.runTransition(['claude'], async () => undefined)
-          : harness.coordinator.dispose();
-      try {
-        for (let attempt = 0; attempt < 20 && !dispose.mock.calls.length; attempt++) await Promise.resolve();
-        expect(dispose).toHaveBeenCalledTimes(1);
-        await expect(port.list(listArgs, new AbortController().signal)).rejects.toThrow('Binding revoked');
-        await expect(port.send({ text: 'late' }, new AbortController().signal)).rejects.toThrow('Binding revoked');
-      } finally {
-        teardown.resolve();
-        await release;
-        await harness.coordinator.dispose();
-        await harness.registry.dispose();
-      }
-      expect(harness.bindings[0].dispose).toHaveBeenCalledTimes(1);
-    },
-  );
-
-  it.each(['acquire', 'persistence'] as const)('revokes session tools if preparation fails during %s', async phase => {
-    const harness = createSessionToolHarness();
-    const failure = new Error('Preparation failed');
-    if (phase === 'acquire') {
-      vi.spyOn(harness.backends.get('claude')!, 'createSession').mockImplementationOnce(() => { throw failure; });
-    } else {
-      harness.repository.persistExecutionSnapshot.mockRejectedValueOnce(failure);
-    }
-    await harness.coordinator.bindConversation({ conversationId: 'caller', providerId: 'claude' });
-    await expect(harness.coordinator.prepare()).rejects.toBe(failure);
-    expect(harness.bindings).toHaveLength(1);
-    await expect(harness.bindings[0].port.list(listArgs, new AbortController().signal)).rejects.toThrow('Binding revoked');
-    await harness.coordinator.dispose();
-    await harness.registry.dispose();
-    expect(harness.bindings[0].dispose).toHaveBeenCalledTimes(1);
-  });
-
   it('requires a current picker response and records the selected retry without executing a turn', async () => {
     const harness = createHarness();
     await harness.coordinator.bindConversation({ conversationId: 'review', providerId: 'codex' });

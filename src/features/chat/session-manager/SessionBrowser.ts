@@ -1,12 +1,9 @@
-import { type Menu, Notice, setIcon } from 'obsidian';
+import { type Menu, setIcon } from 'obsidian';
 
 import type { TitleGenerationService } from '@/core/providers/types';
 import type { ConversationMeta, SessionManagerOrganization, SessionManagerSort } from '@/core/types';
 import type { ChatFeatureHost } from '@/features/chat/ChatFeatureHost';
 import { ConversationTitleGeneration } from '@/features/chat/conversation/ConversationTitleGeneration';
-import { projectIconId } from '@/features/chat/projects/projectIcon';
-import { moveProject, savedProjectOrder } from '@/features/chat/projects/projectOrder';
-import { renderProjectsHeaderActions } from '@/features/chat/session-manager/ProjectsHeaderActions';
 import {
   canMultiSelect,
   type SessionActionOptions,
@@ -25,7 +22,6 @@ import {
   deriveSessionListModel,
   getLinkedContentTitle,
   isLegacyProvisionalLinkedContent,
-  type ProjectListSection,
   type SessionListSection,
   sessionManagerSectionKey,
 } from '@/features/chat/session-manager/SessionListOrganizer';
@@ -53,7 +49,6 @@ import {
 import { bindMenuToggle, createSessionHeaderMenuAction, showMenuAt } from '@/features/chat/session-manager/SessionSurfaceShared';
 import { runSessionAction } from '@/features/chat/utils/runSessionAction';
 import { t } from '@/i18n/i18n';
-import { LiveListSorter } from '@/shared/components/LiveListSorter';
 
 const DEFAULT_HISTORY_PAGE_SIZE = 100;
 
@@ -81,7 +76,7 @@ type HistoryRenderOptions = SessionActionOptions & SessionStatusDisplay & Sessio
   groupByRecency?: boolean;
   sort?: SessionManagerSort;
   /**
-   * Whether a group (Linked content, project) or a whole section (`sessionManagerSectionKey`) is collapsed, by its
+   * Whether a group (Linked content) or a whole section (`sessionManagerSectionKey`) is collapsed, by its
    * key; the surface owns the state and each kind's default. A lineage fold passes the default its contents give.
    * Without it everything is expanded.
    */
@@ -130,23 +125,12 @@ function isNewTabModifierClick(event: MouseEvent): boolean {
 }
 
 export class SessionBrowser {
-  private readonly metadataPopover = new SessionMetadataPopover(
-    () => this.drag.isDragging || this.projectSorter.isDragging,
-  );
+  private readonly metadataPopover = new SessionMetadataPopover(() => this.drag.isDragging);
   private readonly selection = new SessionMultiSelection();
   private readonly inlineRename = new SessionInlineRename();
   private readonly drag = new SessionDrag({
     onDragStart: () => this.metadataPopover.close(),
     onDrop: (conversationIds, target) => this.actions.placeSessions(conversationIds, target),
-  });
-  private readonly projectSorter = new LiveListSorter({
-    // Row controls keep their own clicks.
-    ignoreSelector: '.claudian-session-group-menu-action, .claudian-session-group-new-action',
-    onDragStart: () => this.metadataPopover.close(),
-    onDrop: (projectId, targetId, placement) => moveProject(this.deps.plugin, projectId, targetId, placement)
-      .catch(() => {
-        new Notice(t('chat.projects.errors.reorder'));
-      }),
   });
   private readonly actions: SessionActions;
   private readonly titles: ConversationTitleGeneration;
@@ -162,18 +146,9 @@ export class SessionBrowser {
 
   dispose(): void {
     this.drag.end();
-    this.projectSorter.dispose();
     this.selection.clear();
     this.inlineRename.cancel();
     this.metadataPopover.dispose();
-  }
-
-  /**
-   * Holds a render of the surface that shows the sortable list while a project is lifted or its drop is saving, so
-   * the gesture and dropped layout survive; the latest held render runs when the drag ends.
-   */
-  deferWhileSortingProjects(render: () => void): boolean {
-    return this.projectSorter.deferRender(render);
   }
 
   cancelInlineRename(): boolean {
@@ -205,7 +180,6 @@ export class SessionBrowser {
     this.selection.beginRender(container, options.searchQuery ?? '', canMultiSelect(options));
     if (canDrag) {
       this.drag.beginRender(container);
-      this.projectSorter.beginRender();
     } else {
       this.drag.end();
     }
@@ -229,8 +203,6 @@ export class SessionBrowser {
       searchQuery: options.searchQuery,
       showPinnedSection: options.showPinnedSection,
       pinnedLinkedContentPaths: options.pinnedLinkedContentPaths,
-      projects: options.flatHistory ? undefined : plugin.projects,
-      projectOrder: savedProjectOrder(plugin.settings),
       isGroupCollapsed: options.isGroupCollapsed,
       contentExists: options.contentExists,
       contentIsNote: options.contentIsNote,
@@ -249,16 +221,14 @@ export class SessionBrowser {
         )),
       )),
     };
-    const showSessionSections = options.showPinnedSection || options.showArchivedSection || model.projectSections !== null;
+    const showSessionSections = options.showPinnedSection || options.showArchivedSection;
 
     let list: HTMLElement;
     let sessionList: HTMLElement;
     let pinnedList: HTMLElement | null = null;
-    let projectsList: HTMLElement | null = null;
     if (showSessionSections) {
       list = container.createDiv({ cls: 'claudian-history-list' });
-      const hasPinned = model.pinnedProjectSections.length > 0
-        || model.pinnedConversations.length > 0
+      const hasPinned = model.pinnedConversations.length > 0
         || pinnedContentSections.length > 0;
       // With nothing pinned, the header alone is a drop target that shows only while a drag is in progress.
       if (hasPinned || canDrag) {
@@ -278,18 +248,10 @@ export class SessionBrowser {
             cls: 'claudian-history-section-items',
           });
           if (canDrag) this.drag.attachTarget(pinnedSection, { kind: 'pinned' });
-          // Like the Projects section, pinned projects show even when no session matches.
-          for (const projectSection of model.pinnedProjectSections) {
-            this.#renderProjectSection(pinnedList, projectSection, listOptions, model.conversationsByProject);
-          }
         } else {
           this.drag.attachPinnedPlaceholder(pinnedSection);
         }
       }
-      if (model.projectSections) {
-        projectsList = this.#renderProjectsSection(list, model.projectSections, listOptions, model.conversationsByProject);
-      }
-
       const sessionsLabel = options.showArchivedSection ? 'Archived' : 'Sessions';
       const sessionsSection = list.createDiv({
         cls: [
@@ -340,7 +302,6 @@ export class SessionBrowser {
         previousPosition,
         sectionScrolling ? sessionList : list,
         pinnedList,
-        sectionScrolling ? projectsList : null,
       );
     };
 
@@ -655,141 +616,6 @@ export class SessionBrowser {
       toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
       options.onGroupCollapseChange?.(key, collapsed);
     });
-  }
-
-  /**
-   * The projects section: its header with the project actions (outside the archive, where projects are only
-   * restored or deleted), and one collapsible row per project.
-   */
-  #renderProjectsSection(
-    list: HTMLElement,
-    projectSections: readonly ProjectListSection[],
-    options: ListRenderOptions,
-    conversationsByProject: ReadonlyMap<string, readonly ConversationMeta[]>,
-  ): HTMLElement {
-    const label = t('chat.projects.header');
-    const section = list.createDiv({
-      cls: 'claudian-history-section claudian-history-section--projects',
-      attr: { role: 'region' },
-    });
-    const header = section.createDiv({
-      cls: 'claudian-history-header claudian-session-section-header claudian-session-projects-header',
-    });
-    const items = section.createDiv({ cls: 'claudian-history-section-items claudian-session-project-items' });
-    this.#renderSectionToggle(section, header, label, items, sessionManagerSectionKey('projects'), options);
-    if (options.sessionScope !== 'archived') renderProjectsHeaderActions(header, this.deps.plugin);
-    for (const projectSection of projectSections) {
-      this.#renderProjectSection(items, projectSection, options, conversationsByProject);
-    }
-    return items;
-  }
-
-  /**
-   * One project: a header of native buttons (the toggle, New session, and the actions menu, so each stays
-   * reachable by keyboard without nesting) over its member rows.
-   */
-  #renderProjectSection(
-    list: HTMLElement,
-    section: ProjectListSection,
-    options: ListRenderOptions,
-    conversationsByProject: ReadonlyMap<string, readonly ConversationMeta[]>,
-  ): void {
-    const { project } = section;
-    const label = project.name;
-    const isCollapsed = options.isGroupCollapsed?.(section.key) ?? false;
-    const { groupHeader, groupStatusKind } = this.#createGroupHeader(
-      list,
-      section,
-      isCollapsed,
-      options,
-      ['claudian-session-group-header--project'],
-    );
-    groupHeader.setAttribute('data-project-id', project.id);
-    const dropTarget = { kind: 'project', projectId: project.id } as const;
-    const canDrag = this.#canDrag(options);
-    if (canDrag) this.drag.attachTarget(groupHeader, dropTarget);
-    const projectSortRow = { id: project.id, group: project.isPinned ? 'pinned' : 'unpinned' };
-
-    // Named by its visible label: an aria-label would show Obsidian's hover tooltip.
-    const toggle = groupHeader.createEl('button', {
-      cls: 'claudian-session-group-toggle',
-      attr: {
-        type: 'button',
-        'aria-expanded': isCollapsed ? 'false' : 'true',
-      },
-    });
-    // A chosen icon does not open with the group, so it dims while collapsed instead.
-    const icon = toggle.createSpan({
-      cls: project.icon ? 'claudian-session-group-icon claudian-session-group-icon--custom' : 'claudian-session-group-icon',
-    });
-    icon.setAttribute('aria-hidden', 'true');
-    setIcon(icon, projectIconId(project, !isCollapsed));
-    toggle.createSpan({ cls: 'claudian-session-group-label', text: label });
-
-    if (groupStatusKind !== null) {
-      this.#createSessionStatusIndicator(groupHeader, groupStatusKind, true, isCollapsed);
-    }
-
-    const buildMenu = (): Menu => this.actions.projectMenu(
-      project,
-      conversationsByProject.get(project.id) ?? [],
-      conversation => this.#statusOf(conversation, options).isRunning,
-    );
-    const actionsButton = groupHeader.createEl('button', {
-      cls: 'claudian-session-group-menu-action',
-      attr: {
-        type: 'button',
-        'aria-label': t('chat.projects.actionsFor', { name: label }),
-        'aria-haspopup': 'menu',
-      },
-    });
-    setIcon(actionsButton, 'more-horizontal');
-    actionsButton.addEventListener('click', event => event.stopPropagation());
-    bindMenuToggle(actionsButton, () => {
-      const menu = buildMenu();
-      showMenuAt(menu, actionsButton);
-      return menu;
-    });
-    this.#openMenuOnContextMenu(groupHeader, buildMenu);
-
-    const startProjectConversation = options.onStartProjectConversation;
-    if (startProjectConversation && !project.isArchived) {
-      const newButton = groupHeader.createEl('button', {
-        cls: 'claudian-session-group-new-action',
-        attr: { type: 'button', 'aria-label': t('chat.projects.newSessionIn', { name: label }) },
-      });
-      setIcon(newButton, 'square-pen');
-      newButton.addEventListener('click', (event) => {
-        event.stopPropagation();
-        runSessionAction(
-          () => startProjectConversation(project.id),
-          t('chat.projects.errors.start'),
-        );
-      });
-    }
-
-    toggle.addEventListener('click', () => {
-      options.onGroupCollapseChange?.(section.key, !isCollapsed);
-      options.onRerender();
-    });
-
-    if (isCollapsed) {
-      if (canDrag) this.projectSorter.attach([groupHeader], projectSortRow);
-      return;
-    }
-    const groupBody = list.createDiv({ cls: 'claudian-session-group-body' });
-    groupBody.setAttribute('data-group-key', section.key);
-    if (canDrag) {
-      this.drag.attachTarget(groupBody, dropTarget);
-      this.projectSorter.attach([groupHeader, groupBody], projectSortRow);
-    }
-    if (section.conversations.length === 0) {
-      groupBody.createDiv({ cls: 'claudian-session-project-empty', text: t('chat.projects.noSessions') });
-      return;
-    }
-    for (const conversation of section.conversations) {
-      this.#renderHistoryConversationItem(groupBody, conversation, options);
-    }
   }
 
   #renderHistoryConversationItem(

@@ -24,7 +24,6 @@ import { MainChatComposerDropdown } from '@/features/chat/composer/MainChatCompo
 import { installTextareaSizing } from '@/features/chat/composer/textareaSizing';
 import { createInputToolbar } from '@/features/chat/composer/toolbar/InputToolbar';
 import { NavigationSidebar } from '@/features/chat/navigation/NavigationSidebar';
-import { ProjectChip } from '@/features/chat/projects/ProjectChip';
 import { getSessionProviderId } from '@/features/chat/sessions/sessionProvider';
 import { getSessionCapabilities, getSessionChatUIConfig, getSessionSelectedModel, getSessionSettingsSnapshot, type SessionSettingsSnapshot, updateSessionReasoning } from '@/features/chat/sessions/sessionSettings';
 import type { SideChatController } from '@/features/chat/side-chat/SideChatController';
@@ -55,10 +54,7 @@ function buildContextManagers(
 > {
   const { dom } = core;
   const { plugin } = options;
-  const fileContextManager = new FileContextManager(options.mentionDataProvider, plugin.bindSessionTools ? {
-    getConversationList: () => plugin.getConversationList(),
-    getCurrentConversationId: () => runtimeRef.current()?.conversationId,
-  } : undefined);
+  const fileContextManager = new FileContextManager(options.mentionDataProvider);
   options.registerCleanup('tab file context manager', () => fileContextManager.destroy());
   const linkedContentController = core.session.runtime.model.linkedContentController;
   options.registerCleanup('tab Linked content presentation', () => {
@@ -364,16 +360,6 @@ export function buildTabRuntimeUI(
   options.registerCleanup('tab composer context tray', () => contextTray.destroy());
   const infoRow = new ComposerInfoRow(dom.infoRowEl);
   options.registerCleanup('tab composer info row', () => infoRow.destroy());
-  // The session's own conversation owner, so the chip is right before the runtime is published (draft handoff).
-  const projectChip = plugin.projects ? new ProjectChip(infoRow, {
-    projects: plugin.projects,
-    conversation: core.session.runtime.model.conversationController,
-  }) : null;
-  if (projectChip) {
-    options.registerCleanup('tab project chip', () => projectChip.destroy());
-    projectChip.refresh();
-  }
-
   const toolbar = buildInputToolbar(core, options, runtimeRef, onUserModified);
   const contextManagers = buildContextManagers(
     options,
@@ -418,7 +404,6 @@ export function buildTabRuntimeUI(
     contextUsageMeter: toolbar.contextUsageMeter,
     toolbarMenus: toolbar.menus,
     navigationSidebar,
-    projectChip,
   };
   options.registerCleanup('tab prompt suggestion', () => ui.promptSuggestion.destroy());
 

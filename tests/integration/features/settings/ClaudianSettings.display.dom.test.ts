@@ -87,7 +87,7 @@ it('renders the declarative settings surface and loads real skills only on first
     expect(within(h.container).getByRole('button', { name: t(`settings.tabs.${name}`) })).toBeDefined();
   }
   expect(within(h.container).queryByRole('button', { name: 'Projects' })).toBeNull();
-  expect(within(h.container).queryByRole('switch', { name: t('settings.enableZenMode.name') })).toBeNull();
+  expect(within(h.container).queryByRole('switch', { name: 'Enable zen mode' })).toBeNull();
   expect(h.getAdapter).not.toHaveBeenCalled();
   await h.vault.write('.agents/skills/local/SKILL.md', '---\nname: local\ndescription: Local skill\n---\nInstructions\n');
   fireEvent.click(within(h.container).getByRole('button', { name: t('settings.tabs.skills') }));
@@ -103,7 +103,7 @@ it('does not offer alternate chat layouts or tab-title controls', async () => {
   expect(settings.getByRole('switch', { name: t('settings.restoreTabsOnStartup.name') })).toBeDefined();
   expect(settings.queryByRole('switch', { name: t('settings.enableDualPane.name') })).toBeNull();
   expect(settings.queryByText(t('settings.dualPaneSide.name'))).toBeNull();
-  expect(settings.queryByRole('switch', { name: t('settings.showTabTitlesByDefault.name') })).toBeNull();
+  expect(settings.queryByRole('switch', { name: 'Show tab titles by default' })).toBeNull();
 });
 
 it.each([

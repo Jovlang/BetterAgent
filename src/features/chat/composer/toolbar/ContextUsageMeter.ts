@@ -93,7 +93,6 @@ export class ContextUsageMeter {
 
     // Set tooltip with detailed usage
     const usageText = `${this.#formatTokens(usage.contextTokens)} / ${this.#formatTokens(usage.contextWindow)}`;
-    // The percentage leads because zen shows the gauge without its number.
     let tooltip = `${usage.percentage}% · ${usageText}`;
     if (usage.percentage > 80) {
       tooltip += t('chat.contextUsage.nearLimit', { command: '`/compact`' });

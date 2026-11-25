@@ -4,6 +4,7 @@ import { copyFile, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 
+import { LoopbackSessionToolServer } from '@test/helpers/LoopbackSessionToolServer';
 import { hasNativeWSL } from '@test/helpers/WSLNativeTarget';
 import type crossSpawn from 'cross-spawn';
 
@@ -11,7 +12,6 @@ import { resolveExecutionTargetAsync } from '@/core/process/execution-target/Exe
 import { buildTargetLaunchSpec } from '@/core/process/execution-target/TargetLaunchSpec';
 import { createExecutionPathMapper } from '@/core/process/execution-target/WSLPathMapper';
 import { runProcessProbe } from '@/core/process/ProcessProbe';
-import { LoopbackSessionToolServer } from '@/core/session-tools/LoopbackSessionToolServer';
 import { resolveDeepSeekExecutionContext } from '@/providers/deepseek/runtime/DeepSeekExecutionContext';
 import { DeepSeekHost } from '@/providers/deepseek/runtime/DeepSeekHost';
 import { DeepSeekHostProcess } from '@/providers/deepseek/runtime/DeepSeekHostProcess';

@@ -66,7 +66,6 @@ async function createHarness(options: HarnessOptions = {}) {
     openConversation: vi.fn().mockResolvedValue(undefined),
     openSessionConversation: vi.fn().mockResolvedValue(undefined),
     startLinkedContentConversation: vi.fn().mockResolvedValue(undefined),
-    startProjectConversation: vi.fn().mockResolvedValue(undefined),
   } satisfies SessionSurfaceNavigation;
   const state = {
     wide: options.wide ?? true,
@@ -418,8 +417,8 @@ describe('SessionManagerSurface session header', () => {
     const row = findItem(h.sessionSurfaceEl, 'member');
     fireEvent.contextMenu(row);
     const menu = menuInstances().at(-1)!;
-    expect(menu.items.map(item => item.title)).not.toContain(t('chat.projects.menu.moveTo'));
-    expect(menu.items.map(item => item.title)).not.toContain(t('chat.projects.menu.removeFrom'));
+    expect(menu.items.map(item => item.title)).not.toContain('Move to project');
+    expect(menu.items.map(item => item.title)).not.toContain('Remove from project');
     fireEvent.click(within(row).getByRole('button', { name: /^member\b/i }));
     expect(h.navigation.openSessionConversation).toHaveBeenCalledWith('member');
   });

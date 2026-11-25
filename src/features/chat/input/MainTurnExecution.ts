@@ -21,7 +21,6 @@ import {
   ChatExecutionPreHandoffError,
   type ChatTurnSubmission,
 } from '@/features/chat/execution/ChatExecutionCoordinator';
-import { resolveSessionInstructions } from '@/features/chat/execution/projectInstructions';
 import type { MessageRenderer } from '@/features/chat/rendering/MessageRenderer';
 import type { ChatState } from '@/features/chat/state/ChatState';
 import { captureSelectionSnapshots, createQueuedMessage } from '@/features/chat/state/chatTurnRequest';
@@ -420,25 +419,18 @@ export class MainTurnExecution {
     user?: ChatMessage,
     assistant?: ChatMessage,
   ): Promise<ChatTurnSubmission> {
-    const { plugin, state } = this.deps;
+    const { plugin } = this.deps;
     const settings = { ...this.deps.getSettings() };
     const { systemPrompt, mediaFolder, userName } = plugin.settings;
     const providerId = this.deps.getProviderId();
     const workingDirectory = this.deps.getExecutionCoordinator()?.workingDirectory ?? getChatWorkingDirectory(plugin);
-    // Membership and project edits apply from the next submission; a steer joins with the same prompt.
-    const conversationId = state.currentConversationId;
-    const sessionInstructions = resolveSessionInstructions(
-      plugin.projects,
-      conversationId ? plugin.getConversationSummary(conversationId) : null,
-    );
-
     const submission = this.#captureSubmission(displayContent, request, user, assistant);
     const executionWorkingDirectory = await ProviderRegistry.resolveExecutionWorkingDirectory(plugin.providerHost, providerId, workingDirectory);
     return {
       ...submission,
       configuration: {
         ...buildChatExecutionConfiguration(settings, resolveChatSystemInstructions(
-          { systemPrompt, mediaFolder, userName }, executionWorkingDirectory, sessionInstructions,
+          { systemPrompt, mediaFolder, userName }, executionWorkingDirectory,
         )),
         promptSuggestions: true,
       },

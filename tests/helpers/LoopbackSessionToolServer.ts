@@ -1,3 +1,4 @@
+// Test-only endpoint for the upstream provider protocol suites. BetterAgent does not run this listener.
 import { randomBytes } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -7,9 +8,9 @@ import {
   type SessionToolEndpoint,
   type SessionToolRoute,
   type SessionToolRoutedCallHandler,
-} from './SessionToolEndpoint';
-import { createSessionToolMCPDispatcher } from './sessionToolMCP';
-import type { SessionToolCallHandler, SessionToolResult } from './sessionToolSpecs';
+} from '@/core/session-tools/SessionToolEndpoint';
+import { createSessionToolMCPDispatcher } from '@/core/session-tools/sessionToolMCP';
+import type { SessionToolCallHandler, SessionToolResult } from '@/core/session-tools/sessionToolSpecs';
 
 export interface LoopbackSessionToolServerOptions {
   readonly maxBodyBytes?: number;

@@ -75,7 +75,7 @@ describe.skipIf(path.sep === '\\')('Grok WSL history on a simulated Windows host
       ensureConversationMetadataLoaded: async () => undefined,
       getConversationById: id => repository.getById(id),
     });
-    const service = new SessionMessagingService({ getHost: () => host, getActiveConversationId: () => null, refreshModelControls: () => undefined });
+    const service = new SessionMessagingService({ getHost: () => host, getActiveConversationId: () => null });
     try {
       expect(await createClaudianAPI(service, unmodeledChatViews).read('conversation')).toBe('Reply from Linux');
       const tools = repository.getSync('conversation')?.messages.flatMap(message => message.toolCalls ?? []);

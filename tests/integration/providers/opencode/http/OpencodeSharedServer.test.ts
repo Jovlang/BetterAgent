@@ -1,5 +1,5 @@
 // @test-ci {"native":true,"inputs":["tests/helpers/providers/opencode/OpencodeNativePeer.cjs"]}
-import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -256,7 +256,9 @@ it('preserves explicit user config references and watches edits without overwrit
     expect(effective.data.config.agent.user.prompt).toBe('User prompt with {env:LITERAL_TEXT}');
     expect(readFileSync(source, 'utf8')).toBe(content);
     const updated = JSON.stringify({ agent: { user: { prompt: 'Updated user instructions' } } });
-    writeFileSync(source, updated);
+    const pendingConfig = source + '.next';
+    writeFileSync(pendingConfig, updated);
+    renameSync(pendingConfig, source);
     const deadline = Date.now() + 3000;
     let observed = '';
     do {

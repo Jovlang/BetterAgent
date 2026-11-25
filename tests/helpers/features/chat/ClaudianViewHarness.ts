@@ -1,5 +1,4 @@
 import { createChatFeatureHost } from '@test/helpers/features/chat/ChatFeatureHostFixture';
-import { createProjectsFake } from '@test/helpers/features/chat/ProjectsFake';
 import { App, Scope } from 'obsidian';
 
 import type { ChatFeatureHost } from '@/features/chat/ChatFeatureHost';
@@ -35,10 +34,9 @@ export async function createClaudianView(options: ClaudianViewHarnessOptions = {
   vi.spyOn(app.metadataCache, 'on');
   vi.spyOn(app.metadataCache, 'offref');
   const overrides = options.plugin ?? {};
-  const ports = { projects: createProjectsFake(), registerZenModeSource: vi.fn(() => vi.fn()) };
   const plugin = options.host ?? await createChatFeatureHost(overrides.fixture
-    ? { ...ports, ...overrides }
-    : { app, ...ports, ...overrides });
+    ? { ...overrides }
+    : { app, ...overrides });
   const view = new ClaudianView(
     (options.leaf ?? {}) as never,
     plugin,

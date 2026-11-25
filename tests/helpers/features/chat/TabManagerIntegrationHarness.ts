@@ -2,7 +2,6 @@ import { DesktopVault } from '@test/helpers/core/DesktopVault';
 import { createFeatureHostFixture } from '@test/helpers/FeatureHostFixture';
 import { type ChatFeatureHostOptions,createChatFeatureHost } from '@test/helpers/features/chat/ChatFeatureHostFixture';
 import { conversationRecord } from '@test/helpers/features/chat/ConversationFixture';
-import { createProjectsFake, projectRecord } from '@test/helpers/features/chat/ProjectsFake';
 import { createSessionRuntimePool, type RuntimePoolFixtureOptions } from '@test/helpers/features/chat/SessionRuntimePoolHarness';
 export { conversationRecord } from '@test/helpers/features/chat/ConversationFixture';
 import { Component, WorkspaceLeaf } from 'obsidian';
@@ -41,14 +40,14 @@ export async function createPlugin(overrides: ChatFeatureHostOptions = {}, poolO
   });
   const pool = createSessionRuntimePool(() => plugin, poolOptions);
   const messaging = new SessionMessagingService({
-    getHost: () => plugin, getActiveConversationId: () => null, refreshModelControls: () => undefined,
+    getHost: () => plugin, getActiveConversationId: () => null,
   });
   const chatModelSelection = new ChatModelSelectionCoordinator(fixture.coordinator);
   const ports = {
     sessionRuntimes: pool,
-    bindSessionTools: (id: string) => messaging.bindSessionTools(id),
+
     chatModelSelection,
-    projects: createProjectsFake([projectRecord({ id: 'project-1' }), projectRecord({ id: 'project-2' })]),
+
     createConversation: vi.fn<ChatFeatureHost['createConversation']>(async () => conversationRecord('forked')),
     deleteConversation: vi.fn<ChatFeatureHost['deleteConversation']>(async () => undefined),
     findConversationAcrossViews: vi.fn<ChatFeatureHost['findConversationAcrossViews']>(() => null),

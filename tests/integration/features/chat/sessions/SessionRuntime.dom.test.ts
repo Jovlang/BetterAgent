@@ -8,13 +8,11 @@ import { DEFAULT_CLAUDIAN_SETTINGS } from '@test/helpers/defaultSettings';
 import { triggerResize } from '@test/helpers/dom/ResizeObserver';
 import { approvalDecisionOptions } from '@test/helpers/features/chat/approvalDecisionOptions';
 import { createChatFeatureHost } from '@test/helpers/features/chat/ChatFeatureHostFixture';
-import { createProjectsFake, projectRecord } from '@test/helpers/features/chat/ProjectsFake';
 import { createSessionRuntimePool, type RuntimePoolFixtureOptions } from '@test/helpers/features/chat/SessionRuntimePoolHarness';
 import { FakeSideBackend } from '@test/helpers/features/chat/SideChatSessionHarness';
 import { testDate } from '@test/helpers/testClock';
 import { fireEvent, waitFor, within } from '@testing-library/dom';
-import { App, Component, Menu, Notice, TFile, TFolder } from 'obsidian';
-import type { Mock } from 'vitest';
+import { App, Component, Notice, TFile, TFolder } from 'obsidian';
 
 import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
 import { ProviderWorkspaceRegistry } from '@/core/providers/ProviderWorkspaceRegistry';
@@ -47,10 +45,10 @@ async function setup(poolOptions: RuntimePoolFixtureOptions = {}) {
   const saves: ConversationMutablePatch[] = [];
   const statusChanges = vi.fn();
   const pool = createSessionRuntimePool(() => plugin, { onChanged: statusChanges, ...poolOptions });
-  const messaging = new SessionMessagingService({ getHost: () => plugin, getActiveConversationId: () => conversation.id, refreshModelControls: () => undefined });
+  const messaging = new SessionMessagingService({ getHost: () => plugin, getActiveConversationId: () => conversation.id });
   onTestFinished(() => messaging.dispose());
   const plugin = await createChatFeatureHost({
-    sessionRuntimes: pool, bindSessionTools: id => messaging.bindSessionTools(id),
+    sessionRuntimes: pool,
     app, settings,
     getConversationSummary: () => conversation, getConversationSync: () => conversation,
     getCachedConversation: () => conversation,
@@ -63,7 +61,7 @@ async function setup(poolOptions: RuntimePoolFixtureOptions = {}) {
       assertConversationExecutionAuthority: async () => undefined,
       persistExecutionSnapshot: async () => true, recordConversationActivity: async () => undefined,
     },
-    projects: createProjectsFake(),
+
   });
   const attach = async (options: { blank?: boolean; openConversation?: (id: string) => Promise<void> } = {}) => {
     const tab = await createTabRuntime({
@@ -745,7 +743,7 @@ it('does not absorb external main history changes when only a side chat settles'
   await destroyTab(second);
 });
 
-it.each(['user API', 'session tool'] as const)('revalidates a retained headless recipient before delivery from %s', async entry => {
+it('revalidates a retained headless recipient before delivery from the public API', async () => {
   const s = await setupRevisionedSession();
   await s.detach();
   s.continueElsewhere();
@@ -755,8 +753,7 @@ it.each(['user API', 'session tool'] as const)('revalidates a retained headless 
     recipient, { ...recipient, id: 'sender', title: 'Sender' },
   ]);
   const requested = s.h.backend.nextRequest(() => true);
-  if (entry === 'user API') await s.h.messaging.sendAsUser('conversation', { text: 'Continue after CLI' });
-  else await s.h.messaging.bindSessionTools('sender').port.send({ sessionId: 'conversation', text: 'Continue after CLI' }, new AbortController().signal);
+  await s.h.messaging.sendAsUser('conversation', { text: 'Continue after CLI' });
   await requested;
   const provider = s.h.backend.latest;
   const messages = s.runtime.model.state.messages;
@@ -772,9 +769,8 @@ it.each(['user API', 'session tool'] as const)('revalidates a retained headless 
 it('keeps an external change unabsorbed when a send fails before reaching the provider', async () => {
   const s = await setupRevisionedSession();
   s.continueElsewhere();
-  const readConversation = vi.mocked(s.h.plugin.getConversationById).getMockImplementation()!;
-  vi.mocked(s.h.plugin.getConversationById).mockImplementation(async id => id === 'conv-1-missing' ? null : readConversation(id));
-  s.first.controllers.drafts.restore('main', { content: 'Compare with @[Missing](claudian-session:conv-1-missing)' });
+  s.first.controllers.drafts.restore('main', { content: 'Do not send this' });
+  vi.spyOn(s.h.plugin.executionPersistence, 'assertConversationExecutionAuthority').mockRejectedValue(new Error('Write authority revoked'));
   await s.first.controllers.inputController.sendMessage();
   expect(s.provider.requests).toHaveLength(0);
   await s.detach();
@@ -793,11 +789,10 @@ it('keeps an external change unabsorbed when the check at work start cannot read
   } });
   s.continueElsewhere();
   native.revision = 'after external turn';
-  const readConversation = vi.mocked(s.h.plugin.getConversationById).getMockImplementation()!;
-  vi.mocked(s.h.plugin.getConversationById).mockImplementation(async id => id === 'conv-1-missing' ? null : readConversation(id));
   // Only the read when the send starts cannot answer; a later read sees the external revision.
   native.unreadableReads = 1;
-  s.first.controllers.drafts.restore('main', { content: 'Compare with @[Missing](claudian-session:conv-1-missing)' });
+  s.first.controllers.drafts.restore('main', { content: 'Do not send this' });
+  vi.spyOn(s.h.plugin.executionPersistence, 'assertConversationExecutionAuthority').mockRejectedValue(new Error('Write authority revoked'));
   await s.first.controllers.inputController.sendMessage();
   await waitFor(() => expect(s.reads.at(-1)).toBeNull());
   expect(s.provider.requests).toHaveLength(0);
@@ -1196,66 +1191,6 @@ it('lists Linked content choices from the attached view\'s cached vault index', 
   await destroyTab(tab);
 });
 
-it('retains failed queued reference preparation as session recovery after its tab closes', async () => {
-  const h = (await setup());
-  const first = await h.attach();
-  first.controllers.drafts.restore('main', { content: 'First request' });
-  const sending = first.controllers.inputController.sendMessage();
-  await waitFor(() => expect(h.backend.sessions[0]?.requests).toHaveLength(1));
-  const reference = deferred<Conversation | null>();
-  vi.mocked(h.plugin.getConversationById).mockImplementationOnce(() => reference.promise);
-  const original = '@[Reference](claudian-session:conv-1-source)';
-  first.controllers.drafts.restore('main', { content: original });
-  const preparing = first.controllers.inputController.sendMessage();
-  await waitFor(() => expect(h.plugin.getConversationById).toHaveBeenCalledWith('conv-1-source'));
-  await destroyTab(first);
-  h.backend.latest.complete();
-  await sending;
-  expect(first.session.runtime.peekModel).not.toBeNull();
-  try { expect(h.pool.isRunning('conversation')).toBe(true); }
-  finally { reference.resolve(null); }
-  await preparing;
-  expect(first.session.runtime.model.composer.hasRecovery).toBe(true);
-  expect(h.pool.isRunning('conversation')).toBe(false);
-  expect(h.backend.latest.requests).toHaveLength(1);
-  const second = await h.attach();
-  expect(second.controllers.drafts.capture('main').content).toBe(original);
-  expect(second.session.runtime.model.composer.hasRecovery).toBe(false);
-  expect(h.backend.latest.cancelCalls).toBe(0);
-  await destroyTab(second);
-});
-
-it('preserves raw drafts when multiple reference preparations recover after detachment', async () => {
-  const h = (await setup());
-  const first = await h.attach();
-  first.controllers.drafts.restore('main', { content: 'First request' });
-  const sending = first.controllers.inputController.sendMessage();
-  await waitFor(() => expect(h.backend.sessions[0]?.requests).toHaveLength(1));
-  const reference = deferred<Conversation | null>();
-  vi.mocked(h.plugin.getConversationById)
-    .mockImplementationOnce(() => reference.promise)
-    .mockResolvedValueOnce(null);
-  const firstDraft = '    keepIndented()\n\n@[First](claudian-session:conv-1-source)  \n';
-  first.controllers.drafts.restore('main', { content: firstDraft });
-  const preparingFirst = first.controllers.inputController.sendMessage();
-  await waitFor(() => expect(h.plugin.getConversationById).toHaveBeenCalledWith('conv-1-source'));
-  const secondDraft = '@[Second](claudian-session:conv-2-source)';
-  first.controllers.drafts.restore('main', { content: secondDraft });
-  const preparingSecond = first.controllers.inputController.sendMessage();
-  await destroyTab(first);
-  h.backend.latest.complete();
-  await sending;
-  reference.resolve(null);
-  await Promise.all([preparingFirst, preparingSecond]);
-
-  expect(first.session.runtime.model.composer.hasRecovery).toBe(true);
-  const second = await h.attach();
-  expect(second.controllers.drafts.capture('main').content).toBe(`${secondDraft}\n\n${firstDraft}`);
-  expect(h.backend.latest.requests).toHaveLength(1);
-  expect(second.session.runtime.model.composer.hasRecovery).toBe(false);
-  await destroyTab(second);
-});
-
 it('fences a detached side queue synchronously before the plugin shutdown drain', async () => {
   const h = (await setup());
   const first = await h.attach();
@@ -1486,202 +1421,6 @@ it('releases a closed blank tab whose conversation creation failed with no prese
   await waitFor(() => expect(runtime.isDisposed).toBe(true));
   expect(h.pool.getAll()).not.toContain(runtime);
   expect(h.backend.sessions.flatMap(session => session.requests)).toEqual([]);
-});
-
-describe('composer project chip', () => {
-  const launch = projectRecord({ id: 'launch', name: 'Launch' });
-  const chipName = 'Project: Launch';
-
-  async function projectSetup() {
-    const h = (await setup());
-    const projects = createProjectsFake([launch]);
-    const created = h.plugin.getConversationSummary('conversation') as Conversation;
-    // The record keeps whatever project the first-turn creation asked for.
-    const createConversation = vi.fn(async (options: { projectId?: string } = {}) => {
-      Object.assign(created, { messages: [] }, options.projectId ? { projectId: options.projectId } : {});
-      return created;
-    });
-    Object.assign(h.plugin, { projects, createConversation });
-    return { h, projects, created, createConversation };
-  }
-
-  async function sendFirst(tab: Awaited<ReturnType<Awaited<ReturnType<typeof setup>>['attach']>>, h: Awaited<ReturnType<typeof setup>>) {
-    tab.controllers.drafts.restore('main', { content: 'First prompt' });
-    const sending = tab.controllers.inputController.sendMessage();
-    await waitFor(() => expect(h.backend.sessions[0]?.requests).toHaveLength(1));
-    h.backend.latest.complete();
-    await sending;
-  }
-
-  it('follows the draft seed, then membership, until the project is deleted', async () => {
-    const { h, projects, created } = (await projectSetup());
-    const tab = await h.attach({ blank: true });
-    const row = within(tab.dom.infoRowEl);
-    expect(row.queryByRole('button', { name: chipName })).toBeNull();
-
-    tab.controllers.conversationController.seedDraftProject(launch.id);
-    expect(row.getByRole('button', { name: chipName }).getAttribute('type')).toBe('button');
-    expect((await axe(tab.dom.infoRowEl)).violations).toEqual([]);
-
-    await sendFirst(tab, h);
-    expect(created.projectId).toBe(launch.id);
-    // Once the session starts, the chip is a fixed label rather than a selector.
-    const fixedChip = row.getByRole('button', { name: chipName }) as HTMLButtonElement;
-    expect([fixedChip.disabled, fixedChip.hasAttribute('aria-haspopup')]).toEqual([true, false]);
-
-    // Project deletion reaches each composer through the view's list-change fan-out.
-    projects.remove(launch.id);
-    tab.composer.refreshProject();
-    expect(row.queryByRole('button', { name: chipName })).toBeNull();
-    await destroyTab(tab);
-  });
-
-  type MenuEntry = { title: string; checked: boolean | null; clickHandler: (() => void) | null };
-  type MockMenu = { items: MenuEntry[]; showAtPosition: Mock };
-  const menus = () => (Menu as unknown as { instances: MockMenu[] }).instances;
-  afterEach(() => { menus().length = 0; });
-
-  function openChipMenu(row: ReturnType<typeof within>, name = chipName): MockMenu {
-    const before = menus().length;
-    const chip = row.getByRole('button', { name });
-    expect(chip.getAttribute('aria-haspopup')).toBe('menu');
-    fireEvent.click(chip);
-    expect(menus()).toHaveLength(before + 1);
-    const menu = menus().at(-1)!;
-    expect(menu.showAtPosition).toHaveBeenCalledTimes(1);
-    return menu;
-  }
-
-  function choose(menu: MockMenu, title: string): void {
-    menu.items.find(item => item.title === title)!.clickHandler!();
-  }
-
-  it('shows no chip for a draft outside any project, including after choosing No project', async () => {
-    const { h } = (await projectSetup());
-    const tab = await h.attach({ blank: true });
-    const row = within(tab.dom.infoRowEl);
-    expect(tab.dom.infoRowEl.isConnected).toBe(true);
-    expect(row.queryByRole('button', { name: /^Project:/ })).toBeNull();
-
-    tab.controllers.conversationController.seedDraftProject(launch.id);
-    choose(openChipMenu(row), t('chat.projects.noProject'));
-    expect(row.queryByRole('button', { name: /^Project:/ })).toBeNull();
-    await destroyTab(tab);
-  });
-
-  it('lists live projects pinned first with the current one checked, then No project', async () => {
-    const { h, projects } = (await projectSetup());
-    projects.put(projectRecord({ id: 'ops', name: 'Ops', isPinned: true }));
-    projects.put(projectRecord({ id: 'alpha', name: 'Alpha' }));
-    const tab = await h.attach({ blank: true });
-    tab.controllers.conversationController.seedDraftProject(launch.id);
-    const row = within(tab.dom.infoRowEl);
-
-    const menu = openChipMenu(row);
-    expect(menu.items.map(item => [item.title, item.checked === true])).toEqual([
-      ['Ops', false], ['Alpha', false], ['Launch', true], [t('chat.projects.noProject'), false],
-    ]);
-    expect(row.queryByRole('button', { name: `Remove ${chipName}` })).toBeNull();
-    expect((await axe(tab.dom.infoRowEl)).violations).toEqual([]);
-    await destroyTab(tab);
-  });
-
-  it.each([
-    ['switches', 'ops'],
-    ['drops', undefined],
-  ])('%s the draft seed from the chip menu for the first input\'s creation', async (_case, projectId) => {
-    const { h, projects, created, createConversation } = (await projectSetup());
-    projects.put(projectRecord({ id: 'ops', name: 'Ops' }));
-    const tab = await h.attach({ blank: true });
-    tab.controllers.conversationController.seedDraftProject(launch.id);
-    const row = within(tab.dom.infoRowEl);
-
-    choose(openChipMenu(row), projectId ? 'Ops' : t('chat.projects.noProject'));
-    expect(tab.controllers.conversationController.project).toEqual({ projectId, isDraft: true, changeable: true });
-    expect(row.queryByRole('button', { name: /^Project:/ })?.getAttribute('aria-label')).toBe(
-      projectId ? 'Project: Ops' : undefined,
-    );
-
-    await sendFirst(tab, h);
-    expect(createConversation.mock.calls[0]?.[0]?.projectId).toBe(projectId);
-    expect(created.projectId).toBe(projectId);
-    await destroyTab(tab);
-  });
-
-  it('shows a started session\'s project as a fixed chip, and none outside a project', async () => {
-    const { h, created } = (await projectSetup());
-    Object.assign(created, { projectId: launch.id });
-    const tab = await h.attach();
-    const row = within(tab.dom.infoRowEl);
-
-    // Membership is the conversation's: the draft seed cannot be written once a conversation is bound.
-    expect(() => tab.controllers.conversationController.seedDraftProject(null)).toThrow();
-    const chip = row.getByRole('button', { name: chipName }) as HTMLButtonElement;
-    expect([chip.disabled, chip.hasAttribute('aria-haspopup')]).toEqual([true, false]);
-    const menuCount = menus().length;
-    fireEvent.click(chip);
-    expect(menus()).toHaveLength(menuCount);
-
-    Object.assign(created, { projectId: undefined });
-    tab.composer.refreshProject();
-    expect(row.queryByRole('button', { name: /^Project:/ })).toBeNull();
-    await destroyTab(tab);
-  });
-
-  it('freezes the seed while first-turn creation is pending and releases it when creation fails', async () => {
-    const { h, createConversation } = (await projectSetup());
-    const creating = deferred<Conversation>();
-    createConversation.mockImplementationOnce(() => creating.promise);
-    const tab = await h.attach({ blank: true });
-    const { conversationController } = tab.controllers;
-    conversationController.seedDraftProject(launch.id);
-    const row = within(tab.dom.infoRowEl);
-    expect((row.getByRole('button', { name: chipName }) as HTMLButtonElement).disabled).toBe(false);
-    // A menu opened before the first input resolves its choice when chosen, after the freeze.
-    const staleMenu = openChipMenu(row);
-
-    tab.controllers.drafts.restore('main', { content: 'First prompt' });
-    const sending = tab.controllers.inputController.sendMessage();
-    await waitFor(() => expect(createConversation).toHaveBeenCalledWith(expect.objectContaining({ projectId: launch.id })));
-
-    // The captured seed is what creation uses, so the chip offers no menu to change it.
-    const frozenChip = row.getByRole('button', { name: chipName }) as HTMLButtonElement;
-    expect(frozenChip.disabled).toBe(true);
-    const menuCount = menus().length;
-    fireEvent.click(frozenChip);
-    expect(menus()).toHaveLength(menuCount);
-    expect(() => conversationController.seedDraftProject(null)).toThrow();
-    choose(staleMenu, t('chat.projects.noProject'));
-    expect(conversationController.project).toEqual({ projectId: launch.id, isDraft: true, changeable: false });
-
-    creating.reject(new Error('Disk full'));
-    await sending.catch(() => undefined);
-
-    choose(openChipMenu(row), t('chat.projects.noProject'));
-    expect(row.queryByRole('button', { name: chipName })).toBeNull();
-    expect(conversationController.project).toEqual({ projectId: undefined, isDraft: true, changeable: true });
-    await destroyTab(tab);
-  });
-
-  it('shows a held seeded draft\'s project as soon as the next presentation attaches', async () => {
-    const { h } = (await projectSetup());
-    const first = await h.attach({ blank: true });
-    first.controllers.conversationController.seedDraftProject(launch.id);
-    const hold = h.pool.holdDraft(first.session.runtime);
-    await destroyTab(first);
-
-    const second = await createTabRuntime({
-      plugin: h.plugin, component: new Component(), containerEl: document.body.createDiv(),
-      mentionDataProvider: new VaultMentionDataProvider(h.plugin.app), getProviderCatalogConfig: () => null,
-      isRuntimeLive: () => true, openConversation: async () => undefined, startNewConversation: async () => undefined,
-      draftSessionKey: hold.key,
-    });
-    hold.release();
-
-    expect(second.session.runtime).toBe(first.session.runtime);
-    expect(within(second.dom.infoRowEl).getByRole('button', { name: chipName })).toBeTruthy();
-    await destroyTab(second);
-  });
 });
 
 function branchHistory(): Conversation['messages'] {

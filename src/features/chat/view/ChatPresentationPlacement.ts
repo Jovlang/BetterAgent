@@ -1,5 +1,4 @@
-import type { ChatTab, TabTranscriptPlacement } from '@/features/chat/tabs/ChatTab';
-import type { ZenModeSlots } from '@/features/chat/zen/types';
+import type { ChatTab } from '@/features/chat/tabs/ChatTab';
 
 export interface ChatPresentationContext {
   getActiveTab(): ChatTab | null;
@@ -9,7 +8,7 @@ export interface ChatPresentationContext {
 
 /**
  * The view's placement authority: where the active tab's composer, transcript,
- * and side-chat chip live, in the view footer or in attached zen slots.
+ * and side-chat chip live in the view footer.
  */
 export class ChatPresentationPlacement {
   private chatPanelEl: HTMLElement | null = null;
@@ -26,8 +25,6 @@ export class ChatPresentationPlacement {
    */
   private activeInputTab: ChatTab | null = null;
   private sideChatChipTab: ChatTab | null = null;
-  private zenSlots: ZenModeSlots | null = null;
-  private zenTranscript: { tab: ChatTab; placement: TabTranscriptPlacement } | null = null;
 
   constructor(private readonly context: ChatPresentationContext) {}
 
@@ -55,21 +52,17 @@ export class ChatPresentationPlacement {
     return this.inputNavRowHostEl ? [this.inputNavRowHostEl] : [...this.composerActions];
   }
 
-  /** Places the active composer in the footer slot, or the zen slot while zen owns presentation. */
+  /** Places the active composer in the footer slot. */
   update(): void {
     const activeTab = this.context.getActiveTab();
     const activeInputSlotEl = this.activeInputSlotEl;
     if (!activeInputSlotEl) return;
     this.updateChip();
-    this.updateZenTranscript(activeTab);
-    if (activeTab && !this.zenSlots) activeTab.placement.placeComposerActions(this.composerActions);
+    if (activeTab) activeTab.placement.placeComposerActions(this.composerActions);
     else this.removeComposerActions();
-    const zenComposerSlotEl = this.zenSlots?.composerEl ?? null;
-    const inputSlotEl = zenComposerSlotEl ?? activeInputSlotEl;
 
     if (!activeTab) {
       activeInputSlotEl.empty();
-      zenComposerSlotEl?.empty();
       this.activeInputTab = null;
       return;
     }
@@ -79,14 +72,14 @@ export class ChatPresentationPlacement {
     }
 
     if (this.activeInputTab === activeTab) {
-      if (!activeTab.placement.isComposerPlacedIn(inputSlotEl)) {
-        activeTab.placement.placeComposer(inputSlotEl);
+      if (!activeTab.placement.isComposerPlacedIn(activeInputSlotEl)) {
+        activeTab.placement.placeComposer(activeInputSlotEl);
       }
       return;
     }
 
-    inputSlotEl.empty();
-    activeTab.placement.placeComposer(inputSlotEl);
+    activeInputSlotEl.empty();
+    activeTab.placement.placeComposer(activeInputSlotEl);
     this.activeInputTab = activeTab;
   }
 
@@ -112,23 +105,8 @@ export class ChatPresentationPlacement {
       this.sideChatChipTab?.placement.setSideChatFullHeightHost(null);
     }
     this.sideChatChipTab = chipTab;
-    // Zen provides its own chip slot; the wide layout keeps the chip inside the composer.
-    chipTab?.placement.setSideChatChipHost(
-      this.zenSlots?.sideChatChipEl ?? (isWide ? null : hostEl),
-    );
-    // The floating zen composer has no transcript of its own to give up.
-    chipTab?.placement.setSideChatFullHeightHost(this.zenSlots ? null : this.chatPanelEl);
-  }
-
-  /** Lends presentation to zen slots until the returned release runs. */
-  attachZen(slots: ZenModeSlots): () => void {
-    this.zenSlots = slots;
-    this.update();
-    return () => {
-      if (this.zenSlots !== slots) return;
-      this.zenSlots = null;
-      this.update();
-    };
+    chipTab?.placement.setSideChatChipHost(isWide ? null : hostEl);
+    chipTab?.placement.setSideChatFullHeightHost(this.chatPanelEl);
   }
 
   /** Returns the chip and the active composer to their tab-owned locations. */
@@ -142,18 +120,5 @@ export class ChatPresentationPlacement {
     this.activeInputTab.placement.restoreComposer();
     this.activeInputSlotEl?.empty();
     this.activeInputTab = null;
-  }
-
-  /** Moves the active transcript into zen history, restoring any other placement first. */
-  private updateZenTranscript(activeTab: ChatTab | null): void {
-    const historyEl = this.zenSlots?.historyEl ?? null;
-    const placed = this.zenTranscript;
-    if (placed && (placed.tab !== activeTab || !placed.placement.isPlacedIn(historyEl))) {
-      placed.placement.restore();
-      this.zenTranscript = null;
-    }
-    if (!historyEl || !activeTab || this.zenTranscript) return;
-
-    this.zenTranscript = { tab: activeTab, placement: activeTab.placement.placeTranscript(historyEl) };
   }
 }

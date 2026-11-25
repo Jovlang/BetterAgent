@@ -6,8 +6,6 @@ import type {
   ConversationOrigin,
   ConversationPlacement,
   ConversationSummary,
-  ProjectMutations,
-  ProjectReader,
 } from '@/core/types';
 import { SerialQueue } from '@/utils/SerialQueue';
 
@@ -18,8 +16,6 @@ import type { SessionMetadataLoader } from './SessionMetadataLoader';
 
 export interface ConversationServiceDeps {
   readonly repository: ConversationRepository;
-  /** Omitted only when this conversation domain has no projects. */
-  readonly projects?: Pick<ProjectReader, 'get'> & Pick<ProjectMutations, 'setArchived'>;
   readonly sessionMetadata: Pick<SessionMetadataLoader, 'ensureLoaded' | 'ensureAllLoaded'>;
   readonly pinnedLinkedContentPaths: PinnedLinkedContentPathCoordinator;
   readonly nativeSessionArchives: Pick<NativeSessionArchiveSync, 'sync'>;
@@ -33,7 +29,7 @@ export interface ConversationServiceDeps {
  * provider sessions after they commit.
  */
 export class ConversationService {
-  // Creation, Vault renames, placement, restore and final project archive share this ordering point.
+  // Creation, Vault renames, pinning and restore share this ordering point.
   // Tab closure and provider callbacks stay outside it.
   readonly #mutationQueue = new SerialQueue();
 
@@ -48,8 +44,6 @@ export class ConversationService {
     sessionId?: string;
     selectedModel?: string;
     linkedContentPath?: string;
-    /** Kept only when it names a live project at creation. */
-    projectId?: string;
     origin?: ConversationOrigin;
   }): Promise<Conversation> {
     const conversation = await this.#orderMutation(() => this.deps.repository.create(options));
@@ -104,7 +98,6 @@ export class ConversationService {
     const changed = isArchived
       ? await this.deps.repository.setArchived(id, true)
       : await this.#orderMutation(async () => {
-          await this.#restoreProjectsOf([id]);
           return this.deps.repository.setArchived(id, false);
         });
     this.notifyConversationListChanged();
@@ -115,7 +108,6 @@ export class ConversationService {
     const restoredIds: string[] = [];
     try {
       await this.#orderMutation(async () => {
-        await this.#restoreProjectsOf(ids);
         await this.#mutateConversations(ids, async (id) => {
           if (await this.deps.repository.setArchived(id, false)) restoredIds.push(id);
         });
@@ -123,26 +115,6 @@ export class ConversationService {
     } finally {
       await this.deps.nativeSessionArchives.sync(restoredIds);
     }
-  }
-
-  /** Rechecks membership and holds off new admissions through the durable project archive write. */
-  async archiveProjectIfEmpty(projectId: string): Promise<void> {
-    await this.#orderMutation(async () => {
-      if (this.deps.repository.list().some(record => record.projectId === projectId && !record.isArchived)) return;
-      await this.deps.projects?.setArchived(projectId, true);
-    });
-  }
-
-  async #restoreProjectsOf(conversationIds: readonly string[]): Promise<void> {
-    const projects = this.deps.projects;
-    if (!projects) return;
-    const ids = new Set(conversationIds);
-    const projectIds = new Set(this.deps.repository.list().flatMap(conversation => (
-      ids.has(conversation.id) && projects.get(conversation.projectId)?.isArchived
-        ? [conversation.projectId!]
-        : []
-    )));
-    for (const projectId of projectIds) await projects.setArchived(projectId, false);
   }
 
   #orderMutation<T>(mutate: () => Promise<T>): Promise<T> {

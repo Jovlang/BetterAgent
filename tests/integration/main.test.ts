@@ -25,7 +25,7 @@ import { isVersionedRuntimeInputFingerprint } from '@/core/providers/settings/Ru
 import { TOOL_SUBAGENT } from '@/core/tools/toolNames';
 import { type ClaudianSettings, type Conversation, type SessionMetadata, VIEW_TYPE_CLAUDIAN } from '@/core/types';
 import { ClaudianView } from '@/features/chat/ClaudianView';
-import { resolveSessionMentions } from '@/features/chat/composer/resolveSessionMentions';
+import { stripLegacySessionMentions } from '@/features/chat/composer/composerSessionMentions';
 import { ConversationTitleGeneration } from '@/features/chat/conversation/ConversationTitleGeneration';
 import { SessionMessagingService } from '@/features/chat/session-messaging/SessionMessagingService';
 import { SessionRuntimePool } from '@/features/chat/sessions/SessionRuntimePool';
@@ -51,7 +51,6 @@ vi.mock('fs');
 import type { Mock, MockInstance } from 'vitest';
 
 import ClaudianPlugin from '@/main';
-
 
 
 function catalogWith(overrides: Partial<import('@/core/providers/models/ProviderModelCatalog').ProviderModelCatalog>) {
@@ -333,7 +332,6 @@ describe('ClaudianPlugin', () => {
   it.each([
     ['organization', (settings: ClaudianSettings) => { settings.sessionManagerOrganization = 'linked-content'; }],
     ['sort', (settings: ClaudianSettings) => { settings.sessionManagerSort = 'created'; }],
-    ['project order', (settings: ClaudianSettings) => { settings.projectOrder = ['research', 'launch']; }],
   ])('refreshes every view\'s session list when only session %s changes', async (_name, mutation) => {
     await plugin.onload();
     const views = createPublishedViews();
@@ -905,9 +903,9 @@ describe('ClaudianPlugin', () => {
       return { host, repository, ids, hydrate, messages };
     }
 
-    it.each(['read', 'last reply', 'title'])('releases unowned history after %s access', async kind => {
+    it.each(['last reply', 'title'])('releases unowned history after %s access', async kind => {
       const { host, repository, ids } = await setupHistoryReads();
-      const service = new SessionMessagingService({ getHost: () => host, getActiveConversationId: () => null, refreshModelControls: () => {} });
+      const service = new SessionMessagingService({ getHost: () => host, getActiveConversationId: () => null });
       await host.mutateSettings(settings => { settings.enableAutoTitleGeneration = true; });
       vi.spyOn(ProviderRegistry, 'resolveTitleGenerationSelection').mockReturnValue({ providerId: 'claude', model: 'haiku' });
       const titles = new ConversationTitleGeneration({ host, getService: () => ({
@@ -917,17 +915,13 @@ describe('ClaudianPlugin', () => {
       try {
         for (const id of ids) {
           let result: string;
-          if (kind === 'read') {
-            const binding = service.bindSessionTools('caller');
-            result = (await binding.port.read({ sessionId: id }, new AbortController().signal)).content;
-            binding.dispose();
-          } else if (kind === 'last reply') {
+          if (kind === 'last reply') {
             result = await service.readLastReply(id);
           } else {
             await titles.regenerate(id);
             result = repository.getSummary(id)?.title ?? '';
           }
-          expect(result).toContain(kind === 'mention' ? id : kind === 'title' ? 'Generated' : 'Finished');
+          expect(result).toContain(kind === 'title' ? 'Generated' : 'Finished');
           expect(host.sessionRuntimes.get(id)).toBeNull();
           expect(repository.getSync(id)?.messages).toEqual([]);
         }
@@ -1197,10 +1191,7 @@ describe('ClaudianPlugin', () => {
       expect('bindSessionTools' in host).toBe(false);
       expect(plugin.providerHost.sessionToolEndpoint).toBeUndefined();
       const text = 'Compare @[Review](claudian-session:review) with [[Review.md]]';
-      await expect(resolveSessionMentions(host, text, new AbortController().signal)).resolves.toEqual({
-        text: 'Compare @"Review" with [[Review.md]]',
-        references: [],
-      });
+      expect(stripLegacySessionMentions(text)).toBe('Compare @"Review" with [[Review.md]]');
       await expect(plugin.api.listSessions()).resolves.toMatchObject({ sessions: expect.any(Array) });
     });
 
@@ -2285,29 +2276,6 @@ describe('ClaudianPlugin', () => {
       expect(replaceCommand.name).toBe('Replace current conversation');
       expect(replaceCommand.checkCallback(true)).toBe(false);
       expect(closeCommand.checkCallback(true)).toBe(false);
-    });
-
-    it('offers tab renaming only while the compact tab bar is visible', async () => {
-      await plugin.onload();
-
-      const renameActiveTab = vi.fn().mockReturnValue(true);
-      const view = {
-        isTabBarVisible: vi.fn().mockReturnValue(true),
-        renameActiveTab,
-        getTabManager: vi.fn().mockReturnValue({}),
-      };
-      vi.spyOn(viewsOf(plugin), 'getView').mockReturnValue(createUnopenedView(view));
-      const command = getRegisteredCommand('rename-current-tab');
-
-      expect(command.name).toBe('Rename current tab');
-      expect(command.checkCallback(true)).toBe(true);
-      expect(renameActiveTab).not.toHaveBeenCalled();
-      expect(command.checkCallback(false)).toBe(true);
-      expect(renameActiveTab).toHaveBeenCalledTimes(1);
-
-      view.isTabBarVisible.mockReturnValue(false);
-      expect(command.checkCallback(true)).toBe(false);
-      expect(renameActiveTab).toHaveBeenCalledTimes(1);
     });
 
     it('opens the view without creating a duplicate tab when no tab layout is persisted', async () => {

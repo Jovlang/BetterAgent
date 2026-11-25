@@ -1,13 +1,11 @@
 /** @vitest-environment jsdom */
 
 import { axe } from '@test/helpers/accessibility';
-import { testDate } from '@test/helpers/testClock';
 import { fireEvent, within } from '@testing-library/dom';
-import { setIcon, TFolder } from 'obsidian';
+import { TFolder } from 'obsidian';
 
 import { ComposerInfoRow } from '@/features/chat/composer/ComposerInfoRow';
 import { LinkedContentController } from '@/features/chat/linked-content/LinkedContentController';
-import { ProjectChip } from '@/features/chat/projects/ProjectChip';
 import { createWelcomeElement } from '@/features/chat/rendering/WelcomeRenderer';
 import { setLocale, t } from '@/i18n/i18n';
 
@@ -176,29 +174,4 @@ it.each(['main', 'remove'] as const)('keeps the linked-content %s button focused
     controller.handleCreated('Roadmap');
     expect(document.activeElement).toBe(outside);
   } finally { controller.destroy(); row.destroy(); container.remove(); outside.remove(); }
-});
-
-it('keeps a draft project chip focused, with its project icon, after its project record is refreshed', async () => {
-  const container = document.body.createDiv();
-  const row = new ComposerInfoRow(container);
-  let name = 'Launch';
-  let icon: string | undefined;
-  const project = () => ({ id: 'project', name, ...(icon ? { icon } : {}), instructions: '', memoryPath: 'Memory.md', createdAt: testDate().getTime(), isPinned: false, isArchived: false });
-  const chipIcon = () => vi.mocked(setIcon).mock.calls
-    .filter(([element]) => within(container).getByRole('button', { name: `Project: ${name}` }).contains(element)).at(-1)?.[1];
-  const chip = new ProjectChip(row, {
-    projects: { get: project, list: () => [project()] },
-    conversation: { project: { projectId: 'project', isDraft: true, changeable: true }, selectProject: async () => {} },
-  });
-  try {
-    chip.refresh();
-    expect(chipIcon()).toBe('lucide-folder');
-    within(container).getByRole('button', { name: 'Project: Launch' }).focus();
-    name = 'Launch revised';
-    icon = 'lucide-rocket';
-    chip.refresh();
-    expect(document.activeElement).toBe(within(container).getByRole('button', { name: 'Project: Launch revised' }));
-    expect(chipIcon()).toBe('lucide-rocket');
-    expect(await axe(container)).toHaveNoViolations();
-  } finally { chip.destroy(); row.destroy(); container.remove(); }
 });

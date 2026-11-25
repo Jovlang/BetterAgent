@@ -6,7 +6,6 @@ import { TabWorkspaceLifecycle } from '@/features/chat/tabs/persistence/TabWorks
 
 async function createHarness(options: {
   manager?: Record<string, unknown> | null;
-  tabBar?: Record<string, unknown> | null;
   plugin?: Record<string, unknown>;
 } = {}) {
   const app = new App();
@@ -23,13 +22,11 @@ async function createHarness(options: {
   });
   const host = {
     manager: options.manager ?? null,
-    tabBar: options.tabBar ?? null,
     onInitialized: vi.fn(),
   };
   const lifecycle = new TabWorkspaceLifecycle({
     getPlugin: () => plugin,
     getTabManager: () => host.manager as never,
-    getTabBar: () => host.tabBar as never,
     onInitialized: host.onInitialized,
   });
   return { host, lifecycle, plugin, workspace };
@@ -73,7 +70,7 @@ describe('TabWorkspaceLifecycle', () => {
       expect(restoreState).toHaveBeenCalledWith({ activeTabId: null, openTabs: [] });
     });
 
-    it('publishes the open working set with only the expanded titles still open', async () => {
+    it('publishes the open working set', async () => {
       const state = {
         activeTabId: 'tab-2',
         openTabs: [
@@ -83,10 +80,9 @@ describe('TabWorkspaceLifecycle', () => {
       };
       const { lifecycle } = await createHarness({
         manager: { getPersistedState: () => state },
-        tabBar: { getExpandedTitleTabIds: () => ['tab-2', 'preview-tab'] },
       });
 
-      expect(lifecycle.getState()).toEqual(viewState({ ...state, expandedTitleTabIds: ['tab-2'] }));
+      expect(lifecycle.getState()).toEqual(viewState(state));
     });
 
     it('keeps live persistence authoritative after another delivery to an initialized view', async () => {
@@ -111,7 +107,6 @@ describe('TabWorkspaceLifecycle', () => {
   describe('restore', () => {
     it('restores every open tab and prepares every bound conversation independently of layout', async () => {
       const restoreState = vi.fn().mockResolvedValue(undefined);
-      const expandTitles = vi.fn();
       const state = {
         activeTabId: 'tab-2',
         openTabs: [
@@ -119,18 +114,15 @@ describe('TabWorkspaceLifecycle', () => {
           { conversationId: 'conversation-2', tabId: 'tab-2' },
           { conversationId: null, draftModel: 'codex:gpt-5', tabId: 'tab-3', label: 'Scratch' },
         ],
-        expandedTitleTabIds: ['tab-1'],
       };
       const { host, lifecycle, plugin } = await createHarness({
         manager: { restoreState, getPersistedState: () => state },
-        tabBar: { getExpandedTitleTabIds: () => [], expandTitles },
       });
 
       await lifecycle.setState(viewState(state));
 
       expect(plugin.ensureConversationMetadataLoaded).toHaveBeenCalledWith(['conversation-1', 'conversation-2']);
       expect(restoreState).toHaveBeenCalledWith(state);
-      expect(expandTitles).toHaveBeenCalledWith(['tab-1']);
       expect(host.onInitialized).toHaveBeenCalledTimes(1);
       expect(vi.mocked(plugin.ensureConversationMetadataLoaded).mock.invocationCallOrder[0])
         .toBeLessThan(restoreState.mock.invocationCallOrder[0]);

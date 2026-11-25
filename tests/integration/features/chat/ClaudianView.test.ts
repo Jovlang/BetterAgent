@@ -15,7 +15,7 @@ import { conversationRecord } from '@test/helpers/features/chat/ConversationFixt
 import { createSessionBrowserHost } from '@test/helpers/features/chat/SessionBrowserTestHarness';
 import { testDate } from '@test/helpers/testClock';
 import { fireEvent, waitFor, within } from '@testing-library/dom';
-import { Menu, Notice, Platform, Scope, TFile } from 'obsidian';
+import { Menu, Platform, Scope, TFile } from 'obsidian';
 
 import { ChatModelSelectionCoordinator } from '@/app/settings/ChatModelSelectionCoordinator';
 import { ClaudianViews } from '@/composition/ClaudianViews';
@@ -57,11 +57,9 @@ async function createView(options: {
     getConversationSummary: id => records.find(record => record.id === id) ?? null,
     ensureConversationMetadataLoaded: async () => undefined,
     updateConversation: async (id, updates) => { Object.assign(records.find(record => record.id === id)!, updates); },
-    registerZenModeSource: vi.fn(() => vi.fn()),
     ...overrides,
   } });
-  const messaging = new SessionMessagingService({ getHost: () => plugin, getActiveConversationId: () => null, refreshModelControls: () => undefined });
-  plugin.bindSessionTools = id => messaging.bindSessionTools(id);
+  const messaging = new SessionMessagingService({ getHost: () => plugin, getActiveConversationId: () => null });
   onTestFinished(() => messaging.dispose());
   const contentEl = document.body.createDiv();
   const resize = (width: number) => {
@@ -116,51 +114,21 @@ describe('ClaudianView real tab lifecycle', () => {
     expect(manager.getTabCount()).toBe(2);
   });
 
-  it('keeps restored tab displays and shows titles only on tabs opened while titles are on by default', async () => {
-    const fixture = await createFeatureHostFixture({ settings: { restoreTabsOnStartup: true, enableAutoTitleGeneration: false, showTabTitlesByDefault: true } });
-    const { view, manager, contentEl } = await openView({ fixture }, {
-      tabWorkspace: { ...workspaceState(['a', 'b', 'c']).tabWorkspace, expandedTitleTabIds: ['a', 'b'] },
-    });
-    const badges = () => within(contentEl.querySelector<HTMLElement>('.claudian-tab-badges')!).getAllByRole('button').map(badge => badge.textContent);
-    await waitFor(() => expect(badges()).toEqual(['New Chat', 'New Chat', '3']));
-
-    const created = await view.createNewTab();
-    await waitFor(() => expect(badges()).toEqual(['New Chat', 'New Chat', '3', 'New Chat']));
-    expect(view.getState()).toMatchObject({ tabWorkspace: { expandedTitleTabIds: ['a', 'b', created!.id] } });
-
-    await fixture.coordinator.mutate(draft => { draft.showTabTitlesByDefault = false; });
-    await view.createNewTab();
-    await waitFor(() => expect(badges()).toEqual(['New Chat', 'New Chat', '3', 'New Chat', '5']));
-    expect(manager.getTabCount()).toBe(5);
-  });
-
-  it('shows the title on the first tab of an empty workspace when titles are on by default', async () => {
-    const fixture = await createFeatureHostFixture({ settings: { restoreTabsOnStartup: true, enableAutoTitleGeneration: false, showTabTitlesByDefault: true } });
-    const { view, contentEl } = await openView({ fixture });
-    await view.createNewTab();
-    const badges = () => within(contentEl.querySelector<HTMLElement>('.claudian-tab-badges')!).getAllByRole('button').map(badge => badge.textContent);
-    await waitFor(() => expect(badges()).toEqual(['New Chat', 'New Chat']));
-  });
-
   it('abandons deferred metadata restoration when the view closes', async () => {
     const metadata = deferred<void>();
     const entered = deferred<void>();
-    const unregister = vi.fn();
     const { view, manager, plugin } = await createView({ host: {
       ensureConversationMetadataLoaded: () => { entered.resolve(); return metadata.promise; },
-      registerZenModeSource: () => unregister,
     } });
     const restoring = view.setState({ tabWorkspace: { version: 1, activeTabId: 'bound', openTabs: [{ tabId: 'bound', conversationId: 'one' }] } }, { history: false });
     await entered.promise;
     const closing = view.onClose();
-    expect(unregister).toHaveBeenCalledTimes(1);
     expect(manager.canCreateTab()).toBe(false);
     expect(vi.mocked(plugin.app.vault.offref).mock.calls.map(([ref]) => (ref as unknown as { name: string }).name)).toEqual(expect.arrayContaining(['create', 'delete', 'modify', 'rename']));
     metadata.resolve();
     await Promise.all([restoring, closing]);
     expect(manager.getTabCount()).toBe(0);
     expect(view.getTabManager()).toBeNull();
-    expect(view.getZenPresentation()).toBeNull();
   });
 
   it('shares one shutdown drain and snapshots an identity created by admitted work before flushing', async () => {
@@ -239,7 +207,6 @@ describe('ClaudianView real tab lifecycle', () => {
     expect(reopened.getActiveTab()!.conversationId).toBeNull();
     expect(view['tabWorkspace'].currentPersistence).toBe(persistence);
     expect(view.scope).toBeInstanceOf(Scope);
-    expect(view['tabBar']).not.toBeNull();
     expect(view['releaseMentionCacheEvents']).toEqual(expect.any(Function));
     expect(view.getState()).toMatchObject({ tabWorkspace: { openTabs: expect.arrayContaining(workspaceState().tabWorkspace.openTabs) } });
     // Reused persistence must remain writable after the old close finalizer runs.
@@ -590,24 +557,21 @@ describe('ClaudianView tab controls and layout', () => {
     expect(view.getSharedSelectionFocusScopeEls!()).toEqual([navRow]);
   });
 
-  it.each(['en', 'zh-CN'] as const)('runs the %s palette commands through the real compact navigation and persists a rename', async locale => {
+  it.each(['en', 'zh-CN'] as const)('runs the %s palette commands through the real compact navigation', async locale => {
     setLocale('en');
     const englishCommandNames = [
       t('chat.tabNavigation.commandNew'),
       t('chat.tabNavigation.commandReplace'),
       t('chat.tabNavigation.commandClose'),
-      t('chat.tabNavigation.commandRename'),
     ];
     setLocale(locale);
-    const inputName = t('chat.tabNavigation.tabName');
     const commandNames = [
       t('chat.tabNavigation.commandNew'),
       t('chat.tabNavigation.commandReplace'),
       t('chat.tabNavigation.commandClose'),
-      t('chat.tabNavigation.commandRename'),
     ];
     expect(commandNames.some((commandName, index) => commandName !== englishCommandNames[index])).toBe(locale !== 'en');
-    const { view, manager, contentEl, records } = await openView({ host: { settings: { locale } } }, workspaceState());
+    const { view, manager, records } = await openView({ host: { settings: { locale } } }, workspaceState());
     records[0].title = 'Archive';
     await manager.openConversation('one');
     expect(manager.getTabCount()).toBe(2);
@@ -617,36 +581,20 @@ describe('ClaudianView tab controls and layout', () => {
       workspace: { getLeavesOfType: () => [] },
       views: { getView: () => view, activateView: vi.fn() },
     });
-    const [create, replace, close, rename] = commands();
-    expect([create.id, replace.id, close.id, rename.id]).toEqual([
-      'new-tab', 'new-session', 'close-current-tab', 'rename-current-tab',
+    const [create, replace, close] = commands();
+    expect([create.id, replace.id, close.id]).toEqual([
+      'new-tab', 'new-session', 'close-current-tab',
     ]);
-    expect([create.name, replace.name, close.name, rename.name]).toEqual(commandNames);
+    expect([create.name, replace.name, close.name]).toEqual(commandNames);
     const before = structuredClone(view.getState());
     const start = vi.spyOn(view, 'startNewConversation');
     const replacement = vi.spyOn(manager, 'createNewConversation');
     const closed = vi.spyOn(manager, 'closeTab');
-    const controls = within(contentEl);
-    await controls.findByRole('button', { name: /^Archive/ });
-    for (const command of [create, replace, close, rename]) expect(command.checkCallback!(true)).toBe(true);
+    for (const command of [create, replace, close]) expect(command.checkCallback!(true)).toBe(true);
     expect(view.getState()).toEqual(before);
     expect(start).not.toHaveBeenCalled();
     expect(replacement).not.toHaveBeenCalled();
     expect(closed).not.toHaveBeenCalled();
-    expect(controls.queryByRole('textbox', { name: inputName })).toBeNull();
-
-    expect(rename.checkCallback!(false)).toBe(true);
-    const input = controls.getByRole<HTMLInputElement>('textbox', { name: inputName });
-    expect(input.placeholder).toBe('Archive');
-    expect(input.value).toBe('');
-    fireEvent.input(input, { target: { value: '  Archive / 研究  ' } });
-    fireEvent.keyDown(input, { key: 'Enter' });
-    expect(controls.queryByRole('textbox', { name: inputName })).toBeNull();
-    expect(manager.getTabBarItems().find(tab => tab.id === active.id)).toMatchObject({ title: 'Archive', label: 'Archive / 研究' });
-    expect(view.getState()).toMatchObject({ tabWorkspace: {
-      activeTabId: active.id,
-      openTabs: expect.arrayContaining([{ tabId: active.id, conversationId: 'one', label: 'Archive / 研究' }]),
-    } });
 
     expect(replace.checkCallback!(false)).toBe(true);
     await replacement.mock.results[0].value;
@@ -670,8 +618,6 @@ describe('ClaudianView tab controls and layout', () => {
 
     await manager.closeTab('restored-1');
     view.refreshTabControls();
-    expect(rename.checkCallback!(true)).toBe(false);
-    expect(contentEl.querySelector('.claudian-tab-bar-container')?.classList.contains('claudian-hidden')).toBe(true);
     setLocale('en');
     expect(commands().map(command => command.name)).toEqual(englishCommandNames);
   });
@@ -701,7 +647,7 @@ describe('ClaudianView tab controls and layout', () => {
     });
     expect(create.name).toBe(name);
     expect(create.checkCallback!(true)).toBe(true);
-    expect(otherCommands.map(command => command.checkCallback!(true))).toEqual(width === 640 ? [false, false, false] : [true, true, false]);
+    expect(otherCommands.map(command => command.checkCallback!(true))).toEqual(width === 640 ? [false, false] : [true, true]);
     expect(start).not.toHaveBeenCalled();
     expect(create.checkCallback!(false)).toBe(true);
     await start.mock.results[0].value;
@@ -712,43 +658,6 @@ describe('ClaudianView tab controls and layout', () => {
     expect(contentEl.contains(active.dom.inputEl)).toBe(true);
     expect(view.getCompactTabManager()).toBe(width === 640 ? null : manager);
     expect(compactIds()).toEqual(width === 640 ? before : [...before, active.id]);
-  });
-
-  it('reports the localized switch failure and keeps the previous tab when its restored peer cannot be loaded', async () => {
-    setLocale('en');
-    const englishSwitchFailed = t('chat.tabNavigation.switchFailed');
-    setLocale('zh-CN');
-    const switchFailed = t('chat.tabNavigation.switchFailed');
-    expect(switchFailed).not.toBe(englishSwitchFailed);
-    const record = conversationRecord('one');
-    let lookupFailed = false;
-    const getCachedConversation = vi.fn((id: string) => {
-      if (lookupFailed && id === 'one') throw new Error('Conversation cache unavailable');
-      return id === 'one' ? record : null;
-    });
-    const { tabWorkspace } = workspaceState();
-    const { view, manager, contentEl } = await openView({ host: {
-      settings: { locale: 'zh-CN' }, getCachedConversation,
-    } }, { tabWorkspace: { ...tabWorkspace, openTabs: [
-      { tabId: 'restored-1', conversationId: 'one' },
-      { tabId: 'restored-2', conversationId: null },
-    ] } });
-    const previous = manager.getActiveTab()!;
-    const before = structuredClone(view.getState());
-    expect(previous.id).toBe('restored-2');
-    expect(manager.getTab('restored-1')).toBeNull();
-    const target = await within(contentEl).findByRole('button', { name: /^one[,，]/ });
-    getCachedConversation.mockClear();
-    vi.mocked(Notice).mockClear();
-    lookupFailed = true;
-    fireEvent.click(target);
-    await waitFor(() => expect(Notice).toHaveBeenCalledExactlyOnceWith(switchFailed));
-    expect(getCachedConversation).toHaveBeenCalledWith('one');
-    expect(manager.getActiveTab()).toBe(previous);
-    expect(view.getState()).toEqual(before);
-    lookupFailed = false;
-    fireEvent.click(target);
-    await waitFor(() => expect(manager.getActiveTab()).toMatchObject({ id: 'restored-1', conversationId: 'one' }));
   });
 
   it('keeps compact controls hidden until real viewer cleanup completes, and closes search immediately', async () => {
@@ -887,7 +796,7 @@ describe('ClaudianView composer and scoped keys', () => {
     expect(tab.state.isStreaming).toBe(false);
   });
 
-  it.each(['toolbar', 'resume', 'composer', 'tab rename'] as const)('dismisses the real %s surface before stopping a turn', async surface => {
+  it.each(['toolbar', 'resume', 'composer'] as const)('dismisses the real %s surface before stopping a turn', async surface => {
     const { view, manager, contentEl } = await openView({}, workspaceState());
     const tab = manager.getActiveTab()!;
     const release = holdResponse(tab.session.runtime.turns);
@@ -899,16 +808,12 @@ describe('ClaudianView composer and scoped keys', () => {
     } else if (surface === 'resume') {
       await tab.controllers.builtInCommandController.execute(BUILT_IN_COMMANDS.find(command => command.action === 'resume')!, ProviderRegistry.getCapabilities('claude'));
       isOpen = () => tab.controllers.builtInCommandController.isResumeDropdownVisible();
-    } else if (surface === 'composer') {
+    } else {
       tab.dom.inputEl.value = '/';
       tab.dom.inputEl.selectionStart = 1;
       tab.ui.composerDropdown.handleInputChange();
       await within(contentEl).findByRole('listbox');
       isOpen = () => tab.ui.composerDropdown.isVisible();
-    } else {
-      await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
-      view['tabBar']!.beginRename(tab.id);
-      isOpen = () => within(contentEl).queryByRole('textbox', { name: 'Tab name' }) !== null;
     }
     expect(isOpen()).toBe(true);
     expect(scoped(view, 'Escape')).toBe(false);

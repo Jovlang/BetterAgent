@@ -100,7 +100,7 @@ export class ResponseFinalizer {
           if (folded.length === 0 && segment.durationSeconds === undefined) return;
           this.#collapsedResponses.add(msgEl);
           const label = segment.durationSeconds === undefined ? t('chat.worked')
-            : t('chat.zen.workedFor', { duration: formatWorkDuration(segment.durationSeconds) });
+            : t('chat.workedFor', { duration: formatWorkDuration(segment.durationSeconds) });
           // Work after a Stop hook folds right after it; the first segment's work folds before its reply,
           // which can sit in an earlier message than the final answer.
           const before = segment.hook ? segment.hook.nextSibling

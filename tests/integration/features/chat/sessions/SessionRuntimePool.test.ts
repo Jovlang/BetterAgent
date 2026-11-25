@@ -51,10 +51,9 @@ describe('session ownership across presentations', () => {
       setConversationsPlacement: vi.fn(async () => undefined),
       restoreConversations: vi.fn(async () => undefined),
       ensureAllConversationMetadataLoaded: vi.fn().mockResolvedValue(undefined),
-      archiveProjectIfEmpty: vi.fn(async () => undefined),
       archiveConversationsIf: vi.fn(async () => 1),
     };
-    const lifecycle = new ConversationLifecycle({ sessions: pool, conversations: store, projects: { get: () => null, setArchived: async () => undefined }, views: { getAllViews: () => [] } });
+    const lifecycle = new ConversationLifecycle({ sessions: pool, conversations: store, views: { getAllViews: () => [] } });
     await lifecycle.setArchived('created', true);
     await lifecycle.delete(['created']);
     expect(store.archiveConversationsIf).not.toHaveBeenCalled();

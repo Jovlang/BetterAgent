@@ -1,7 +1,6 @@
 /** @vitest-environment jsdom */
 
 import { createChatFeatureHost } from '@test/helpers/features/chat/ChatFeatureHostFixture';
-import { createProjectsFake } from '@test/helpers/features/chat/ProjectsFake';
 import { createSessionRuntimePool } from '@test/helpers/features/chat/SessionRuntimePoolHarness';
 import { waitFor, within } from '@testing-library/dom';
 import { App, Component, MarkdownRenderer } from 'obsidian';
@@ -138,10 +137,10 @@ async function createPiView() {
     title: 'Pi extension', createdAt: 1, lastActivityAt: 1, sessionId: null,
   } satisfies Conversation;
   const pool = createSessionRuntimePool(() => plugin);
-  const messaging = new SessionMessagingService({ getHost: () => plugin, getActiveConversationId: () => conversation.id, refreshModelControls: () => undefined });
+  const messaging = new SessionMessagingService({ getHost: () => plugin, getActiveConversationId: () => conversation.id });
   const plugin = await createChatFeatureHost({
     sessionRuntimes: pool,
-    bindSessionTools: id => messaging.bindSessionTools(id),
+
     app, settings,
     executionPersistence: {
       registerExecutionBinding() {}, releaseExecutionBinding() {},
@@ -150,7 +149,7 @@ async function createPiView() {
       recordConversationActivity: async () => {},
     },
     getConversationSummary: () => conversation,
-    projects: createProjectsFake(),
+
     getConversationSync: () => conversation,
     getConversationById: async () => conversation,
     getConversationList: () => [{ ...conversation, messageCount: 0, preview: '' }],

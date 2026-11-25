@@ -34,7 +34,7 @@ beforeEach(async () => {
   } as unknown as Conversation;
   const pool = createSessionRuntimePool(() => plugin);
   plugin = await createChatFeatureHost({
-    providerHost: harness.plugin.providerHost, bindSessionTools: harness.plugin.bindSessionTools, projects: harness.plugin.projects, sessionRuntimes: pool, app,
+    providerHost: harness.plugin.providerHost,   sessionRuntimes: pool, app,
     getCommittedSettings: () => plugin.settings,
     settings: {
       model: 'claude-sonnet-4-5', permissionMode: 'normal',
@@ -297,51 +297,6 @@ it.each(['pointerup', 'pointercancel'])('keeps following through layout scrolls 
 });
 
 
-it.each([
-  ['owns a new turn', false],
-  // A queued message whose continuation could not start leaves no turn in flight.
-  ['waits behind an unstarted queued message', true],
-])('cancels reference preparation that %s with Escape while leaving existing background work running', async (_name, queueFirst) => {
-  const queued = 'queued follow-up';
-  if (queueFirst) {
-    tab.dom.inputEl.value = queued;
-    await tab.controllers.inputController.sendMessage();
-  }
-  expect(tab.dom.inputEl.value).toBe('');
-  await releaseResponse();
-  vi.useRealTimers();
-  expect(tab.session.turns.isActive).toBe(false);
-  await tab.executionCoordinator.bindConversation({ conversationId: 'conversation-1', providerId: 'claude' });
-  await tab.executionCoordinator.prepare();
-  const native = harness.backend.latest;
-  Object.assign(native, { hasBackgroundWork: () => true });
-  native.emitSessionEvent({ type: 'session_state_changed', snapshot: native.getSnapshot() });
-  let resolveHistory!: (value: Conversation | null) => void;
-  const history = new Promise<Conversation | null>(resolve => { resolveHistory = resolve; });
-  const read = vi.fn(() => history);
-  Object.assign(plugin, { getConversationById: read });
-  const draft = '@[Source](claudian-session:conv-1-source)';
-  const input = getByRole(tab.dom.inputComposerEl, 'textbox');
-  tab.dom.inputEl.value = draft;
-  const sending = tab.controllers.inputController.sendMessage();
-  try {
-    await waitFor(() => expect(read).toHaveBeenCalled());
-    expect(tab.controllers.inputController.isPreparingMainTurn).toBe(true);
-    expect(tab.session.turns.isInFlight).toBe(!queueFirst);
-    fireEvent.keyDown(input, { key: 'Escape' });
-    expect(native.cancelCalls).toBe(0);
-    resolveHistory(null); await sending;
-    expect(tab.dom.inputEl.value).toContain(draft);
-    // Withdrawing the unstarted queued message returns it to the composer too.
-    expect(tab.dom.inputEl.value.includes(queued)).toBe(queueFirst);
-    expect(tab.session.hasMainBackgroundWork).toBe(true);
-    // Once preparation has ended, the same user action reaches background Stop.
-    fireEvent.keyDown(input, { key: 'Escape' });
-    expect(native.cancelCalls).toBe(1);
-  } finally { resolveHistory(null); await sending; }
-});
-
-
 it('lets Escape Stop discard a pending mailbox while no response is active', async () => {
   await releaseResponse();
   vi.useRealTimers();
@@ -359,37 +314,6 @@ it('lets Escape Stop discard a pending mailbox while no response is active', asy
     expect(mailbox.hasPending).toBe(false);
     expect(harness.backend.sessions.every(session => session.requests.length === 0)).toBe(true);
   } finally { mailbox.clear(); finishNavigation(); await navigation; }
-});
-
-
-it('dispatches pending mailbox work after the last busy-main reference preparation releases admission', async () => {
-  await tab.executionCoordinator.bindConversation({ conversationId: 'conversation-1', providerId: 'claude' });
-  await tab.executionCoordinator.prepare();
-  const mailbox = tab.session.runtime.mailbox!;
-  let rejectHistory!: (error: Error) => void;
-  const history = new Promise<Conversation | null>((_resolve, reject) => { rejectHistory = reject; });
-  const read = vi.fn((id: string) => id === 'conv-1-source' ? history : Promise.resolve(plugin.getConversationSync(id)));
-  Object.assign(plugin, { getConversationById: read });
-  tab.dom.inputEl.value = '@[Source](claudian-session:conv-1-source)';
-  const preparing = tab.controllers.inputController.sendMessage();
-  expect(read).toHaveBeenCalled();
-  expect(tab.controllers.inputController.isPreparingMainTurn).toBe(true);
-  expect(await mailbox.deliver({ message: { from: 'Other session', sessionId: 'other', text: 'Mailbox request' }, signal: new AbortController().signal })).toBe('queued');
-  await releaseResponse();
-  vi.useRealTimers();
-  expect(tab.session.turns.isActive).toBe(false);
-  expect(mailbox.hasPending).toBe(true);
-  rejectHistory(new Error('Reference unavailable'));
-  await preparing;
-  try {
-    await waitFor(() => expect(harness.backend.sessions.flatMap(session => session.requests)).toHaveLength(1), { onTimeout: error => error });
-    expect(mailbox.hasPending).toBe(false);
-    expect(tab.dom.inputEl.value).toBe('@[Source](claudian-session:conv-1-source)');
-  } finally {
-    mailbox.clear();
-    harness.backend.sessions.forEach(session => session.complete());
-    await tab.session.turns.drain();
-  }
 });
 
 

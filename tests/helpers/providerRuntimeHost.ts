@@ -31,7 +31,7 @@ export async function createProviderHostFixture(options: ProviderHostFixtureOpti
   ] = await Promise.all([
     import('@test/helpers/core/DesktopVault'), import('@test/helpers/defaultSettings'),
     import('@/app/settings/ClaudianSettingsStorage'), import('@/composition/ClaudianProviderHost'),
-    import('@/core/execution'), import('@/core/session-tools/LoopbackSessionToolServer'),
+    import('@/core/execution'), import('@test/helpers/LoopbackSessionToolServer'),
     import('@/core/device/InstallationKey'), import('@/app/settings/EnvironmentSettingsService'),
     import('@/app/settings/RuntimeSettingsCoordinator'), import('@/core/providers/ProviderRegistry'),
     import('@/core/providers/ProviderSettingsCoordinator'),

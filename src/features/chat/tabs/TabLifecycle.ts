@@ -1,4 +1,3 @@
-import type { ChatFeatureHost } from '@/features/chat/ChatFeatureHost';
 import type { AssembledTabRuntime } from '@/features/chat/tabs/types';
 
 export interface TabRuntimeCleanupFailure {
@@ -122,14 +121,4 @@ async function destroyTabOnce(tab: AssembledTabRuntime): Promise<void> {
   if (cleanupFailures.length > 0) {
     throw new TabRuntimeTeardownError(cleanupFailures);
   }
-}
-
-export function getTabTitle(tab: Pick<AssembledTabRuntime, 'conversationId'>, plugin: ChatFeatureHost): string {
-  if (tab.conversationId) {
-    const conversation = plugin.getConversationSummary(tab.conversationId);
-    if (conversation?.title) {
-      return conversation.title;
-    }
-  }
-  return 'New Chat';
 }

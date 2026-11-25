@@ -2,7 +2,6 @@ import { createHarness as createExecutionHarness, createSubmission, type FakeRun
 import { createConversationPorts, createTestSession } from '@test/helpers/ConversationPorts';
 import { createChatFeatureHost } from '@test/helpers/features/chat/ChatFeatureHostFixture';
 import { conversationRecord } from '@test/helpers/features/chat/ConversationFixture';
-import { createProjectsFake } from '@test/helpers/features/chat/ProjectsFake';
 import { App, Component } from 'obsidian';
 import type { Mock } from 'vitest';
 
@@ -128,7 +127,7 @@ export async function createFixture(overrides: ChatInputFixtureOptions = {}) {
     getConversationList: vi.fn().mockReturnValue([]),
     getConversationSummary(id: string) { return this.getConversationSync!(id); },
     getConversationSync: vi.fn().mockReturnValue(conversationRecord('conversation-1', { title: 'Conversation' })),
-    projects: createProjectsFake([]),
+
     renameConversation: vi.fn().mockResolvedValue(undefined),
     settings: {
       enableAutoTitleGeneration: false,

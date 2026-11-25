@@ -106,12 +106,10 @@ export class SideChatRuntime {
   constructor(private readonly deps: SideChatRuntimeDeps) {
     this.#settings = { ...deps.settings };
     const promptSettings = { ...deps.plugin.settings };
-    const sessionInstructions = deps.source.sessionInstructions;
     let systemInstructions: ProviderSystemInstructions | undefined;
     this.#getSystemInstructions = async () => systemInstructions ??= resolveChatSystemInstructions(
       promptSettings,
       await ProviderRegistry.resolveExecutionWorkingDirectory(deps.plugin.providerHost, deps.source.providerId, deps.workingDirectory),
-      sessionInstructions,
     );
     this.state = new ChatState({
       onAttentionChanged: () => this.#refreshStatus(),
@@ -175,11 +173,6 @@ export class SideChatRuntime {
       },
       providerId: deps.source.providerId,
       ephemeral,
-      // The child acts for its parent session, with main chat's session tools and policy gate.
-      bindSessionTools: () => {
-        const conversationId = deps.source.conversationId;
-        return conversationId ? deps.plugin.bindSessionTools?.(conversationId) : undefined;
-      },
       resolveBackend: deps.resolveBackend,
       workingDirectory: deps.workingDirectory,
     });

@@ -100,10 +100,6 @@ describe('MentionSource', () => {
     const { source: value } = source({
       getCachedVaultFiles: () => [file('notes/Alpha note.md', 5)],
       getCachedVaultFolders: () => [{ name: 'My Projects', path: 'My Projects' }],
-    }, {
-      getSessionItems: () => [
-        { id: 'session:1', kind: 'value', label: 'Weekly review', replacement: 'token ', mtime: 1 },
-      ],
     });
     const queryAt = (input: string) => value.match(input, input.length)?.query ?? null;
     expect(queryAt('Ask @Al')).toBe('Al');
@@ -112,7 +108,6 @@ describe('MentionSource', () => {
     expect(queryAt('@Alpha note')).toBe('Alpha note');
     expect(queryAt('@notes/alpha N')).toBe('notes/alpha N');
     expect(queryAt('@my proj')).toBe('my proj');
-    expect(queryAt('@Weekly rev')).toBe('Weekly rev');
     // An unmatched word stays open until a space, then closes for the rest of the line.
     expect(queryAt('meet @3pm')).toBe('3pm');
     expect(queryAt('meet @3pm ')).toBeNull();
@@ -174,23 +169,4 @@ describe('MentionSource', () => {
     }));
     value.destroy();
   });
-});
-
-it('mixes opt-in sessions with files by prefix then recency, including the empty query', async () => {
-  const now = testDate().getTime();
-  const { source: value } = source({
-    getCachedVaultFolders: () => [],
-    getCachedVaultFiles: () => [file('Alpha.md', now)],
-  }, {
-    getSessionItems: () => [
-      { id: 'session:1', kind: 'value', label: 'Alpha review', replacement: 'token ', mtime: now - 1 },
-      { id: 'session:2', kind: 'value', label: 'Review Alpha', replacement: 'token2 ', mtime: now + 1 },
-    ],
-  });
-  const signal = new AbortController().signal;
-  expect((await value.load(value.match('@', 1)!, signal)).map(item => item.id))
-    .toEqual(['session:2', 'vault-file:Alpha.md', 'session:1']);
-  expect((await value.load(value.match('@Alpha', 6)!, signal)).map(item => item.id))
-    .toEqual(['vault-file:Alpha.md', 'session:1', 'session:2']);
-  expect(await value.load(value.match('@missing', 8)!, signal)).toEqual([]);
 });

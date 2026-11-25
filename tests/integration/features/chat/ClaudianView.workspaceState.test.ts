@@ -38,7 +38,7 @@ test('a later delivered view snapshot supersedes a restore still loading metadat
       markLoading();
       await new Promise<void>(resolve => { finishLoad = resolve; });
     });
-  for (const name of ['syncProviderBrandColor', 'updateTabBar', 'notifyConversationNavigationChanged'] as const) view[name] = vi.fn();
+  for (const name of ['syncProviderBrandColor', 'notifyConversationNavigationChanged'] as const) view[name] = vi.fn();
   const firstDelivery = view.setState({ tabWorkspace: { version: 1, ...earlier } }, { history: false });
   await loading;
   const secondDelivery = view.setState({ tabWorkspace: { version: 1, ...current } }, { history: false });

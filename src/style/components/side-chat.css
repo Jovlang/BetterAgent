@@ -213,8 +213,3 @@
 .claudian-input-composer.claudian-side-chat-prompt > .claudian-input-container {
   display: none;
 }
-
-/* The floating zen composer has no view height to fill. */
-.claudian-zen-composer .claudian-side-chat-actions button.claudian-side-chat-full-height {
-  display: none;
-}

@@ -169,7 +169,7 @@ describe('ProviderWorkspaceRegistry', () => {
   it('runs cold provider initialization inside the execution lifecycle transition', async () => {
     const host = await createProviderHost();
     const events: string[] = [];
-    host.executionLifecycleRegistry.registerTransitionHook('grok', {
+    host.executionLifecycleRegistry.registerTransitionHook('codex', {
       beforeTransition: () => {
         events.push('before');
       },
@@ -177,27 +177,27 @@ describe('ProviderWorkspaceRegistry', () => {
         events.push('after');
       },
     });
-    ProviderWorkspaceRegistry.register('grok', {
+    ProviderWorkspaceRegistry.register('codex', {
       initialize: vi.fn(async () => {
         events.push('initialize');
         return {};
       }),
     });
 
-    await ProviderWorkspaceRegistry.ensureInitialized(host, 'grok', 'cold-query');
+    await ProviderWorkspaceRegistry.ensureInitialized(host, 'codex', 'cold-query');
 
     expect(events).toEqual(['before', 'initialize', 'after']);
-    expect(host.executionLifecycleRegistry.getProviderGeneration('grok')).toBe(1);
+    expect(host.executionLifecycleRegistry.getProviderGeneration('codex')).toBe(1);
   });
 
   it('rejects a nested transition started by async provider initialization', async () => {
     const host = await createProviderHost();
     const nestedMutation = vi.fn(async () => undefined);
-    ProviderWorkspaceRegistry.register('grok', {
+    ProviderWorkspaceRegistry.register('codex', {
       initialize: vi.fn(async (context) => {
         await Promise.resolve();
         await context.plugin.runProviderExecutionTransition(
-          ['grok'],
+          ['codex'],
           nestedMutation,
           context.transitionScope,
         );
@@ -207,7 +207,7 @@ describe('ProviderWorkspaceRegistry', () => {
 
     const initialization = ProviderWorkspaceRegistry.ensureInitialized(
       host,
-      'grok',
+      'codex',
       'nested-transition',
     );
     const outcome = await Promise.race([
@@ -223,7 +223,7 @@ describe('ProviderWorkspaceRegistry', () => {
     expect(outcome).toMatchObject({
       kind: 'rejected',
       error: {
-        providerId: 'grok',
+        providerId: 'codex',
         retryable: true,
       },
     });

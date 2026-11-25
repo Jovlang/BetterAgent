@@ -2,7 +2,6 @@ import * as path from 'node:path';
 
 import { claudeCatalogFixture } from '@test/helpers/claudeModels';
 import { createChatFeatureHost } from '@test/helpers/features/chat/ChatFeatureHostFixture';
-import { writeGrokCatalog } from '@test/helpers/providers/grokSettings';
 
 import { ConversationRepository } from '@/app/conversations/ConversationRepository';
 import { ConversationPersistenceStore } from '@/app/storage/ConversationPersistenceStore';
@@ -26,7 +25,6 @@ export async function createForkTestEnvironment() {
           encodedId: 'pi:anthropic/claude-sonnet-4', id: 'claude-sonnet-4', provider: 'anthropic', label: 'Sonnet', input: ['text'],
         }] },
         codex: { enabled: true, visibleModels: ['gpt-5'], discoveredModels: [{ model: 'gpt-5', displayName: 'GPT-5', description: '', supportedReasoningEfforts: [{ value: 'medium', description: '' }], defaultReasoningEffort: 'medium', inputModalities: ['text'], isDefault: true }] },
-        grok: { enabled: true, visibleModels: ['grok-code-fast-1'] },
       },
     },
     getConversationSummary: id => repository.getSummary(id),
@@ -37,10 +35,8 @@ export async function createForkTestEnvironment() {
   const root = host.workingDirectory!;
   const adapter = plugin.storage.getAdapter();
   settings.providerConfigs.claude!.environmentVariables = `CLAUDE_CONFIG_DIR=${path.join(root, 'claude')}`;
-  settings.providerConfigs.grok!.environmentVariables = `GROK_HOME=${path.join(root, 'grok')}`;
   host.getResolvedProviderCliPath = vi.fn(async providerId => `/bin/${providerId}`);
   const lifecycleRegistry = host.executionLifecycleRegistry;
-  writeGrokCatalog(settings, { fingerprint: 'test', refreshedAt: 1, defaultModelId: 'grok-code-fast-1', models: [{ rawId: 'grok-code-fast-1', displayName: 'Grok', supportsReasoning: false, reasoningEfforts: [] }] });
   const repository = new ConversationRepository({
     providers: ProviderRegistry,
     providerSettings: ProviderSettingsCoordinator,
@@ -83,7 +79,7 @@ export async function createForkTestEnvironment() {
       submissionId: user.id,
       timestamp: user.timestamp, rawDisplayText: text, canonicalText: text, images: [],
       conversationHistory: history, messages: { user, assistant },
-      configuration: { model: { claude: 'claude-sonnet-4-5', codex: 'gpt-5', grok: 'grok/grok-code-fast-1', pi: 'pi:anthropic/claude-sonnet-4', opencode: 'opencode:test/model' }[chat.conversation.providerId], permissionMode: 'normal', systemInstructions: { kind: 'explicit', purpose: 'title', instructions: 'Answer the user.' } },
+      configuration: { model: { claude: 'claude-sonnet-4-5', codex: 'gpt-5', pi: 'pi:anthropic/claude-sonnet-4', opencode: 'opencode:test/model' }[chat.conversation.providerId], permissionMode: 'normal', systemInstructions: { kind: 'explicit', purpose: 'title', instructions: 'Answer the user.' } },
       toolPolicy: { kind: 'provider-default' },
     }).catch(error => { throw new Error(JSON.stringify(error.cause ?? error), { cause: error }); });
     if (result.status !== expectedStatus) throw new Error(JSON.stringify(result));

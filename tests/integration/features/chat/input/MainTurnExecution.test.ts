@@ -34,7 +34,7 @@ describe('MainTurnExecution', () => {
 
   });
 
-  it.each(['claude', 'codex', 'grok', 'opencode', 'pi'])('uses the toolbar model and reasoning snapshot as the only submission input for %s', async providerId => {
+  it.each(['claude', 'codex', 'opencode', 'pi'])('uses the toolbar model and reasoning snapshot as the only submission input for %s', async providerId => {
     const toolbar = { model: 'toolbar-model', reasoning: 'low', permissionMode: 'normal', serviceTier: 'default' };
     const fixture = (await createFixture({
       getSettings: () => toolbar,

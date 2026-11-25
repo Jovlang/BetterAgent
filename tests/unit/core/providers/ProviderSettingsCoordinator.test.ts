@@ -628,21 +628,6 @@ describe('ProviderSettingsCoordinator', () => {
       expect(settings.permissionMode).toBe(permissionMode);
     });
 
-    it.each(['auto', 'manual', 'acceptEdits', 'yolo'])('defaults a new Grok selection to Auto without inheriting Claude %s', permissionMode => {
-      const settings = { settingsProvider: 'claude', permissionMode };
-      expect(ProviderSettingsCoordinator.getProviderSettingsSnapshot(settings, 'grok').permissionMode)
-        .toBe('auto');
-      expect(settings.permissionMode).toBe(permissionMode);
-    });
-
-    it.each(['normal', 'acceptEdits', 'yolo'])('preserves the saved Grok permission %s', permissionMode => {
-      const snapshot = ProviderSettingsCoordinator.getProviderSettingsSnapshot({
-        settingsProvider: 'claude', permissionMode: 'auto',
-        savedProviderPermissionMode: { grok: permissionMode },
-      }, 'grok');
-      expect(snapshot.permissionMode).toBe(permissionMode);
-    });
-
     it.each(['normal', 'auto-review', 'yolo'])('preserves the saved Codex permission %s', permissionMode => {
       const snapshot = ProviderSettingsCoordinator.getProviderSettingsSnapshot({
         settingsProvider: 'claude', permissionMode: 'normal',
@@ -651,7 +636,7 @@ describe('ProviderSettingsCoordinator', () => {
       expect(snapshot.permissionMode).toBe(permissionMode);
     });
 
-    it.each(['claude', 'codex', 'grok', 'opencode'] as const)(
+    it.each(['claude', 'codex', 'opencode'] as const)(
       'projects legacy plan permissions as Safe for %s',
       (providerId) => {
         for (const permissionMode of ['plan', 'yolo']) {
@@ -666,7 +651,7 @@ describe('ProviderSettingsCoordinator', () => {
       },
     );
 
-    it.each(['claude', 'codex', 'grok', 'opencode'] as const)(
+    it.each(['claude', 'codex', 'opencode'] as const)(
       'projects an unsaved legacy plan selection as Safe for %s',
       (providerId) => {
         const snapshot = ProviderSettingsCoordinator.getProviderSettingsSnapshot({
@@ -679,7 +664,6 @@ describe('ProviderSettingsCoordinator', () => {
 
     it.each([
       ['codex', 'normal'], ['codex', 'auto-review'], ['codex', 'yolo'],
-      ['grok', 'normal'], ['grok', 'acceptEdits'], ['grok', 'yolo'],
     ])('defaults a new Claude selection to Auto without inheriting %s %s', (settingsProvider, permissionMode) => {
       const settings = {
         settingsProvider,

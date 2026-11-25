@@ -11,7 +11,6 @@ import { deliverAsyncQuestion } from '@/features/chat/interactions/asyncQuestion
 import { createInteractionPromptPort } from '@/features/chat/interactions/interactionPromptPort';
 import { SessionInteractions } from '@/features/chat/interactions/SessionInteractions';
 import { setLocale, t } from '@/i18n/i18n';
-import { ACPInteractionController } from '@/providers/acp/ACPInteractionController';
 import { ClaudeExecutionInteractionRouter } from '@/providers/claude/execution/ClaudeExecutionInteractionRouter';
 import { CodexExecutionServerRequestRouter } from '@/providers/codex/execution/CodexExecutionServerRequestRouter';
 
@@ -43,7 +42,7 @@ it('makes long approval details a named keyboard-scrollable region', async () =>
 it('ignores Enter on a fresh allow-first approval until the user moves to an option', async () => {
   const parent = document.body.createDiv();
   const prompts = new SessionInteractions({ getPromptParentEl: () => parent });
-  // Native order as Codex and ACP providers send it: allow first.
+  // Codex sends the allow option first.
   const decision = prompts.requestApproval({ interactionId: 'approval', toolName: 'Bash', description: 'Run the check', decisionOptions: [
     { decision: 'allow', label: 'Allow once', value: 'allow_once' },
     { decision: 'deny', label: 'Deny', value: 'reject_once' },
@@ -97,44 +96,36 @@ it('presents denied actions as a picker that waits for a choice and can be close
   await expect(chosen).resolves.toBe('r2');
 });
 
-it('replies with the exact ACP option the user picks when several share a kind', async () => {
+it('replies with the exact approval option the user picks when several share a kind', async () => {
   const parent = document.body.createDiv();
   const prompts = new SessionInteractions({ getPromptParentEl: () => parent });
-  const controller = new ACPInteractionController({
-    getTurnId: () => 'turn', interactionPort: createInteractionPromptPort(() => prompts), sessionInstanceId: 'acp',
-  });
-  const reply = controller.requestPermission({
-    options: [
-      { kind: 'allow_once', name: 'Allow this file', optionId: 'allow-file' },
-      { kind: 'allow_once', name: 'Allow this folder', optionId: 'allow-folder' },
-      { kind: 'reject_once', name: 'Reject', optionId: 'reject' },
+  const reply = prompts.requestApproval({
+    interactionId: 'approval', toolName: 'Edit', description: 'notes.md', decisionOptions: [
+      { decision: 'allow', label: 'Allow this file', value: 'allow-file' },
+      { decision: 'allow', label: 'Allow this folder', value: 'allow-folder' },
+      { decision: 'deny', label: 'Reject', value: 'reject' },
     ],
-    sessionId: 'session', toolCall: { kind: 'edit', title: 'notes.md', toolCallId: 'tool' },
   });
   const region = within(parent).getByRole('region', { name: t('chat.approval.title') });
   expect(within(region).getAllByRole('button').map(button => button.getAttribute('aria-label')))
     .toEqual(['Allow this file', 'Allow this folder', 'Reject']);
   fireEvent.click(within(region).getByRole('button', { name: 'Allow this folder' }));
-  await expect(reply).resolves.toEqual({ outcome: { outcome: 'selected', optionId: 'allow-folder' } });
+  await expect(reply).resolves.toBe('allow-folder');
 });
 
 it('replies with the selected option even when its native id is blank', async () => {
   const parent = document.body.createDiv();
   const prompts = new SessionInteractions({ getPromptParentEl: () => parent });
-  const controller = new ACPInteractionController({
-    getTurnId: () => 'turn', interactionPort: createInteractionPromptPort(() => prompts), sessionInstanceId: 'acp',
-  });
-  const reply = controller.requestPermission({
-    options: [
-      { kind: 'allow_once', name: 'Allow', optionId: '' },
-      { kind: 'reject_once', name: 'Reject', optionId: 'reject' },
+  const reply = prompts.requestApproval({
+    interactionId: 'approval', toolName: 'Edit', description: 'notes.md', decisionOptions: [
+      { decision: 'allow', label: 'Allow', value: '' },
+      { decision: 'deny', label: 'Reject', value: 'reject' },
     ],
-    sessionId: 'session', toolCall: { kind: 'edit', title: 'notes.md', toolCallId: 'tool' },
   });
   const region = within(parent).getByRole('region', { name: t('chat.approval.title') });
   fireEvent.click(within(region).getByRole('button', { name: 'Allow' }));
 
-  await expect(reply).resolves.toEqual({ outcome: { outcome: 'selected', optionId: '' } });
+  await expect(reply).resolves.toBe('');
 });
 
 it('resumes the newest response when an older generation prompt settles last', async () => {

@@ -15,7 +15,6 @@ import {
   getCodexProviderSettings,
   updateCodexProviderSettings,
 } from '@/providers/codex/settings';
-import { getGrokProviderSettings } from '@/providers/grok/settings';
 import { getOpencodeProviderSettings } from '@/providers/opencode/settings';
 import { getPiProviderSettings } from '@/providers/pi/settings';
 
@@ -192,18 +191,18 @@ describe('ClaudianSettingsStorage', () => {
     it('preserves a legacy seed for a disabled registered provider', async () => {
       mockAdapter.exists.mockResolvedValue(true);
       mockAdapter.read.mockResolvedValue(JSON.stringify({
-        settingsProvider: 'grok',
-        model: 'grok/kimi-coding',
+        settingsProvider: 'opencode',
+        model: 'opencode:moonshot/kimi-coding',
         providerConfigs: {
-          grok: { enabled: false },
+          opencode: { enabled: false },
         },
       }));
 
       const result = await storage.load();
 
       expect(result.lastSelectedChatModel).toEqual({
-        providerId: 'grok',
-        model: 'grok/kimi-coding',
+        providerId: 'opencode',
+        model: 'opencode:moonshot/kimi-coding',
       });
     });
 
@@ -490,56 +489,6 @@ describe('ClaudianSettingsStorage', () => {
       expect(writtenContent.providerConfigs.codex.wslDistroOverridesByHost).toEqual({
         'host-b': 'Debian',
       });
-    });
-
-    it('preserves Grok hostname-scoped CLI and catalog maps', async () => {
-      mockAdapter.exists.mockResolvedValue(true);
-      mockAdapter.read.mockResolvedValue(JSON.stringify({
-        providerConfigs: {
-          grok: {
-            catalogsByHost: {
-              'host-a': {
-                defaultModelId: 'grok-4.5',
-                fingerprint: 'current',
-                models: [{ displayName: 'Grok 4.5', rawId: 'grok-4.5' }],
-                refreshedAt: 1,
-              },
-              'host-b': {
-                defaultModelId: null,
-                fingerprint: 'other',
-                models: [],
-                refreshedAt: 2,
-              },
-            },
-            cliPathsByHost: {
-              'host-a': '/custom/grok-a',
-              'host-b': '/custom/grok-b',
-            },
-            enabled: true,
-          },
-        },
-      }));
-
-      const result = await storage.load();
-      const grokSettings = getGrokProviderSettings(result);
-      const writtenContent = JSON.parse(mockAdapter.write.mock.calls[0][1]);
-
-      expect(grokSettings.cliPathsByHost).toEqual({
-        'host-a': '/custom/grok-a',
-        'host-b': '/custom/grok-b',
-      });
-      expect(grokSettings.catalogsByHost).toEqual(expect.objectContaining({
-        'host-a': expect.objectContaining({ fingerprint: 'current' }),
-        'host-b': expect.objectContaining({ fingerprint: 'other' }),
-      }));
-      expect(writtenContent.providerConfigs.grok.cliPathsByHost).toEqual({
-        'host-a': '/custom/grok-a',
-        'host-b': '/custom/grok-b',
-      });
-      expect(writtenContent.providerConfigs.grok.selectedModelsByHost).toEqual(expect.objectContaining({
-        'host-a': expect.objectContaining({ fingerprint: 'current' }),
-        'host-b': expect.objectContaining({ fingerprint: 'other' }),
-      }));
     });
 
     it('ignores retired Codex installation scalars without rewriting them', async () => {

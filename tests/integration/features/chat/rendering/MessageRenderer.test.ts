@@ -14,7 +14,7 @@ import {
   TOOL_WAIT_AGENT,
   TOOL_WRITE_STDIN,
 } from '@/core/tools/toolNames';
-import type { ChatMessage, ImageAttachment, ToolCallInfo } from '@/core/types';
+import type { ChatMessage, ImageAttachment } from '@/core/types';
 import { MessageRenderer } from '@/features/chat/rendering/MessageRenderer';
 
 let plugin: Awaited<ReturnType<typeof createChatFeatureHost>>;
@@ -52,7 +52,7 @@ function createMockComponent() {
   return component;
 }
 
-function mockCapabilities(providerId: 'claude' | 'codex' | 'grok' = 'claude') {
+function mockCapabilities(providerId: 'claude' | 'codex' = 'claude') {
   return () => ({
     providerId,
     supportsEphemeralSessions: false,
@@ -67,7 +67,7 @@ function mockCapabilities(providerId: 'claude' | 'codex' | 'grok' = 'claude') {
 
 function createRenderer(
   messagesEl?: HTMLElement,
-  providerId: 'claude' | 'codex' | 'grok' = 'claude',
+  providerId: 'claude' | 'codex' = 'claude',
 ) {
   const el = messagesEl ?? document.body.createDiv();
   const comp = createMockComponent();
@@ -1028,152 +1028,6 @@ describe('MessageRenderer', () => {
     expect(messagesEl.textContent).toContain("Patched utils.ts and verified imports.");
 });
 
-    it('renders a stored Grok background task with the async subagent renderer', async () => {
-      const messagesEl = document.body.createDiv();
-      const { renderer } = createRenderer(messagesEl, 'grok');
-
-      const msg: ChatMessage = {
-        id: 'm-grok-subagent',
-        role: 'assistant',
-        content: '',
-        timestamp: Date.now(),
-        toolCalls: [
-          {
-            id: 'spawn-1',
-            name: 'spawn_subagent',
-            input: {
-              description: 'Inspect tools',
-              prompt: 'Inspect every mapping.',
-              run_in_background: true,
-              task_id: 'task-1',
-            },
-            status: 'completed',
-            result: 'Spawned task-1',
-          },
-          {
-            id: 'output-1',
-            name: 'get_command_or_subagent_output',
-            input: { task_ids: ['task-1'] },
-            providerPayload: {
-              rawName: 'get_command_or_subagent_output',
-              rawOutput: {
-                Result: [{ output: 'All mappings verified.', status: 'completed', task_id: 'task-1' }],
-                type: 'task_output',
-              },
-            },
-            status: 'completed',
-            result: 'All mappings verified.',
-          },
-        ],
-        contentBlocks: [{ type: 'tool_use', toolId: 'spawn-1' }],
-      };
-
-      renderer.renderStoredMessage(msg);
-
-    await Promise.all(contentRenders);
-    expect(messagesEl.textContent).toContain("Inspect tools");
-    expect(messagesEl.textContent).toContain("All mappings verified.");
-    expect(within(messagesEl).getByRole('button', { name: /Background task: .*Completed/ })).toBeDefined();
-});
-
-    it('renders Grok output calls that target background commands', async () => {
-      const messagesEl = document.body.createDiv();
-      const { renderer } = createRenderer(messagesEl, 'grok');
-      const outputToolCall: ToolCallInfo = {
-        id: 'output-command',
-        name: 'get_command_or_subagent_output',
-        input: { task_id: 'command-1' },
-        status: 'completed',
-        result: 'Command finished.',
-      };
-      const msg: ChatMessage = {
-        id: 'm-grok-command-output',
-        role: 'assistant',
-        content: '',
-        timestamp: Date.now(),
-        toolCalls: [outputToolCall],
-        contentBlocks: [{ type: 'tool_use', toolId: 'output-command' }],
-      };
-
-      renderer.renderStoredMessage(msg);
-
-    await Promise.all(contentRenders);
-    const card = expandStoredTool(messagesEl, 'output-command', /get_command_or_subagent_output/);
-    expect(within(card).getByText('Command finished.')).toBeDefined();
-});
-
-    it('renders stored Grok output calls with mixed command and subagent targets', async () => {
-      const messagesEl = document.body.createDiv();
-      const { renderer } = createRenderer(messagesEl, 'grok');
-      const outputToolCall: ToolCallInfo = {
-        id: 'output-mixed',
-        name: 'get_command_or_subagent_output',
-        input: { task_ids: ['task-1', 'command-1'] },
-        status: 'completed',
-        result: 'Subagent and command finished.',
-      };
-      const msg: ChatMessage = {
-        id: 'm-grok-mixed-output',
-        role: 'assistant',
-        content: '',
-        timestamp: Date.now(),
-        toolCalls: [
-          {
-            id: 'spawn-1',
-            name: 'spawn_subagent',
-            input: {
-              description: 'Inspect tools',
-              run_in_background: true,
-              task_id: 'task-1',
-            },
-            status: 'completed',
-            result: 'Spawned task-1',
-          },
-          outputToolCall,
-        ],
-        contentBlocks: [
-          { type: 'tool_use', toolId: 'spawn-1' },
-          { type: 'tool_use', toolId: 'output-mixed' },
-        ],
-      };
-
-      renderer.renderStoredMessage(msg);
-
-    await Promise.all(contentRenders);
-    expect(within(messagesEl).getByRole('button', { name: /^Background task: Inspect tools/ })).toBeDefined();
-    const card = expandStoredTool(messagesEl, 'output-mixed', /get_command_or_subagent_output/);
-    expect(within(card).getByText('Subagent and command finished.')).toBeDefined();
-});
-  });
-
-  // ============================================
-  // Image previews
-  // ============================================
-
-  describe('message image previews', () => {
-    it('opens the preview from a native named button and closes it on disposal', async () => {
-      const messagesEl = document.body.createDiv();
-      const { renderer } = createRenderer(messagesEl);
-      const image: ImageAttachment = {
-        id: 'img-1', name: 'photo.png', mediaType: 'image/png', data: 'base64data', size: 200, source: 'file',
-      };
-      renderer.addMessage({ id: 'u1', role: 'user', content: '', timestamp: Date.now(), images: [image] });
-
-      const previewButton = messagesEl.querySelector('.claudian-message-image')!;
-      const imgEl = previewButton.children[0];
-      expect(previewButton.tagName).toBe('BUTTON');
-      expect(previewButton.getAttribute('type')).toBe('button');
-      expect(previewButton.getAttribute('aria-label')).toBe('Preview photo.png');
-      expect(imgEl.tagName).toBe('IMG');
-      expect(imgEl.getAttribute('alt')).toBe('photo.png');
-      expect(imgEl.getAttribute('src')).toBe('data:image/png;base64,base64data');
-
-      fireEvent.click(within(messagesEl).getByRole('button', { name: 'Preview photo.png' }));
-      expect(within(document.body).getByRole('dialog', { name: 'Image preview: photo.png' })).toBeDefined();
-      renderer.dispose();
-      fireEvent.click(previewButton);
-      expect(within(document.body).queryByRole('dialog')).toBeNull();
-    });
   });
 
   // ============================================

@@ -1,4 +1,4 @@
-// @test-ci {"inputs":["src/{core/session-tools,providers/grok}/**","tests/{unit,integration}/{core/session-tools,providers/grok}/**"]}
+// @test-ci {"inputs":["src/core/session-tools/**","tests/{unit,integration}/core/session-tools/**"]}
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 
@@ -25,7 +25,7 @@ describe.skipIf(!hasNativeWSL())('Windows session tool relay through WSL interop
     const target = await resolveExecutionTargetAsync({ settings: { installationMethod: 'wsl', wslDistroOverride: '' } });
     const env = Object.fromEntries(Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined));
     const relay = await createWSLSessionToolRelay({ target, hostCwd: process.cwd(), env, route, mode });
-    // The same command/args/env Grok launches as its stdio MCP child in Linux.
+    // Launch the stdio relay as an MCP child in Linux.
     const spec = buildTargetLaunchSpec({ target, hostCwd: process.cwd(), command: relay.command, args: ['-ExecutionPolicy', 'Restricted', ...relay.args], env: { ...env, ...relay.env } });
     const child = spawn(spec.command, spec.args, { cwd: spec.spawnCwd, env: spec.env, windowsHide: true, windowsVerbatimArguments: spec.windowsVerbatimArguments });
     children.push(child);

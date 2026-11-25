@@ -8,7 +8,6 @@ import { createSessionRuntimePool } from '@test/helpers/features/chat/SessionRun
 import { createHarness, releaseSideChatHarnesses } from '@test/helpers/features/chat/SideChatDOMHarness';
 import { FakeSideSession } from '@test/helpers/features/chat/SideChatSessionHarness';
 import { modelCatalogCases } from '@test/helpers/providerModelCatalogs';
-import { writeGrokCatalog } from '@test/helpers/providers/grokSettings';
 import { fireEvent, waitFor, within } from '@testing-library/dom';
 import { App, Component, Notice } from 'obsidian';
 
@@ -58,12 +57,6 @@ function createSettings({ id, populate }: typeof modelCatalogCases[number], adve
   if (id === 'opencode') config.thinkingOptionsByModel = {
     'anthropic/selected': [{ value: 'default', label: 'Default' }, ...levels.map(value => ({ value, label: formatReasoningValueLabel(value) }))],
   };
-  if (id === 'grok') writeGrokCatalog(settings, {
-    defaultModelId: 'selected', fingerprint: 'test', refreshedAt: 10,
-    models: [{ rawId: 'selected', displayName: 'Selected label', reasoningMetadataResolved: true,
-      defaultReasoningEffort: 'medium', supportsReasoning: true,
-      reasoningEfforts: levels.map(value => ({ value, label: formatReasoningValueLabel(value) })) }],
-  });
   settings.savedProviderModel = { [id]: 'old-model' };
   settings.savedProviderEffort = { [id]: id === 'opencode' ? 'low' : 'high' };
   if (id === 'opencode') config.preferredThinkingByModel = { 'anthropic/selected': 'high' };
@@ -259,7 +252,7 @@ it.each(['en', 'zh-CN'] as const)('defaults Codex to automatic review and persis
   }
 });
 
-it.each(['claude', 'codex', 'grok'] as const)('shows and submits the %s fail-closed mode for an unknown session permission', async id => {
+it.each(['claude', 'codex'] as const)('shows and submits the %s fail-closed mode for an unknown session permission', async id => {
   const entry = modelCatalogCases.find(candidate => candidate.id === id)!;
   const { createTab, sessions, tabs, plugin } = (await createChatHarness(createSettings(entry), id, entry.selected));
   try {

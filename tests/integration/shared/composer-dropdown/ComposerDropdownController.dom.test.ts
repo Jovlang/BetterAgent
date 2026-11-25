@@ -11,8 +11,7 @@ import type { TFile } from 'obsidian';
 import { setIcon } from 'obsidian';
 
 import { ProviderCommandDiscoveryStore } from '@/core/providers/commands/ProviderCommandDiscoveryStore';
-import { GrokCommandCatalog } from '@/providers/grok/commands/GrokCommandCatalog';
-import { normalizeGrokCommands } from '@/providers/grok/normalization/grokCommandNormalization';
+import { OpencodeCommandCatalog } from '@/providers/opencode/commands/OpencodeCommandCatalog';
 import { ComposerDropdownController } from '@/shared/composer-dropdown/ComposerDropdownController';
 import { MentionSource } from '@/shared/composer-dropdown/MentionSource';
 import { SlashCommandSource } from '@/shared/composer-dropdown/SlashCommandSource';
@@ -455,11 +454,11 @@ it.each([
   ['İΟΣ', 'ος', 2, 4, 'ΟΣ'],
   ['𐐀İstanbul', 'stanbul', 4, 11, 'stanbul'],
 ])('marks original native command %s for query %s', async (name, query, start, end, expected) => {
-  const catalog = new GrokCommandCatalog();
+  const catalog = new OpencodeCommandCatalog();
   const discovery = new ProviderCommandDiscoveryStore(async () => {
     const items = await catalog.listDropdownEntries({
       includeBuiltIns: false,
-      commandSnapshot: normalizeGrokCommands([{ name, description: 'Native command' }]),
+      commandSnapshot: [{ id: name, name, description: 'Native command', content: '' }],
     });
     if (!items.length) throw new Error('Expected a native command');
     return { status: 'ready', items: [items[0], ...items.slice(1)] };

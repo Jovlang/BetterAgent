@@ -2,7 +2,6 @@ import '@/providers';
 
 import { DEFAULT_CLAUDIAN_SETTINGS } from '@test/helpers/defaultSettings';
 import { modelCatalogCases as cases } from '@test/helpers/providerModelCatalogs';
-import { writeGrokCatalog } from '@test/helpers/providers/grokSettings';
 
 import { ClaudianSettingsStorage } from '@/app/settings/ClaudianSettingsStorage';
 import { SettingsCoordinator } from '@/app/settings/SettingsCoordinator';
@@ -10,7 +9,6 @@ import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
 import type { VaultFileAdapter } from '@/core/storage/VaultFileAdapter';
 import { getClaudeProviderSettings } from '@/providers/claude/settings';
 import { getCodexProviderSettings } from '@/providers/codex/settings';
-import { getGrokProviderSettings } from '@/providers/grok/settings';
 import { getOpencodeProviderSettings } from '@/providers/opencode/settings';
 import { getPiProviderSettings } from '@/providers/pi/settings';
 
@@ -43,12 +41,10 @@ it.each(cases)('$id keeps an unavailable saved selection unchanged', ({ id: prov
   const current = settings.providerConfigs[providerId]!;
   current.visibleModels = [...current.visibleModels as string[], 'missing-model'];
   if (providerId === 'pi') current.visibleModels = ['pi:anthropic/missing-model'];
-  if (providerId === 'grok') current.visibleModels = ['missing-model'];
   if (providerId === 'codex') current.visibleModels = ['missing-model'];
   const decoded = {
     claude: getClaudeProviderSettings,
     codex: getCodexProviderSettings,
-    grok: getGrokProviderSettings,
     opencode: getOpencodeProviderSettings,
     pi: getPiProviderSettings,
   }[providerId](settings);
@@ -68,11 +64,7 @@ it.each(cases)('$id does not restore removed models from an older selected snaps
   const restored = await storage.load();
   const config = restored.providerConfigs[id]!;
   const selected = config.visibleModels;
-  if (id === 'grok') {
-    writeGrokCatalog(restored, { defaultModelId: null, fingerprint: 'new', refreshedAt: 20, models: [] });
-  } else {
-    config.discoveredModels = [];
-  }
+  config.discoveredModels = [];
   await storage.save(restored);
   const unavailable = await storage.load();
   expect(unavailable.providerConfigs[id]!.visibleModels).toEqual(selected);
@@ -92,7 +84,7 @@ it.each(cases)('$id keeps runtime catalog and selection intact when persistence 
 });
 
 it('materializes legacy implicit selections before a new catalog arrives', async () => {
-  for (const id of ['claude', 'codex', 'grok'] as const) {
+  for (const id of ['claude', 'codex'] as const) {
     const settings = structuredClone(DEFAULT_CLAUDIAN_SETTINGS);
     cases.find(entry => entry.id === id)!.populate(settings);
     settings.providerConfigs[id]!.visibleModels = null;
@@ -103,7 +95,7 @@ it('materializes legacy implicit selections before a new catalog arrives', async
   }
 });
 
-it.each(['codex', 'grok'] as const)('does not implicitly enable %s discovery on a fresh profile', async id => {
+it.each(['codex'] as const)('does not implicitly enable %s discovery on a fresh profile', async id => {
   const storage = new ClaudianSettingsStorage({ exists: async () => false } as unknown as VaultFileAdapter, DEFAULT_CLAUDIAN_SETTINGS);
   const settings = await storage.load();
   const selected = settings.providerConfigs[id]!.visibleModels;
@@ -120,7 +112,6 @@ it.each(cases)('$id removes deselected aliases, preferences and saved effort pro
   const selectedId = (config.visibleModels as string[])[0];
   const removedId = id === 'pi' ? 'pi:anthropic/unselected-catalog-entry' : 'unselected-catalog-entry';
   config.modelAliases = { [selectedId]: 'Keep alias', [removedId]: 'Remove alias' };
-  if (id === 'grok') config.preferredReasoningByModel = { [selectedId]: 'high', [removedId]: 'medium' };
   if (id === 'pi' || id === 'opencode') config.preferredThinkingByModel = { [selectedId]: 'high', [removedId]: 'medium' };
   if (id === 'opencode') config.thinkingOptionsByModel = {
     [selectedId]: [{ label: 'High', value: 'high' }],
@@ -199,11 +190,6 @@ it.each(cases.flatMap(entry => [false, true].map(unavailable => ({ ...entry, una
     if (unavailable) {
       const config = settings.providerConfigs[id]!;
       config.discoveredModels = [];
-      if (id === 'grok') {
-        for (const catalog of Object.values(config.catalogsByHost as Record<string, { models: unknown[] }>)) {
-          catalog.models = [];
-        }
-      }
     }
     let content = '';
     await new ClaudianSettingsStorage({
@@ -214,22 +200,3 @@ it.each(cases.flatMap(entry => [false, true].map(unavailable => ({ ...entry, una
     expect(JSON.parse(content).savedProviderEffort[id]).toBe('low');
   },
 );
-
-it('keeps xHigh for an explicitly selected Grok model while its capabilities are unavailable', async () => {
-  const settings = structuredClone(DEFAULT_CLAUDIAN_SETTINGS);
-  settings.providerConfigs.grok = { enabled: true, visibleModels: ['temporarily-unavailable'],
-    preferredReasoningByModel: { 'temporarily-unavailable': 'xhigh', deselected: 'max' } };
-  let content = '';
-  const storage = new ClaudianSettingsStorage({
-    exists: async () => Boolean(content),
-    read: async () => content,
-    write: async (_path: string, value: string) => { content = value; },
-    delete: async () => undefined,
-  } as unknown as VaultFileAdapter, DEFAULT_CLAUDIAN_SETTINGS);
-  await storage.save(settings);
-  expect(JSON.parse(content).providerConfigs.grok.preferredReasoningByModel)
-    .toEqual({ 'temporarily-unavailable': 'xhigh' });
-  const restored = await storage.load();
-  expect(getGrokProviderSettings(restored).preferredReasoningByModel)
-    .toEqual({ 'temporarily-unavailable': 'xhigh' });
-});

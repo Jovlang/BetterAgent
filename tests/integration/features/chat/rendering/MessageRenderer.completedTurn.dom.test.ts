@@ -511,7 +511,6 @@ it.each(['claude', 'pi', 'opencode', 'codex'])('shows native throughput for %s o
 });
 
 it.each([
-  ['grok', { outputTokens: 125, durationMs: 2500 }],
   ['claude', undefined],
 ])('omits unavailable or unsupported throughput (%s, %j)', (provider, turnStats) => {
   const { renderer, messagesEl } = setup(provider as string);

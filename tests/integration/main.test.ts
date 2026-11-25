@@ -2,8 +2,8 @@
 import '@/providers';
 
 import { deferred } from '@test/helpers/ChatInputHarness';
+import { TEST_CODEX_CATALOG } from '@test/helpers/codexModels';
 import { DEFAULT_CLAUDIAN_SETTINGS as DEFAULT_SETTINGS } from '@test/helpers/defaultSettings';
-import { grokEnvironmentHash, writeGrokCatalog } from '@test/helpers/providers/grokSettings';
 import { testClock } from '@test/helpers/testClock';
 import { App, Notice, type PluginManifest, TFile, TFolder, WorkspaceLeaf } from 'obsidian';
 
@@ -35,13 +35,6 @@ import {
   getCodexProviderSettings,
   updateCodexProviderSettings,
 } from '@/providers/codex/settings';
-import { GrokCLIResolver } from '@/providers/grok/runtime/GrokCLIResolver';
-import { GrokModelCatalogCoordinator } from '@/providers/grok/runtime/GrokModelCatalogCoordinator';
-import { GrokModelDiscoveryService } from '@/providers/grok/runtime/GrokModelDiscoveryService';
-import {
-  getGrokProviderSettings,
-  updateGrokProviderSettings,
-} from '@/providers/grok/settings';
 
 // Mock fs for ClaudianService
 vi.mock('fs');
@@ -1468,7 +1461,7 @@ describe('ClaudianPlugin', () => {
     it('holds the execution lifecycle transition across the environment settings commit', async () => {
       await plugin.onload();
       const events: string[] = [];
-      const unregister = plugin.executionLifecycleRegistry.registerTransitionHook('grok', {
+      const unregister = plugin.executionLifecycleRegistry.registerTransitionHook('codex', {
         beforeTransition: () => {
           events.push('before');
         },
@@ -1480,10 +1473,10 @@ describe('ClaudianPlugin', () => {
         events.push('write');
       });
 
-      await plugin.providerHost.applyEnvironmentVariables('provider:grok', 'GROK_PROFILE=new');
+      await plugin.providerHost.applyEnvironmentVariables('provider:codex', 'OPENAI_PROFILE=new');
 
       expect(events).toEqual(['before', 'write', 'after']);
-      expect(plugin.providerHost.getEnvironmentVariablesForScope('provider:grok')).toBe('GROK_PROFILE=new');
+      expect(plugin.providerHost.getEnvironmentVariablesForScope('provider:codex')).toBe('OPENAI_PROFILE=new');
       unregister();
     });
 
@@ -1528,57 +1521,19 @@ describe('ClaudianPlugin', () => {
 
     it('does not initialize a cold provider for transition-owner CLI resolution', async () => {
       await plugin.onload();
-      ProviderWorkspaceRegistry.setServices('grok', undefined);
+      ProviderWorkspaceRegistry.setServices('opencode', undefined);
       const initialize = vi.fn(async () => ({
         cliResolver: {
           reset: vi.fn(),
-          resolveFromSettings: vi.fn().mockReturnValue('/cold/grok'),
+          resolveFromSettings: vi.fn().mockReturnValue('/cold/opencode'),
         },
       }));
-      ProviderWorkspaceRegistry.register('grok', { initialize });
+      ProviderWorkspaceRegistry.register('opencode', { initialize });
 
-      await expect(plugin.providerHost.getResolvedProviderCliPath('grok', {
+      await expect(plugin.providerHost.getResolvedProviderCliPath('opencode', {
         providerTransitionOwner: true,
       })).rejects.toThrow('requires initialized workspace services');
       expect(initialize).not.toHaveBeenCalled();
-    });
-
-    it('refreshes an initialized Grok catalog through its owned CLI path while gated', async () => {
-      await plugin.onload();
-      updateGrokProviderSettings(plugin.settings, {
-        cliPath: process.execPath,
-        enabled: true,
-      });
-      const runner = {
-        run: vi.fn(async ({ args }: { args: string[] }) => (
-          args[0] === '--version'
-            ? { exitCode: 0, stdout: 'grok 1.0' }
-            : {
-              exitCode: 0,
-              stdout: 'Default model: grok-4.5\nAvailable models:\n  grok-4.5\n',
-            }
-        )),
-      };
-      const service = new GrokModelDiscoveryService(plugin.providerHost.getRuntimeHost('grok'), {
-        runner,
-        probe: { discover: async () => { throw new Error('Method not found'); } },
-      });
-      const coordinator = new GrokModelCatalogCoordinator(plugin.providerHost.getRuntimeHost('grok'), service);
-      const cliResolver = new GrokCLIResolver();
-      ProviderWorkspaceRegistry.setServices('grok', {
-        cliResolver,
-      });
-
-      const refresh = coordinator.refresh({
-        providerTransitionOwner: true,
-      });
-      let refreshed = false;
-      void refresh.then(() => { refreshed = true; });
-      await new Promise(resolve => setImmediate(resolve));
-      expect(refreshed).toBe(true);
-      expect(runner.run).toHaveBeenCalled();
-
-      await refresh;
     });
 
     it('computes an initialized Codex catalog fingerprint through owned CLI while gated', async () => {
@@ -1703,18 +1658,18 @@ describe('ClaudianPlugin', () => {
 
     it('recovers the committed environment before surfacing a post-commit publication failure', async () => {
       await plugin.onload();
-      updateGrokProviderSettings(plugin.settings, {
+      updateCodexProviderSettings(plugin.settings, {
         enabled: true,
-        environmentVariables: 'GROK_PROFILE=old',
+        environmentVariables: 'OPENAI_PROFILE=old',
       });
       const publicationError = new Error('post-commit publication failed');
       const publishSpy = vi.spyOn(plugin['chatViews'], 'publishSettings')
         .mockRejectedValueOnce(publicationError);
       const markStale = vi.fn();
-      const unregister = plugin.executionLifecycleRegistry.registerTransitionHook('grok', {
+      const unregister = plugin.executionLifecycleRegistry.registerTransitionHook('codex', {
         beforeTransition: () => markStale(),
       });
-      ProviderWorkspaceRegistry.setServices('grok', {
+      ProviderWorkspaceRegistry.setServices('codex', {
         modelCatalog: catalogWith({ markStale }),
       });
       const invalidateProviderCommandCaches = vi.fn();
@@ -1724,29 +1679,29 @@ describe('ClaudianPlugin', () => {
         refreshModelSelector,
       })]);
       const initialGeneration = plugin.executionLifecycleRegistry
-        .getProviderGeneration('grok');
+        .getProviderGeneration('codex');
 
       try {
         const firstError = await plugin.providerHost.applyEnvironmentVariables(
-          'provider:grok',
-          'GROK_PROFILE=committed',
+          'provider:codex',
+          'OPENAI_PROFILE=committed',
         ).catch(error => error);
 
-        expect(plugin.providerHost.getEnvironmentVariablesForScope('provider:grok'))
-          .toBe('GROK_PROFILE=committed');
+        expect(plugin.providerHost.getEnvironmentVariablesForScope('provider:codex'))
+          .toBe('OPENAI_PROFILE=committed');
         expect(markStale).toHaveBeenCalledTimes(1);
         expect(markStale).toHaveBeenCalledWith();
-        expect(invalidateProviderCommandCaches).toHaveBeenCalledWith(['grok']);
+        expect(invalidateProviderCommandCaches).toHaveBeenCalledWith(['codex']);
         expect(refreshModelSelector).toHaveBeenCalledTimes(1);
-        expect(plugin.executionLifecycleRegistry.getProviderGeneration('grok'))
+        expect(plugin.executionLifecycleRegistry.getProviderGeneration('codex'))
           .toBe(initialGeneration + 1);
         expect(firstError).toBe(publicationError);
 
-        await plugin.providerHost.applyEnvironmentVariables('provider:grok', 'GROK_PROFILE=next');
+        await plugin.providerHost.applyEnvironmentVariables('provider:codex', 'OPENAI_PROFILE=next');
 
-        expect(plugin.providerHost.getEnvironmentVariablesForScope('provider:grok')).toBe('GROK_PROFILE=next');
+        expect(plugin.providerHost.getEnvironmentVariablesForScope('provider:codex')).toBe('OPENAI_PROFILE=next');
         expect(markStale).toHaveBeenCalledTimes(2);
-        expect(plugin.executionLifecycleRegistry.getProviderGeneration('grok'))
+        expect(plugin.executionLifecycleRegistry.getProviderGeneration('codex'))
           .toBe(initialGeneration + 2);
       } finally {
         unregister();
@@ -1754,58 +1709,48 @@ describe('ClaudianPlugin', () => {
       }
     });
 
-    it('restores the committed Grok context before releasing a failed settings transition', async () => {
+    it('restores the committed Codex context before releasing a failed settings transition', async () => {
       await plugin.onload();
-      updateGrokProviderSettings(plugin.settings, {
+      updateCodexProviderSettings(plugin.settings, {
         enabled: true,
-        environmentVariables: 'GROK_PROFILE=old',
+        environmentVariables: 'OPENAI_PROFILE=old',
       });
-      writeGrokCatalog(plugin.settings, {
-        defaultModelId: 'old-model',
-        fingerprint: 'old-catalog',
-        models: [{
-          displayName: 'Old model',
-          rawId: 'old-model',
-          reasoningEfforts: [],
-          supportsReasoning: false,
-        }],
-        refreshedAt: 1,
-      });
-      updateGrokProviderSettings(plugin.settings, {
-        environmentHash: grokEnvironmentHash(plugin.settings),
-      });
-      const committed = structuredClone(getGrokProviderSettings(plugin.settings));
-      let contextAtRelease: ReturnType<typeof getGrokProviderSettings> | null = null;
-      const unregister = plugin.executionLifecycleRegistry.registerTransitionHook('grok', {
+      updateCodexProviderSettings(plugin.settings, { visibleModels: ['old-model'], discoveredModels: [{
+        ...TEST_CODEX_CATALOG[0], model: 'old-model', displayName: 'Old model',
+      }] });
+      ProviderSettingsCoordinator.reconcileProviders(plugin.settings, ['codex']);
+      const committed = structuredClone(getCodexProviderSettings(plugin.settings));
+      let contextAtRelease: ReturnType<typeof getCodexProviderSettings> | null = null;
+      const unregister = plugin.executionLifecycleRegistry.registerTransitionHook('codex', {
         afterTransition() {
-          contextAtRelease = structuredClone(getGrokProviderSettings(plugin.settings));
+          contextAtRelease = structuredClone(getCodexProviderSettings(plugin.settings));
         },
       });
       const writeError = new Error('settings write failed');
       mockApp.vault.adapter.write.mockRejectedValueOnce(writeError);
 
       await expect(plugin.providerHost.applyEnvironmentVariables(
-        'provider:grok',
-        'GROK_PROFILE=new',
+        'provider:codex',
+        'OPENAI_PROFILE=new',
       )).rejects.toBe(writeError);
 
       expect(mockApp.vault.adapter.write).toHaveBeenCalledTimes(1);
       expect(contextAtRelease).toEqual(committed);
-      expect(getGrokProviderSettings(plugin.settings)).toEqual(committed);
-      expect(plugin.providerHost.getEnvironmentVariablesForScope('provider:grok')).toBe('GROK_PROFILE=old');
-      expect(getGrokProviderSettings(plugin.settings).currentCatalog).toEqual(
-        committed.currentCatalog,
+      expect(getCodexProviderSettings(plugin.settings)).toEqual(committed);
+      expect(plugin.providerHost.getEnvironmentVariablesForScope('provider:codex')).toBe('OPENAI_PROFILE=old');
+      expect(getCodexProviderSettings(plugin.settings).discoveredModels).toEqual(
+        committed.discoveredModels,
       );
 
-      expect(plugin.providerHost.getEnvironmentVariablesForScope('provider:grok')).toBe('GROK_PROFILE=old');
+      expect(plugin.providerHost.getEnvironmentVariablesForScope('provider:codex')).toBe('OPENAI_PROFILE=old');
 
-      await plugin.providerHost.applyEnvironmentVariables('provider:grok', 'GROK_PROFILE=new');
+      await plugin.providerHost.applyEnvironmentVariables('provider:codex', 'OPENAI_PROFILE=new');
 
       expect(mockApp.vault.adapter.write).toHaveBeenCalledTimes(2);
-      expect(plugin.providerHost.getEnvironmentVariablesForScope('provider:grok')).toBe('GROK_PROFILE=new');
-      expect(getGrokProviderSettings(plugin.settings).environmentHash)
+      expect(plugin.providerHost.getEnvironmentVariablesForScope('provider:codex')).toBe('OPENAI_PROFILE=new');
+      expect(getCodexProviderSettings(plugin.settings).environmentHash)
         .not.toBe(committed.environmentHash);
-      expect(getGrokProviderSettings(plugin.settings).currentCatalog?.models[0].rawId).toBe('old-model');
+      expect(getCodexProviderSettings(plugin.settings).discoveredModels[0].model).toBe('old-model');
       unregister();
     });
 
@@ -1936,10 +1881,10 @@ describe('ClaudianPlugin', () => {
       expect(second.getTabManager).not.toHaveBeenCalled();
     });
 
-    it('does not touch an initialized blank Grok tab during an environment transition', async () => {
+    it('does not touch an initialized blank Codex tab during an environment transition', async () => {
       await plugin.onload();
       const initialGeneration = plugin.executionLifecycleRegistry
-        .getProviderGeneration('grok');
+        .getProviderGeneration('codex');
 
       const mockView = createUnopenedView({
         getTabManager: vi.fn(),
@@ -1949,20 +1894,20 @@ describe('ClaudianPlugin', () => {
       vi.spyOn(viewsOf(plugin), 'getAllViews').mockReturnValue([createUnopenedView(mockView)]);
 
       await plugin.providerHost.applyEnvironmentVariables(
-        'provider:grok',
-        'GROK_PROFILE=first-turn-reload',
+        'provider:codex',
+        'OPENAI_PROFILE=first-turn-reload',
       );
 
-      expect(plugin.executionLifecycleRegistry.getProviderGeneration('grok'))
+      expect(plugin.executionLifecycleRegistry.getProviderGeneration('codex'))
         .toBe(initialGeneration + 1);
       expect(mockView.getTabManager).not.toHaveBeenCalled();
     });
 
-    it('does not coordinate environment changes through open Grok tabs', async () => {
+    it('does not coordinate environment changes through open Codex tabs', async () => {
       await plugin.onload();
-      const conversation = await chatHostOf(plugin).createConversation({ providerId: 'grok' });
+      const conversation = await chatHostOf(plugin).createConversation({ providerId: 'codex' });
       const initialGeneration = plugin.executionLifecycleRegistry
-        .getProviderGeneration('grok');
+        .getProviderGeneration('codex');
       const mockView = createUnopenedView({
         getTabManager: vi.fn(),
         invalidateProviderCommandCaches: vi.fn(),
@@ -1971,11 +1916,11 @@ describe('ClaudianPlugin', () => {
       vi.spyOn(viewsOf(plugin), 'getAllViews').mockReturnValue([createUnopenedView(mockView)]);
 
       await plugin.providerHost.applyEnvironmentVariables(
-        'provider:grok',
-        'GROK_PROFILE=streaming-first-turn',
+        'provider:codex',
+        'OPENAI_PROFILE=streaming-first-turn',
       );
 
-      expect(plugin.executionLifecycleRegistry.getProviderGeneration('grok'))
+      expect(plugin.executionLifecycleRegistry.getProviderGeneration('codex'))
         .toBe(initialGeneration + 1);
       expect(mockView.getTabManager).not.toHaveBeenCalled();
       expect(chatHostOf(plugin).getConversationSync(conversation.id)?.sessionId).toBeNull();
@@ -2060,33 +2005,6 @@ describe('ClaudianPlugin', () => {
       }));
       expect(restartedSettings.providerConfigs.codex.environmentHash).toBe(fingerprint);
       expect(deferredWrites).toEqual([]);
-    });
-
-    it('advances the Grok fingerprint while keeping session bindings', async () => {
-      await plugin.onload();
-      const conversation = await chatHostOf(plugin).createConversation({
-        providerId: 'grok',
-        sessionId: 'grok-session-id',
-      });
-      await chatHostOf(plugin).updateConversation(conversation.id, {
-        providerState: { sessionDirectory: '/tmp/grok/session-id' },
-      });
-      const hostnameKey = getHostnameKey();
-
-      await plugin.providerHost.applyProviderRuntimeSettings(['grok'], (settings) => {
-        updateGrokProviderSettings(settings, {
-          cliPathsByHost: { [hostnameKey]: '/custom/grok' },
-          enabled: true,
-        });
-      });
-
-      const grokSettings = getGrokProviderSettings(plugin.settings);
-      expect(grokSettings.environmentHash).toBe(grokEnvironmentHash(plugin.settings));
-      expect(chatHostOf(plugin).getConversationSync(conversation.id)).toEqual(expect.objectContaining({
-        sessionId: 'grok-session-id',
-        providerState: { sessionDirectory: '/tmp/grok/session-id' },
-      }));
-      expect(ProviderSettingsCoordinator.reconcileProviders(plugin.settings, ['grok']).changed).toBe(false);
     });
 
     it('commits runtime settings before surfacing a failed post-commit apply hook', async () => {

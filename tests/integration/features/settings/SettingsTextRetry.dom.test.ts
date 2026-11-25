@@ -156,7 +156,7 @@ it.each([
     expect(JSON.parse(saved)[key]).toBe(next);
     expect(transition).toHaveBeenCalledTimes(1);
     expect(transition).toHaveBeenCalledWith(
-      expect.arrayContaining(['claude', 'codex', 'grok', 'opencode', 'pi']),
+      expect.arrayContaining(['claude', 'codex', 'opencode', 'pi']),
       expect.any(Function),
     );
     expect(active.session.disposeCalls).toBe(1);

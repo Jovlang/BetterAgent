@@ -4,7 +4,6 @@ import '@/providers';
 import { axe } from '@test/helpers/accessibility';
 import { createChatFeatureHost } from '@test/helpers/features/chat/ChatFeatureHostFixture';
 import { useClaudeSessionFiles } from '@test/helpers/providers/claudeHistory';
-import { parseGrokHistoryContent } from '@test/helpers/providers/grokHistory';
 import { testDate, testTime } from '@test/helpers/testClock';
 import { fireEvent, waitFor, within } from '@testing-library/dom';
 import { Component, MarkdownRenderer } from 'obsidian';
@@ -135,15 +134,6 @@ it('collapses a stopped turn under Interrupted and renders it identically on rer
   expect(inspectInterruptedTurn(messagesEl, folded)).toEqual(liveResult);
   expect(tool().closest('[hidden]')).not.toBeNull();
 
-  // Grok records the Stop as `stop_reason: cancelled` on the turn's completion.
-  const grok = parseGrokHistoryContent([
-    { sessionUpdate: 'user_message_chunk', content: { type: 'text', text: 'Read the note' } },
-    { sessionUpdate: 'tool_call', toolCallId: 'read', title: 'read_file', kind: 'read', status: 'completed',
-      rawInput: { path: 'note.md' }, content: [{ type: 'content', content: { type: 'text', text: 'The note.' } }] },
-    { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'Partial answer' } },
-    { sessionUpdate: 'turn_completed', prompt_id: 'prompt', stop_reason: 'cancelled' },
-  ].map((update, seconds) => JSON.stringify({ timestamp: testTime({ seconds }), method: 'session/update',
-    params: { sessionId: 'grok', update } })).join('\n'), 'grok');
   // Pi records it as `stopReason: aborted` on the stopped assistant entry.
   const pi = parsePiSessionContent([
     { type: 'message', id: 'u', timestamp: testTime({ seconds: 0 }), message: { role: 'user', content: 'Read the note' } },
@@ -165,7 +155,7 @@ it('collapses a stopped turn under Interrupted and renders it identically on rer
       ] },
     { id: 'idle', type: 'idle', time: { created: created + 3_500 }, outcome: 'interrupted' },
   ]);
-  for (const reloaded of [grok.messages, pi, opencode]) {
+  for (const reloaded of [pi, opencode]) {
     renderer.renderMessages(reloaded, () => 'Welcome');
     await Promise.resolve();
     expect(inspectInterruptedTurn(messagesEl, folded)).toEqual(liveResult);

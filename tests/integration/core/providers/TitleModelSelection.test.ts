@@ -14,7 +14,6 @@ const titleCases = modelCatalogCases.map(provider => ({
   forms: {
     claude: ['sonnet', 'claude-code/sonnet'],
     codex: ['gpt-5.5', 'openai-codex/gpt-5.5'],
-    grok: ['selected', 'grok/selected'],
     opencode: ['anthropic/selected', 'opencode:anthropic/selected'],
     pi: ['anthropic/selected', 'pi:anthropic/selected'],
   }[provider.id],

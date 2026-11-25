@@ -60,9 +60,6 @@ describe('ProviderRegistry', () => {
     expect(opencodeAdapter).toMatchObject({
       protocol: 'managed-agent',
     });
-    expect(ProviderRegistry.getSubagentAdapter('grok')).toMatchObject({
-      protocol: 'lifecycle',
-    });
     expect(ProviderRegistry.getSubagentAdapter('codex')).toMatchObject({
       protocol: 'lifecycle',
     });
@@ -75,7 +72,7 @@ describe('ProviderRegistry', () => {
     expect(opencodeAdapter?.isSpawnTool('Agent')).toBe(true);
     expect(opencodeAdapter?.isSpawnTool('Task')).toBe(false);
 
-    for (const providerId of ['claude', 'opencode', 'grok', 'codex', 'pi'] as const) {
+    for (const providerId of ['claude', 'opencode', 'codex', 'pi'] as const) {
       expect(ProviderRegistry.getCapabilities(providerId)).not.toHaveProperty(
         'supportsLegacySubagentTools',
       );
@@ -95,7 +92,6 @@ describe('ProviderRegistry', () => {
     const ids = ProviderRegistry.getRegisteredProviderIds();
     expect(ids).toContain('claude');
     expect(ids).toContain('codex');
-    expect(ids).toContain('grok');
     expect(ids).toContain('pi');
   });
 
@@ -125,22 +121,20 @@ describe('ProviderRegistry', () => {
     expect(ProviderRegistry.getEnabledProviderIds({
       providerConfigs: {
         codex: { enabled: true },
-        grok: { enabled: true },
         opencode: { enabled: true },
         pi: { enabled: true },
       },
-    })).toEqual(['opencode', 'pi', 'grok', 'codex', 'claude']);
+    })).toEqual(['opencode', 'pi', 'codex', 'claude']);
   });
 
   it('exposes the blank-tab default-provider priority', () => {
     expect(ProviderRegistry.getBlankTabProviderIds({
       providerConfigs: {
         codex: { enabled: true },
-        grok: { enabled: true },
         opencode: { enabled: true },
         pi: { enabled: true },
       },
-    })).toEqual(['claude', 'codex', 'grok', 'pi', 'opencode']);
+    })).toEqual(['claude', 'codex', 'pi', 'opencode']);
   });
 
   it('exposes title generation models only from enabled providers', () => {
@@ -214,7 +208,6 @@ describe('ProviderRegistry', () => {
   it('returns the display name from provider registration metadata', () => {
     expect(ProviderRegistry.getProviderDisplayName('claude')).toBe('Claude Code');
     expect(ProviderRegistry.getProviderDisplayName('codex')).toBe('Codex');
-    expect(ProviderRegistry.getProviderDisplayName('grok')).toBe('Grok Build');
   });
 
   it('requires an explicit title model instead of selecting Claude automatically', async () => {

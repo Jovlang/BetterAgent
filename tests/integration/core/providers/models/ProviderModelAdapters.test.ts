@@ -7,7 +7,6 @@ import type { ProviderModelCatalog } from '@/core/providers/models/ProviderModel
 import { ProviderModelUnavailableError } from '@/core/providers/models/ProviderModelUnavailableError';
 import { createClaudeModels } from '@/providers/claude/runtime/ClaudeModels';
 import { createCodexModels } from '@/providers/codex/runtime/CodexModels';
-import { createGrokModels } from '@/providers/grok/runtime/GrokModels';
 import { createOpencodeModels } from '@/providers/opencode/runtime/OpencodeModels';
 import { createPiModels } from '@/providers/pi/runtime/PiModels';
 import { getPiProviderSettings } from '@/providers/pi/settings';
@@ -17,7 +16,6 @@ vi.mock('cross-spawn', () => ({ default: vi.fn() }));
 const browseOrders = {
   claude: ['sonnet', 'unselected-catalog-entry'],
   codex: ['gpt-5.5', 'unselected-catalog-entry'],
-  grok: ['selected', 'unselected-catalog-entry'],
   opencode: ['unselected-catalog-entry', 'anthropic/selected'],
   pi: ['pi:anthropic/unselected-catalog-entry', 'pi:anthropic/selected'],
 };
@@ -46,7 +44,6 @@ it.each(modelCatalogCases)('$id keeps native selection, aliases and metadata beh
   const factories: Record<string, () => ProviderModelCatalog> = {
     claude: () => createClaudeModels(host, discovery),
     codex: () => createCodexModels(host, { refresh: discovery }),
-    grok: () => createGrokModels(host, { refresh: discovery }),
     opencode: () => createOpencodeModels(host, { discoverModels: discovery, warmModelsMetadata, observeCatalog: () => () => undefined }),
     pi: () => createPiModels(host),
   };

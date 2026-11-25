@@ -248,22 +248,22 @@ describe('ClaudianView real tab lifecycle', () => {
 describe('ClaudianView provider and presentation wiring', () => {
   it('refreshes changed-provider controls and every blank tab, then refreshes all providers on a global change', async () => {
     registerChatTestProvider('codex');
-    registerChatTestProvider('grok');
-    const { view, manager, records } = await openView({ host: { settings: { providerConfigs: { codex: { enabled: true }, grok: { enabled: true } } } } });
+    registerChatTestProvider('opencode');
+    const { view, manager, records } = await openView({ host: { settings: { providerConfigs: { codex: { enabled: true }, opencode: { enabled: true } } } } });
     records[0].providerId = 'codex';
-    records[1].providerId = 'grok';
+    records[1].providerId = 'opencode';
     const codex = (await manager.createTab('one'))!;
-    const grok = (await manager.createTab('two'))!;
-    const blank = (await manager.createTab(null, undefined, { providerId: 'grok' }))!;
+    const opencode = (await manager.createTab('two'))!;
+    const blank = (await manager.createTab(null, undefined, { providerId: 'opencode' }))!;
     const refreshCodex = vi.spyOn(codex, 'refreshProviderControls');
-    const refreshGrok = vi.spyOn(grok, 'refreshProviderControls');
+    const refreshOpenCode = vi.spyOn(opencode, 'refreshProviderControls');
     const refreshBlank = vi.spyOn(blank, 'refreshProviderControls');
     view.refreshModelSelector('codex');
     expect(refreshCodex).toHaveBeenCalledTimes(1);
-    expect(refreshGrok).not.toHaveBeenCalled();
+    expect(refreshOpenCode).not.toHaveBeenCalled();
     expect(refreshBlank).toHaveBeenCalledTimes(1);
     view.refreshModelSelector();
-    expect(refreshGrok).toHaveBeenCalledTimes(1);
+    expect(refreshOpenCode).toHaveBeenCalledTimes(1);
   });
 
   it('moves the composer and chip placement with the real compact/wide transition and keeps the sidebar after the chat panel', async () => {

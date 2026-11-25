@@ -99,10 +99,8 @@ src/
 ├── providers/
 │   ├── claude/                  # Claude Agent SDK adaptor, native history, plugins
 │   ├── codex/                   # Codex shared app-server adaptor, JSON-RPC, JSONL history
-│   ├── grok/                    # Grok Build ACP adaptor, native history, models, and tools
 │   ├── opencode/                # OpenCode HTTP adaptor, shared server
-│   ├── pi/                      # Pi RPC adaptor, model discovery, JSONL history
-│   └── acp/                     # Agent Client Protocol shared mechanics
+│   └── pi/                      # Pi RPC adaptor, model discovery, JSONL history
 ├── features/
 │   ├── agent-skills/            # Vault skill and Claude command management
 │   ├── chat/                    # Sidebar chat: tabs, workspace lifecycle, controllers, renderers

@@ -40,7 +40,6 @@ test('real subprocess consumers run on native platforms when affected', () => {
   for (const consumer of [
     'tests/integration/providers/opencode/ToolRendererCompatibility.dom.test.ts',
     'tests/integration/providers/opencode/app/OpencodeCommandLoader.test.ts',
-    'tests/integration/providers/grok/app/GrokWorkspaceServices.test.ts',
     'tests/integration/features/chat/tabs/forking/ForkSource.opencode-v2.test.ts',
     'tests/integration/core/process/ProcessProbe.test.ts',
     'tests/integration/core/process/ManagedStdioProcess.test.ts',
@@ -101,7 +100,6 @@ test('real dependency discovery retains native launch checks for shared process 
     'tests/integration/providers/codex/execution/CodexExecutionBackend.protocol.test.ts',
     'tests/integration/providers/codex/execution/CodexExecutionBackend.test.ts',
     'tests/integration/providers/codex/runtime/CodexSharedRuntime.test.ts',
-    'tests/integration/providers/grok/app/GrokWorkspaceServices.test.ts',
     'tests/integration/providers/opencode/ToolRendererCompatibility.dom.test.ts',
     'tests/integration/providers/opencode/app/OpencodeCommandLoader.test.ts',
     'tests/integration/providers/opencode/execution/OpencodeExecutionBackend.native.test.ts',
@@ -152,7 +150,6 @@ test('shared test helpers use their graph consumers and validate declaration pla
   const result = select(['tests/helpers/testClock.ts'], [native]);
   assert.deepEqual(result.testFiles, [native,
     'tests/integration/providers/codex/runtime/CodexWSL.windows.test.ts',
-    'tests/integration/providers/grok/runtime/GrokWSL.windows.test.ts',
   ]);
   assert.ok(result.scriptTests.includes('scripts/testDeclarations.test.mjs'));
   assert.equal(select(['tests/helpers/testClock.ts'], [prompt]).crossPlatform, false);
@@ -169,9 +166,6 @@ test('filesystem-read documentation, styles, and captured fixtures retain their 
   ]) {
     assert.ok(select(['src/style/components/input.css']).testFiles.includes(consumer), consumer);
   }
-  const fixture = select(['tests/fixtures/providers/grok/history/example.json']);
-  assert.ok(fixture.testFiles.includes('tests/integration/providers/grok/history/GrokHistoryStore.test.ts'));
-  assert.ok(fixture.testFiles.includes('tests/integration/providers/grok/history/GrokConversationHistoryService.test.ts'));
   for (const status of ['A', 'M']) {
     for (const event of ['pull_request', 'push']) {
       for (const [file, consumers] of [
@@ -205,22 +199,6 @@ test('filesystem-read documentation, styles, and captured fixtures retain their 
           'tests/integration/providers/opencode/ui/OpencodeCommands.dom.test.ts',
           'tests/integration/providers/opencode/ui/OpencodeModels.dom.test.ts',
           'tests/integration/providers/opencode/ui/OpencodeSettingsTab.dom.test.ts',
-        ]],
-        ['tests/fixtures/providers/grok/runtime/models-list.json', [
-          'tests/integration/providers/grok/app/GrokWorkspaceServices.test.ts',
-          'tests/integration/providers/grok/runtime/GrokModelCatalogCoordinator.test.ts',
-          'tests/integration/providers/grok/runtime/GrokModels.test.ts',
-          'tests/integration/providers/grok/runtime/GrokModelDiscoveryService.test.ts',
-        ]],
-        ['tests/fixtures/providers/grok/runtime/models-list-byok.json', [
-          'tests/integration/providers/grok/app/GrokWorkspaceServices.test.ts',
-          'tests/integration/providers/grok/runtime/GrokModels.test.ts',
-          'tests/integration/providers/grok/runtime/GrokModelDiscoveryService.test.ts',
-        ]],
-        ['tests/fixtures/providers/grok/runtime/GrokModelCatalogProcess.mjs', [
-          'tests/integration/providers/grok/app/GrokWorkspaceServices.test.ts',
-          'tests/integration/providers/grok/runtime/GrokModelCatalogCoordinator.test.ts',
-          'tests/integration/providers/grok/runtime/GrokModelDiscoveryService.test.ts',
         ]],
       ]) {
         const selected = select([{ status, path: file }], [], event);
@@ -342,7 +320,7 @@ test('real dependency graph preserves prompt and provider coverage without Colla
 test('a provider-internal change selects no other provider suites through the real dependency graph', () => {
   const tracker = 'src/providers/codex/execution/CodexSubagentTracker.ts';
   const selection = selectRelatedCiTests({ changes: [{ status: 'M', path: tracker }] });
-  const others = /^tests\/(?:unit|integration)\/providers\/(?:claude|grok|opencode|pi)\//;
+  const others = /^tests\/(?:unit|integration)\/providers\/(?:claude|opencode|pi)\//;
   assert.ok(selection.testFiles.includes('tests/integration/providers/codex/execution/CodexSubagentTracker.test.ts'));
   // Another provider's suite is selected only when it registers Codex itself.
   const registersCodex = file => readFileSync(file, 'utf8').includes('codexProviderRegistration');
@@ -494,7 +472,6 @@ test('WSL suites run only for changes to WSL-related code or WSL test infrastruc
   const relay = 'tests/integration/core/process/execution-target/WSLSessionToolRelay.windows.test.ts';
   const opencode = 'tests/integration/providers/opencode/runtime/OpencodeWSL.windows.test.ts';
   const codex = 'tests/integration/providers/codex/runtime/CodexWSL.windows.test.ts';
-  const grok = 'tests/integration/providers/grok/runtime/GrokWSL.windows.test.ts';
   const claude = 'tests/integration/core/process/execution-target/ClaudeWSL.windows.test.ts';
   // Source that launches, targets, maps paths or chooses the installation method for WSL keeps its declared suites.
   for (const [file, suite] of [
@@ -504,8 +481,6 @@ test('WSL suites run only for changes to WSL-related code or WSL test infrastruc
     ['src/core/providers/settings/InstallationSettings.ts', wsl],
     ['src/core/providers/cli/TargetCLIInstallationProbe.ts', wsl],
     ['src/shared/settings/ExecutionTargetSettings.ts', wsl],
-    ['src/providers/grok/runtime/GrokExecutionContext.ts', relay],
-    ['src/providers/grok/history/GrokConversationHistoryService.ts', grok],
     ['src/providers/opencode/runtime/OpencodeExecutionTarget.ts', opencode],
     ['src/providers/opencode/ui/OpencodeSettingsTab.ts', opencode],
     ['src/providers/codex/runtime/CodexLaunchSpecBuilder.ts', codex],
@@ -530,22 +505,19 @@ test('WSL suites run only for changes to WSL-related code or WSL test infrastruc
   }
   // WSL suites, helpers and fixtures change what the native job runs.
   for (const [file, suite] of [
-    [wsl, wsl], [relay, relay], [opencode, opencode], [codex, codex], [grok, grok],
+    [wsl, wsl], [relay, relay], [opencode, opencode], [codex, codex],
     [claude, claude],
     ['tests/fixtures/providers/pi/PiSessionProcess.mjs', wsl],
     ['tests/helpers/providers/codex/CodexWSLPeer.ts', codex],
   ]) assert.ok(select([file]).wslSuites.includes(suite), `${file} must select ${suite}`);
-  for (const [helper, suite] of [['tests/helpers/WSLNativeTarget.ts', relay], ['tests/helpers/WSLNativePeer.ts', grok], ['tests/helpers/WSLClaudeFixture.ts', claude]]) {
+  for (const [helper, suite] of [['tests/helpers/WSLNativeTarget.ts', relay], ['tests/helpers/WSLNativePeer.ts', codex], ['tests/helpers/WSLClaudeFixture.ts', claude]]) {
     assert.ok(select([helper], [suite]).wslSuites.includes(suite), `${helper} must select ${suite}`);
   }
   // Platform-neutral source and test-only edits leave the native WSL job out, even when declarations select the suite on Linux.
   for (const file of [
-    'src/providers/grok/types.ts',
     'src/providers/codex/execution/CodexExecutionBackend.ts',
     'src/providers/codex/execution/CodexSubagentTracker.ts',
-    'src/providers/grok/execution/GrokExecutionBackend.ts',
     'src/utils/markdownMath.ts',
-    'tests/integration/providers/grok/ui/GrokSettingsTab.dom.test.ts',
     'tests/integration/providers/pi/history/PiWSLHistory.test.ts',
     'tests/integration/core/providers/cli/TargetCLIInstallationProbe.test.ts',
   ]) {
@@ -613,7 +585,7 @@ test('WSL runs only the suites a change affects', () => {
   const codex = 'tests/integration/providers/codex/runtime/CodexWSL.windows.test.ts';
   const affected = select([codex]).wslSuites;
   assert.ok(affected.includes(codex));
-  assert.equal(affected.includes('tests/integration/providers/grok/runtime/GrokWSL.windows.test.ts'), false);
+  assert.equal(affected.includes('tests/integration/providers/opencode/runtime/OpencodeWSL.windows.test.ts'), false);
   assert.ok(affected.every(file => wslTests.includes(file)));
   assert.deepEqual(select(['.github/wsl/provision-rootfs.sh']).wslSuites, wslTests);
   assert.deepEqual(select(['package.json']).wslSuites, wslTests);

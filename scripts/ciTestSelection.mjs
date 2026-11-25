@@ -12,7 +12,6 @@ export const wslTests = [
   'tests/integration/core/process/execution-target/WSLSessionToolRelay.windows.test.ts',
   'tests/integration/providers/opencode/runtime/OpencodeWSL.windows.test.ts',
   'tests/integration/providers/codex/runtime/CodexWSL.windows.test.ts',
-  'tests/integration/providers/grok/runtime/GrokWSL.windows.test.ts',
 ];
 const fullSelection = {
   testFiles: null, scriptTests: null, crossPlatformTests: null,

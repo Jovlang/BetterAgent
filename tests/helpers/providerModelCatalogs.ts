@@ -1,13 +1,10 @@
 import { TEST_CODEX_CATALOG } from '@test/helpers/codexModels';
-import { writeGrokCatalog } from '@test/helpers/providers/grokSettings';
 
 import type { ProviderRuntimeHost } from '@/core/providers/ProviderRuntimeHost';
 import { assertClaudeModelAvailable } from '@/providers/claude/runtime/ClaudeModelAvailability';
 import { getClaudeProviderSettings, updateClaudeProviderSettings } from '@/providers/claude/settings';
 import { assertCodexModelAvailable } from '@/providers/codex/runtime/CodexModelAvailability';
 import { getCodexProviderSettings, updateCodexProviderSettings } from '@/providers/codex/settings';
-import { assertGrokModelAvailable } from '@/providers/grok/runtime/GrokModelAvailability';
-import { getGrokProviderSettings, updateGrokProviderSettings } from '@/providers/grok/settings';
 import { assertOpencodeModelAvailable } from '@/providers/opencode/runtime/OpencodeModelAvailability';
 import { getOpencodeProviderSettings, updateOpencodeProviderSettings } from '@/providers/opencode/settings';
 import { assertPiModelAvailable } from '@/providers/pi/runtime/PiModelAvailability';
@@ -16,7 +13,6 @@ import { getPiProviderSettings, updatePiProviderSettings } from '@/providers/pi/
 const availabilityGuards = {
   claude: assertClaudeModelAvailable,
   codex: assertCodexModelAvailable,
-  grok: assertGrokModelAvailable,
   opencode: assertOpencodeModelAvailable,
   pi: assertPiModelAvailable,
 };
@@ -49,17 +45,6 @@ export const modelCatalogCases = [
       ] });
     },
     read: (settings: Record<string, unknown>) => getCodexProviderSettings(settings).discoveredModels,
-  },
-  {
-    id: 'grok' as const, selected: 'grok/selected',
-    populate(settings: Record<string, unknown>) {
-      updateGrokProviderSettings(settings, { enabled: true, visibleModels: ['selected'] });
-      writeGrokCatalog(settings, { defaultModelId: 'selected', fingerprint: 'test', refreshedAt: 10, models: [
-        { rawId: 'selected', displayName: 'Selected label', reasoningEfforts: [], supportsReasoning: false },
-        { rawId: 'unselected-catalog-entry', displayName: 'Unselected', reasoningEfforts: [], supportsReasoning: false },
-      ] });
-    },
-    read: (settings: Record<string, unknown>) => getGrokProviderSettings(settings).currentCatalog?.models ?? [],
   },
   {
     id: 'opencode' as const, selected: 'opencode:anthropic/selected',

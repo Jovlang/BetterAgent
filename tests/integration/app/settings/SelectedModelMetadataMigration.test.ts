@@ -2,7 +2,6 @@ import '@/providers';
 
 import { modelCatalogCases as cases } from '@test/helpers/providerModelCatalogs';
 import { createProviderHostFixture } from '@test/helpers/providerRuntimeHost';
-import { writeGrokCatalog } from '@test/helpers/providers/grokSettings';
 
 import { migrateSelectedModelMetadata } from '@/app/settings/SelectedModelMetadataMigration';
 import { CLAUDIAN_SETTINGS_PATH } from '@/core/bootstrap/storagePaths';
@@ -20,13 +19,12 @@ import { getClaudeModelOptions, getClaudeSupportedEffortLevels } from '@/provide
 import { createClaudeModels, discoverClaudeModels } from '@/providers/claude/runtime/ClaudeModels';
 import { getClaudeModelSource, updateClaudeProviderSettings } from '@/providers/claude/settings';
 import { updateCodexProviderSettings } from '@/providers/codex/settings';
-import { updateGrokProviderSettings } from '@/providers/grok/settings';
 import { updateOpencodeProviderSettings } from '@/providers/opencode/settings';
 import { updatePiProviderSettings } from '@/providers/pi/settings';
 
 const update = {
   claude: updateClaudeProviderSettings, codex: updateCodexProviderSettings,
-  grok: updateGrokProviderSettings, opencode: updateOpencodeProviderSettings, pi: updatePiProviderSettings,
+  opencode: updateOpencodeProviderSettings, pi: updatePiProviderSettings,
 };
 
 /** A catalog store persisting selections through the settings document, as the migration sees them. */
@@ -173,12 +171,7 @@ it.each(cases.flatMap(entry => [false, true].map(deselectDuringQuery => ({ ...en
   if (id === 'opencode') complete.providerConfigs.opencode!.thinkingOptionsByModel = {
     [selectedIds[0]]: [{ value: 'high', label: 'High' }],
   };
-  if (id === 'grok') {
-    writeGrokCatalog(complete, { defaultModelId: selectedIds[0], fingerprint: 'test', refreshedAt: 1,
-      models: [{ rawId: selectedIds[0], displayName: 'Selected', reasoningMetadataResolved: true,
-        supportsReasoning: true, reasoningEfforts: [{ value: 'high', label: 'High' }] }] });
-    writeGrokCatalog(host.settings, { defaultModelId: selectedIds[0], fingerprint: 'old', refreshedAt: 0, models: [] });
-  } else config.discoveredModels = [];
+  config.discoveredModels = [];
   const discover = vi.fn(async () => {
     await host.mutateSettings(settings => {
       if (deselectDuringQuery) update[id](settings, { visibleModels: [] });
@@ -265,12 +258,11 @@ it.each(cases)('$id detects a selected model missing from the catalog despite re
   const config = host.settings.providerConfigs[id]!;
   const selected = (config.visibleModels as string[])[0];
   if (id === 'opencode') config.thinkingOptionsByModel = { [selected]: [] };
-  if (id === 'grok') writeGrokCatalog(host.settings, { defaultModelId: selected, fingerprint: 'native', refreshedAt: 1, models: [] });
-  else config.discoveredModels = [];
+  config.discoveredModels = [];
   expect(ProviderRegistry.getSettingsStorageAdapter(id).needsReasoningMetadata!(host.settings)).toBe(true);
 });
 
-it.each(['claude', 'grok', 'opencode', 'pi'] as const)('%s retains confirmed non-reasoning metadata without querying on every reload', async id => {
+it.each(['claude', 'opencode', 'pi'] as const)('%s retains confirmed non-reasoning metadata without querying on every reload', async id => {
   const { host, storage } = await makeHost();
   cases.find(entry => entry.id === id)!.populate(host.settings);
   const config = host.settings.providerConfigs[id]!;
@@ -282,10 +274,6 @@ it.each(['claude', 'grok', 'opencode', 'pi'] as const)('%s retains confirmed non
     thinkingLevels: ['off'], reasoning: false,
   });
   if (id === 'opencode') config.thinkingOptionsByModel = { [selected]: [] };
-  if (id === 'grok') writeGrokCatalog(host.settings, {
-    defaultModelId: selected, fingerprint: 'native', refreshedAt: 1,
-    models: [{ rawId: selected, displayName: selected, reasoningEfforts: [], supportsReasoning: false, reasoningMetadataResolved: true }],
-  });
   await storage.save(host.settings);
   const restored = await storage.load();
   expect(ProviderRegistry.getSettingsStorageAdapter(id).needsReasoningMetadata!(restored)).toBe(false);

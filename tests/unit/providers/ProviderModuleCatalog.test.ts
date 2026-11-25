@@ -15,7 +15,6 @@ describe('built-in ProviderModule catalog', () => {
     expect(BUILT_IN_PROVIDER_MODULES.map(module => module.id)).toEqual([
       'claude',
       'codex',
-      'grok',
       'opencode',
       'pi',
     ]);
@@ -57,7 +56,6 @@ describe('built-in ProviderModule catalog', () => {
     const defaultEnabled: Record<string, boolean> = {
       claude: true,
       codex: false,
-      grok: false,
       opencode: false,
       pi: false,
     };

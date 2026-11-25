@@ -10,7 +10,7 @@ import type { ProviderId } from '@/core/providers/types';
 import type { ChatMessage } from '@/core/types';
 import { MessageRenderer } from '@/features/chat/rendering/MessageRenderer';
 
-const providers: ProviderId[] = ['claude', 'codex', 'grok', 'opencode', 'pi'];
+const providers: ProviderId[] = ['claude', 'codex', 'opencode', 'pi'];
 const timestamp = testDate().getTime();
 
 async function createRenderer(providerId: ProviderId) {

@@ -1,6 +1,7 @@
 import { type App } from 'obsidian';
 
 import { normalizeHiddenCommandList } from '@/core/providers/commands/hiddenCommands';
+import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
 import type { FolderLinkState, VaultFileAdapter } from '@/core/storage/VaultFileAdapter';
 import type { ClaudianSettings } from '@/core/types/settings';
 import { AgentSkillManagementCoordinator } from '@/features/agent-skills/AgentSkillManagementCoordinator';
@@ -63,6 +64,16 @@ export class SkillsSettingsTab {
 
   async render(): Promise<void> {
     const generation = ++this.renderGeneration;
+    const providers = ProviderRegistry.getRegisteredProviderIds();
+    if (providers.length === 1 && providers[0] === 'codex') {
+      this.#disposePanels();
+      this.bodyEl.empty();
+      this.#renderPanel(this.bodyEl, new AgentSkillRepository(this.files), null, {
+        help: t('settings.skills.sharedHelp'),
+      });
+      return;
+    }
+
     let state: FolderLinkState | null = null;
     let stateError: unknown = null;
     try {

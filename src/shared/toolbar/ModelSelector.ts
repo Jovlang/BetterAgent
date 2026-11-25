@@ -240,7 +240,8 @@ export class ModelSelector {
   /** One icon tab per provider, each named by its provider's display name. */
   #renderProviders(providers: ReadonlyMap<string, ProviderUIOption>): void {
     this.providersEl.empty();
-    this.providersEl.toggleClass('claudian-hidden', providers.size === 0);
+    this.providersEl.toggleClass('claudian-hidden', providers.size <= 1);
+    if (providers.size <= 1) return;
     for (const [providerId, model] of providers) {
       const selected = providerId === this.#browsedProviderId;
       const name = model.providerLabel ?? providerId;

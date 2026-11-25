@@ -14,7 +14,6 @@ import { decodeProviderModelSelectionId } from './modelSelection';
 import type { ProviderHost } from './ProviderHost';
 import { ProviderWorkspaceRegistry } from './ProviderWorkspaceRegistry';
 import {
-  DEFAULT_CHAT_PROVIDER_ID,
   type ProviderCapabilities,
   type ProviderChatUIConfig,
   type ProviderConversationHistoryService,
@@ -27,6 +26,7 @@ import {
   type ProviderSubagentHistoryService,
   type ProviderTaskResultInterpreter,
   type ProviderUIOption,
+  resolveRegisteredDefaultProviderId,
   type TitleGenerationService,
 } from './types';
 
@@ -66,14 +66,14 @@ export class ProviderRegistry {
 
   static createExecutionBackend(
     plugin: ProviderHost,
-    providerId: ProviderId = DEFAULT_CHAT_PROVIDER_ID,
+    providerId: ProviderId = this.getDefaultProviderId(),
   ): ProviderExecutionBackend {
     return this.getProviderRegistration(providerId).createExecutionBackend(plugin);
   }
 
   static createSubagentHistoryService(
     plugin: ProviderHost,
-    providerId: ProviderId = DEFAULT_CHAT_PROVIDER_ID,
+    providerId: ProviderId = this.getDefaultProviderId(),
   ): ProviderSubagentHistoryService | null {
     const factory = this.getProviderRegistration(providerId).createSubagentHistoryService;
     return factory?.(plugin) ?? null;
@@ -137,19 +137,19 @@ export class ProviderRegistry {
   }
 
   static getConversationHistoryService(
-    providerId: ProviderId = DEFAULT_CHAT_PROVIDER_ID,
+    providerId: ProviderId = this.getDefaultProviderId(),
   ): ProviderConversationHistoryService {
     return this.getProviderRegistration(providerId).historyService;
   }
 
   static getTaskResultInterpreter(
-    providerId: ProviderId = DEFAULT_CHAT_PROVIDER_ID,
+    providerId: ProviderId = this.getDefaultProviderId(),
   ): ProviderTaskResultInterpreter {
     return this.getProviderRegistration(providerId).taskResultInterpreter;
   }
 
   static getSubagentAdapter(
-    providerId: ProviderId = DEFAULT_CHAT_PROVIDER_ID,
+    providerId: ProviderId = this.getDefaultProviderId(),
   ): ProviderSubagentAdapter | null {
     return this.getProviderRegistration(providerId).subagentAdapter ?? null;
   }
@@ -158,7 +158,7 @@ export class ProviderRegistry {
     return this.getProviderRegistration(providerId).formatQuestionReply?.(tool, answers) ?? null;
   }
 
-  static getCapabilities(providerId: ProviderId = DEFAULT_CHAT_PROVIDER_ID): ProviderCapabilities {
+  static getCapabilities(providerId: ProviderId = this.getDefaultProviderId()): ProviderCapabilities {
     return this.getProviderRegistration(providerId).capabilities;
   }
 
@@ -166,11 +166,11 @@ export class ProviderRegistry {
     return this.getProviderRegistration(providerId).environmentKeyPatterns ?? [];
   }
 
-  static getModelPolicy(providerId: ProviderId = DEFAULT_CHAT_PROVIDER_ID): ProviderModelPolicy {
+  static getModelPolicy(providerId: ProviderId = this.getDefaultProviderId()): ProviderModelPolicy {
     return this.getProviderRegistration(providerId).modelPolicy;
   }
 
-  static getChatUIConfig(providerId: ProviderId = DEFAULT_CHAT_PROVIDER_ID): ProviderChatUIConfig {
+  static getChatUIConfig(providerId: ProviderId = this.getDefaultProviderId()): ProviderChatUIConfig {
     return this.getProviderRegistration(providerId).chatUIConfig;
   }
 
@@ -206,7 +206,7 @@ export class ProviderRegistry {
     return options;
   }
 
-  static getSettingsReconciler(providerId: ProviderId = DEFAULT_CHAT_PROVIDER_ID): ProviderSettingsReconciler {
+  static getSettingsReconciler(providerId: ProviderId = this.getDefaultProviderId()): ProviderSettingsReconciler {
     return this.getProviderRegistration(providerId).settingsReconciler;
   }
 
@@ -220,6 +220,10 @@ export class ProviderRegistry {
 
   static getRegisteredProviderIds(): ProviderId[] {
     return Object.keys(this.registrations);
+  }
+
+  static getDefaultProviderId(): ProviderId {
+    return resolveRegisteredDefaultProviderId(this.getRegisteredProviderIds());
   }
 
   static getEnabledProviderIds(settings: Record<string, unknown>): ProviderId[] {
@@ -240,7 +244,7 @@ export class ProviderRegistry {
   }
 
   static isEnabled(providerId: ProviderId, settings: Record<string, unknown>): boolean {
-    return this.getProviderRegistration(providerId).isEnabled(settings);
+    return this.registrations[providerId]?.isEnabled(settings) ?? false;
   }
 
   static setEnabled(
@@ -271,11 +275,9 @@ export class ProviderRegistry {
       }
     }
 
-    if (this.isEnabled(DEFAULT_CHAT_PROVIDER_ID, settings)) {
-      return DEFAULT_CHAT_PROVIDER_ID;
-    }
-
-    return this.getEnabledProviderIds(settings)[0] ?? DEFAULT_CHAT_PROVIDER_ID;
+    const defaultProviderId = this.getDefaultProviderId();
+    if (this.isEnabled(defaultProviderId, settings)) return defaultProviderId;
+    return this.getEnabledProviderIds(settings)[0] ?? defaultProviderId;
   }
 
   static resolveProviderForModel(

@@ -2,7 +2,7 @@ import { type Component, Notice } from 'obsidian';
 
 import { getUserDisplayText } from '@/core/prompt/promptContext';
 import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
-import { DEFAULT_CHAT_PROVIDER_ID, type ProviderCapabilities, type ProviderSubagentLifecycleAdapter } from '@/core/providers/types';
+import type { ProviderCapabilities, ProviderSubagentLifecycleAdapter } from '@/core/providers/types';
 import type { ChatMessage, ImageAttachment, SubagentInfo, ToolCallInfo } from '@/core/types';
 import type { ChatFeatureHost } from '@/features/chat/ChatFeatureHost';
 import { renderCitationGroup } from '@/features/chat/rendering/CitationRenderer';
@@ -130,7 +130,7 @@ export class MessageRenderer {
     this.messagesEl = messagesEl;
     this.follow = new TranscriptFollow(messagesEl, () => plugin.settings);
     this.getCapabilities = getCapabilities ?? (() => ({
-      providerId: DEFAULT_CHAT_PROVIDER_ID,
+      providerId: ProviderRegistry.getDefaultProviderId(),
       supportsNativeHistory: false,
       supportsEphemeralSessions: false,
       supportsRewind: false,

@@ -96,9 +96,9 @@ export class ClaudianSettingTab extends PluginSettingTab {
       cls: `claudian-settings-tab-content${this.activeTab === 'providers' ? ' claudian-settings-tab-content--active' : ''}`,
     });
     tabContents.set('providers', providersContent);
-    const providerTabBar = providersContent.createDiv({
-      cls: 'claudian-settings-provider-tabs',
-    });
+    const providerTabBar = providerTabs.length > 1
+      ? providersContent.createDiv({ cls: 'claudian-settings-provider-tabs' })
+      : null;
     const providerContentHost = providersContent.createDiv({
       cls: 'claudian-settings-provider-content-host',
     });
@@ -160,7 +160,9 @@ export class ClaudianSettingTab extends PluginSettingTab {
     };
 
     for (const id of tabIds) {
-      const label = t(`settings.tabs.${id}`);
+      const label = id === 'providers' && providerTabs.length === 1
+        ? ProviderRegistry.getProviderDisplayName(providerTabs[0])
+        : t(`settings.tabs.${id}`);
       const button = tabBar.createEl('button', {
         cls: `claudian-settings-tab${id === this.activeTab ? ' claudian-settings-tab--active' : ''}`,
         text: label,
@@ -209,6 +211,7 @@ export class ClaudianSettingTab extends PluginSettingTab {
         cls: `claudian-settings-provider-content${providerId === this.activeProviderTab ? ' claudian-settings-provider-content--active' : ''}`,
       });
       providerContents.set(providerId, content);
+      if (!providerTabBar) continue;
       const providerName = ProviderRegistry.getProviderDisplayName(providerId);
       const providerIcon = ProviderRegistry.getChatUIConfig(providerId).getProviderIcon?.();
       // A tab shows its provider's icon; the name stays its accessible name and hover tooltip.

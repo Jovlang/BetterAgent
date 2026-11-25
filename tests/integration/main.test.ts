@@ -454,8 +454,8 @@ describe('ClaudianPlugin', () => {
       await plugin.onload();
 
       expect(plugin.settings).toBeDefined();
-      // A fresh install starts Claude on Auto, which carries to an unsaved provider as Safe.
-      expect(plugin.settings.permissionMode).toBe('auto');
+      expect(plugin.settings.settingsProvider).toBe('codex');
+      expect(plugin.settings.permissionMode).toBe('auto-review');
       expect(ProviderSettingsCoordinator.getProviderSettingsSnapshot(plugin.settings, 'codex').permissionMode)
         .toBe('auto-review');
       expect(plugin.settings.hiddenCommands).toEqual(DEFAULT_SETTINGS.hiddenCommands);
@@ -1458,7 +1458,8 @@ describe('ClaudianPlugin', () => {
       expect(writeCall).toBeDefined();
       const content = JSON.parse(writeCall![1]);
       expect(content).not.toHaveProperty('activeConversationId');
-      expect(content).toHaveProperty('providerConfigs.claude.environmentHash');
+      expect(content).toHaveProperty('providerConfigs.codex.environmentHash');
+      expect(content).not.toHaveProperty('providerConfigs.claude');
       expect(content).not.toHaveProperty('enableBlocklist');
       expect(content).not.toHaveProperty('blockedCommands');
       // Permissions are now in .claude/settings.json (CC format), not claudian-settings.json

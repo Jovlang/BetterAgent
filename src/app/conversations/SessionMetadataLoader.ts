@@ -1,5 +1,5 @@
 import { StartupProfiler } from '../../core/performance/StartupProfiler';
-import { DEFAULT_CHAT_PROVIDER_ID } from '../../core/providers/types';
+import { DEFAULT_CHAT_PROVIDER_ID, type ProviderId } from '../../core/providers/types';
 import type { Conversation, SessionMetadata } from '../../core/types';
 import type {
   SessionMetadataReader,
@@ -11,6 +11,7 @@ export interface SessionMetadataLoaderOptions {
   sessions: SessionMetadataReader;
   conversations: ConversationRepository;
   isUnloading(): boolean;
+  supportsProvider?(providerId: ProviderId): boolean;
   whenLayoutReady(callback: () => void): void;
   onConversationListChanged(): void;
   onAllMetadataLoaded?(): void;
@@ -79,8 +80,10 @@ export class SessionMetadataLoader {
     const { conversations } = this.options;
     const addedConversations: Conversation[] = [];
     let didChangeConversationList = false;
-    const publishBatch = (records: SessionMetadataReadResult[]): void => {
-      if (this.isStopped() || records.length === 0) return;
+    const publishBatch = (batch: SessionMetadataReadResult[]): void => {
+      if (this.isStopped()) return;
+      const records = batch.filter(({ metadata }) => this.isSupported(metadata));
+      if (records.length === 0) return;
 
       const recoverySources = records.map(({ metadata }) => (
         this.createShell(metadata)
@@ -125,7 +128,8 @@ export class SessionMetadataLoader {
     const scannedShells = scan.records
       .map(({ metadata }) => conversations.getCachedConversation(metadata.id))
       .filter((shell): shell is Conversation => shell !== null);
-    const records = await this.options.sessions.revalidate(scan.records);
+    const records = (await this.options.sessions.revalidate(scan.records))
+      .filter(({ metadata }) => this.isSupported(metadata));
     if (this.isStopped()) return;
     const resolvedIds = new Set(records.map(({ metadata }) => metadata.id));
     const unresolvedShells = scannedShells.filter(
@@ -215,7 +219,7 @@ export class SessionMetadataLoader {
 
     const records = (await Promise.all(
       missingIds.map(id => this.options.sessions.load(id)),
-    )).filter((record): record is SessionMetadataReadResult => record !== null);
+    )).filter((record): record is SessionMetadataReadResult => record !== null && this.isSupported(record.metadata));
     if (this.isStopped() || records.length === 0) return;
 
     const entries = records.map(({ metadata, needsMigration, source }) => ({
@@ -227,6 +231,10 @@ export class SessionMetadataLoader {
     await conversations.adoptMetadataConversations(entries);
     if (this.isStopped()) return;
     conversations.registerHistoricalModelRecoverySources(shells);
+  }
+
+  private isSupported(meta: SessionMetadata): boolean {
+    return this.options.supportsProvider?.(meta.providerId ?? DEFAULT_CHAT_PROVIDER_ID) ?? true;
   }
 
   createShell(meta: SessionMetadata): Conversation {

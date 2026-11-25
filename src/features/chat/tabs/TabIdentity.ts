@@ -5,7 +5,7 @@ import {
 } from '@/core/providers/conversationModel';
 import { getProviderForModel } from '@/core/providers/modelRouting';
 import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
-import { DEFAULT_CHAT_PROVIDER_ID, type ProviderId } from '@/core/providers/types';
+import type { ProviderId } from '@/core/providers/types';
 import type { ClaudianSettings, Conversation } from '@/core/types';
 import type { ChatFeatureHost, TabId } from '@/features/chat/ChatFeatureHost';
 import type { TabLifecycleState } from '@/features/chat/tabs/ChatTab';
@@ -66,7 +66,7 @@ export function createTabIdentity(
     ?? (draftModel
       ? restoredProviderId && ProviderRegistry.getRegisteredProviderIds().includes(restoredProviderId)
         ? restoredProviderId : null
-      : DEFAULT_CHAT_PROVIDER_ID);
+      : ProviderRegistry.getDefaultProviderId());
   return {
     id: options.tabId,
     lifecycleState: options.lifecycleState ?? 'open',

@@ -1,9 +1,8 @@
 import { StartupProfiler } from './core/performance/StartupProfiler';
-// Must run before any SDK imports to patch Electron/Node.js realm incompatibility
-import { patchSetMaxListenersForElectron } from './utils/electronCompat';
-patchSetMaxListenersForElectron();
+import { registerProviderModules } from './core/providers/registerProviderModules';
+import { codexProviderRegistration } from './providers/codex/registration';
 
-import './providers';
+registerProviderModules([codexProviderRegistration]);
 
 StartupProfiler.finishModuleEvaluation();
 
@@ -53,7 +52,8 @@ import { createInlineEditCommand } from './features/inline-edit/inlineEditComman
 import { InlineEditSessionOwner } from './features/inline-edit/InlineEditSessionOwner';
 import { ClaudianSettingTab } from './features/settings/ClaudianSettings';
 import { t } from './i18n/i18n';
-import { getBuiltInProviderDefaultConfigs } from './providers/defaultProviderConfigs';
+import { DEFAULT_CODEX_PROVIDER_CONFIG } from './providers/codex/config';
+import { CODEX_PERMISSION_MODE_POLICY } from './providers/codex/permissionModes';
 
 export default class ClaudianPlugin extends Plugin {
   readonly executionLifecycleRegistry = new ProviderExecutionLifecycleRegistry();
@@ -209,7 +209,12 @@ export default class ClaudianPlugin extends Plugin {
   private async loadApplication(): Promise<void> {
     const domains = await startApplication({
       plugin: this,
-      defaultSettings: createDefaultClaudianSettings(getBuiltInProviderDefaultConfigs()),
+      defaultSettings: {
+        ...createDefaultClaudianSettings({ codex: { ...DEFAULT_CODEX_PROVIDER_CONFIG, enabled: true } }),
+        settingsProvider: 'codex',
+        model: '',
+        permissionMode: CODEX_PERMISSION_MODE_POLICY.defaultValue,
+      },
       providers: ProviderRegistry,
       providerSettings: ProviderSettingsCoordinator,
       isUnloading: () => this.isUnloading,

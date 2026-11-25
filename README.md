@@ -8,11 +8,11 @@ Some screenshots still show the upstream Claudian interface.
 
 ![Preview](assets/Preview.png)
 
-An Obsidian plugin that embeds AI coding agents (Claude Code, Codex, Grok Build, Antigravity CLI, OpenCode, Pi, DeepSeek Harness, and more to come) in your vault. Your vault becomes the agent's working directory — file read/write, search, bash, and multi-step workflows all work out of the box.
+An Obsidian plugin that brings Codex into your vault. Your vault becomes its working directory for reading, editing, and searching files and running commands.
 
 ## Features & Usage
 
-Open the BetterAgent interface from the ribbon icon or command palette. Everything works like your familiar coding agent, Claude Code, Codex, Grok Build, Antigravity CLI, OpenCode, Pi, and DeepSeek Harness — talk to the agent, and it reads, writes, edits, searches and run commands in your vault.
+Open BetterAgent from the ribbon icon or command palette. Configure Codex under **Settings → BetterAgent → Codex**.
 
 **Inline Edit** — Select text or start at the cursor position + hotkey to edit directly in notes with word-level diff preview.
 
@@ -22,7 +22,7 @@ Open the BetterAgent interface from the ribbon icon or command palette. Everythi
 
 **Side Chat (`/side` or `/btw`)** — Explore a separate, temporary conversation with follow-ups and tools while keeping the main chat unchanged.
 
-**MCP Servers** — Connect external tools through each coding agent's native CLI-managed MCP configuration.
+**MCP Servers** — Connect external tools through the Codex CLI’s MCP configuration.
 
 **Conversation History** — Open **History** next to Linked content below the composer to search for a conversation. History opens automatically beside the chat when the pane is wider than 600 px. In narrow panes it replaces the chat when opened manually; **Back** returns to the same conversation and draft. Find **Archive** under **More** in the same row.
 
@@ -32,15 +32,7 @@ Open the BetterAgent interface from the ribbon icon or command palette. Everythi
 
 ## Requirements
 
-- At least one of the following harnesses:
-  - [Antigravity CLI](https://antigravity.google/product/antigravity-cli)
-  - [Claude Code](https://code.claude.com/docs/en/overview)
-  - [Codex](https://github.com/openai/codex)
-  - [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
-  - [Grok Build](https://github.com/xai-org/grok-build)
-  - [OpenCode V2](https://github.com/anomalyco/opencode)
-  - [Pi](https://github.com/earendil-works/pi)
-- A compatible subscription or API provider
+- [Codex CLI](https://github.com/openai/codex) with a compatible subscription or API key
 - Obsidian v1.13.0+
 - Desktop only (macOS, Linux, Windows)
 
@@ -83,7 +75,7 @@ npm run build
 
 ## Privacy & Data Use
 
-- **Sent to API**: Your input, attached files, images, and tool call outputs. Depending on the selected provider, data is sent to Anthropic (Claude), OpenAI (Codex), xAI (Grok), Google (Antigravity), or the providers configured in OpenCode, Pi, or DeepSeek Harness. The destination can be configured through provider settings and environment variables.
+- **Sent to API**: Your input, attached files, images, and tool call outputs. Codex sends data to its configured API.
 - **No telemetry or unsolicited background activity**: BetterAgent does not run telemetry beacons. UI polling timers read local Obsidian/editor selection state only. Network activity is limited to explicit provider runtime work, configured MCP endpoints, provider SDK/CLI calls needed to answer your requests, and their configured services.
 
 ## Troubleshooting

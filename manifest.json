@@ -3,7 +3,7 @@
   "name": "BetterAgent",
   "version": "2.3.48",
   "minAppVersion": "1.13.0",
-  "description": "Embeds Claude Code, Codex, and other coding agents as AI collaborators in your vault. Your vault becomes their working directory, giving them capabilities for file reads and writes, search, bash commands, and multi-step workflows.",
+  "description": "Embeds Codex in your vault for chat, file context, and inline editing.",
   "author": "Jovlang",
   "authorUrl": "https://github.com/Jovlang",
   "isDesktopOnly": true

@@ -439,7 +439,7 @@ export class ClaudianSettingsStorage {
     const normalizedProviderSettings = {
       ...stored,
       hiddenCommands,
-      providerConfigs,
+      providerConfigs: { ...structuredClone(this.defaults.providerConfigs), ...providerConfigs },
     };
     const storedSharedSettings = stripRetiredSharedFields({
       ...normalizedProviderSettings,
@@ -450,7 +450,7 @@ export class ClaudianSettingsStorage {
       sharedEnvironmentVariables: getSharedEnvironmentVariables(normalizedProviderSettings),
       envSnippets,
       hiddenCommands,
-      providerConfigs,
+      providerConfigs: normalizedProviderSettings.providerConfigs,
       chatViewPlacement,
       enableZenMode,
       zenModePosition,

@@ -1,5 +1,5 @@
 import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
-import { DEFAULT_CHAT_PROVIDER_ID, type ProviderId } from '@/core/providers/types';
+import type { ProviderId } from '@/core/providers/types';
 import type {
   ChatMessage,
   StreamChunk,
@@ -91,14 +91,14 @@ export class StreamController {
       state: deps.state,
       subagentManager: deps.subagentManager,
       getMessagesEl: deps.getMessagesEl,
-      getProviderId: () => this.deps.getProviderId?.() ?? DEFAULT_CHAT_PROVIDER_ID,
+      getProviderId: () => this.deps.getProviderId?.() ?? ProviderRegistry.getDefaultProviderId(),
       asyncSubagentHistoryRecovery: deps.asyncSubagentHistoryRecovery,
       tools: this.#tools,
       indicator: this.thinkingIndicator,
     });
     this.textRenderCoordinator = this.#createRenderCoordinator(
       () => this.#getStreamingRenderWindow(),
-      content => ProviderRegistry.prepareAssistantMarkdown(this.deps.getProviderId?.() ?? DEFAULT_CHAT_PROVIDER_ID, content),
+      content => ProviderRegistry.prepareAssistantMarkdown(this.deps.getProviderId?.() ?? ProviderRegistry.getDefaultProviderId(), content),
     );
     this.thinkingRenderCoordinator = this.#createRenderCoordinator(
       () => this.#getThinkingRenderWindow()

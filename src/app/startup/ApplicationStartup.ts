@@ -109,6 +109,7 @@ export async function startApplication(options: ApplicationStartupOptions): Prom
   const sessionMetadata = new SessionMetadataLoader({
     sessions: storage.sessions,
     conversations: conversationRepository,
+    supportsProvider: providerId => providers.getRegisteredProviderIds().includes(providerId),
     isUnloading: () => options.isUnloading(),
     whenLayoutReady: callback => workspace.onLayoutReady(callback),
     onConversationListChanged: () => options.onConversationListChanged(),

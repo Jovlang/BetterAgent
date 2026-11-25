@@ -3,7 +3,8 @@ import { ItemView, Menu, Notice, Scope, setIcon } from 'obsidian';
 
 import { StartupProfiler } from '@/core/performance/StartupProfiler';
 import { getHiddenCommandSet } from '@/core/providers/commands/hiddenCommands';
-import { DEFAULT_CHAT_PROVIDER_ID, type ProviderId } from '@/core/providers/types';
+import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
+import type { ProviderId } from '@/core/providers/types';
 import { VIEW_TYPE_CLAUDIAN } from '@/core/types';
 import type { ChatFeatureHost, TabId } from '@/features/chat/ChatFeatureHost';
 import { SessionManagerSurface, setControlAvailability } from '@/features/chat/session-manager/SessionManagerSurface';
@@ -675,7 +676,7 @@ export class ClaudianView extends ItemView implements ZenModeSource {
 
   private resolveBrandProviderId(): ProviderId | null {
     const activeTab = this.tabManager?.getActiveTab();
-    return activeTab ? getSessionProviderId(activeTab, this.plugin) : DEFAULT_CHAT_PROVIDER_ID;
+    return activeTab ? getSessionProviderId(activeTab, this.plugin) : ProviderRegistry.getDefaultProviderId();
   }
 
   // ============================================

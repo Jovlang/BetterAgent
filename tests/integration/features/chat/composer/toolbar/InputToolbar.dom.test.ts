@@ -712,9 +712,22 @@ describe('localized model menu', () => {
     expect(empty.ui.getByRole('status').textContent).toBe(t('chat.modelPicker.empty'));
   });
 
+  it('opens model options directly when only one provider offers models', () => {
+    const { ui } = renderToolbar({
+      models: [{ value: 'sonnet', label: 'Sonnet', providerId: 'claude', providerLabel: 'Claude Code' }],
+    });
+    fireEvent.click(ui.getByRole('button', { name: modelButtonName('Sonnet', 'High') }));
+    const dialog = within(ui.getByRole('dialog', { name: t('chat.modelPicker.options') }));
+    expect(dialog.getByRole('option', { name: 'Sonnet', selected: true })).toBeTruthy();
+    expect(dialog.queryByRole('tablist', { name: t('chat.modelPicker.provider') })).toBeNull();
+  });
+
   it('preserves same-spelled provider, model, group, reasoning and description data', () => {
     const { ui } = renderToolbar({
-      models: [{ value: 'sonnet', label: 'Model unavailable', providerId: 'native', providerLabel: 'Default', group: 'Fast', description: 'Model unavailable' }],
+      models: [
+        { value: 'sonnet', label: 'Model unavailable', providerId: 'native', providerLabel: 'Default', group: 'Fast', description: 'Model unavailable' },
+        { value: 'other-model', label: 'Other model', providerId: 'other', providerLabel: 'Other' },
+      ],
       reasoningOptions: [{ value: 'low', label: 'Fast' }, { value: 'high', label: 'Default', description: 'Fast' }],
     });
     fireEvent.click(ui.getByRole('button', { name: modelButtonName('Model unavailable', 'Default') }));

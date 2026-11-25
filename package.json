@@ -1,7 +1,7 @@
 {
   "name": "betteragent",
   "version": "2.3.48",
-  "description": "BetterAgent - AI coding agents embedded in Obsidian",
+  "description": "BetterAgent - Codex embedded in Obsidian",
   "main": "main.js",
   "engines": {
     "node": ">=24 <25"

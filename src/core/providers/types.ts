@@ -48,6 +48,12 @@ export interface ProviderCapabilities {
 
 export const DEFAULT_CHAT_PROVIDER_ID = 'claude' as const satisfies ProviderId;
 
+export function resolveRegisteredDefaultProviderId(providerIds: readonly ProviderId[]): ProviderId {
+  return providerIds.includes(DEFAULT_CHAT_PROVIDER_ID)
+    ? DEFAULT_CHAT_PROVIDER_ID
+    : providerIds[0] ?? DEFAULT_CHAT_PROVIDER_ID;
+}
+
 /**
  * Chat-facing provider registration.
  *

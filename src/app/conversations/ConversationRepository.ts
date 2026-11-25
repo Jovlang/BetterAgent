@@ -13,8 +13,8 @@ import type {
   ProviderHistoryResult,
 } from '../../core/providers/types';
 import {
-  DEFAULT_CHAT_PROVIDER_ID,
   type ProviderId,
+  resolveRegisteredDefaultProviderId,
 } from '../../core/providers/types';
 import {
   type Conversation,
@@ -329,7 +329,8 @@ export class ConversationRepository {
     origin?: ConversationOrigin;
   }): Promise<Conversation> {
     const settings = this.deps.getSettings();
-    const providerId = options?.providerId ?? DEFAULT_CHAT_PROVIDER_ID;
+    const providerId = options?.providerId
+      ?? resolveRegisteredDefaultProviderId(this.deps.providers.getRegisteredProviderIds());
     const sessionId = options?.sessionId;
     const id = sessionId ?? this.generateId();
     if (this.deletedConversations.has(id)) {

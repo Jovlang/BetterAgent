@@ -38,7 +38,7 @@ it('renders no custom-model override editor for environment-declared Claude mode
   const dispose = mountSettingTab(tab, container);
   onTestFinished(async () => { dispose(); await fixture.dispose(); });
 
-  fireEvent.click(within(container).getByRole('button', { name: t('settings.tabs.providers') }));
+  fireEvent.click(within(container).getByRole('button', { name: 'Claude Code' }));
   const environment = await within(container).findByRole<HTMLTextAreaElement>(
     'textbox', { name: t('settings.customVariables.name') },
   );

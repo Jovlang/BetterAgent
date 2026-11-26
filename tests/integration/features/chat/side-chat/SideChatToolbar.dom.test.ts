@@ -22,7 +22,7 @@ it('refreshes destination settings when the side panel collapses, expands, and i
   const app = new App();
   Object.assign(app.vault.adapter, { basePath: '/vault' });
   const conversation = {
-    id: 'conversation-1', providerId: 'codex', selectedModel: 'claude-sonnet-4-5',
+    id: 'conversation-1', providerId: 'codex', selectedModel: 'gpt-5.5',
     sessionId: 'main-session', messages: harness.tab.state.messages,
   } as Conversation;
   const pool = createSessionRuntimePool(() => plugin);
@@ -36,12 +36,12 @@ it('refreshes destination settings when the side panel collapses, expands, and i
     app,
     getCommittedSettings: () => plugin.settings,
     settings: {
-      model: 'claude-opus-4-6', effortLevel: 'medium', permissionMode: 'manual',
-      savedProviderModel: { codex: 'claude-opus-4-6' }, savedProviderEffort: { codex: 'medium' },
-      providerConfigs: { codex: { enabled: true, visibleModels: ['claude-sonnet-4-5', 'claude-opus-4-6'],
+      model: 'gpt-5.4-mini', effortLevel: 'medium', permissionMode: 'normal',
+      savedProviderModel: { codex: 'gpt-5.4-mini' }, savedProviderEffort: { codex: 'medium' },
+      providerConfigs: { codex: { enabled: true, visibleModels: ['gpt-5.5', 'gpt-5.4-mini'],
         discoveredModels: [
-          { value: 'claude-sonnet-4-5', label: 'Sonnet', supportedEffortLevels: ['low', 'high'] },
-          { value: 'claude-opus-4-6', label: 'Opus', supportedEffortLevels: ['medium', 'high'] },
+          { model: 'gpt-5.5', displayName: 'Sonnet', supportedReasoningEfforts: [{ value: 'low' }, { value: 'high' }], defaultReasoningEffort: 'high' },
+          { model: 'gpt-5.4-mini', displayName: 'Opus', supportedReasoningEfforts: [{ value: 'medium' }, { value: 'high' }], defaultReasoningEffort: 'high' },
         ] } },
     },
     getActiveEnvironmentVariables: () => '',
@@ -64,7 +64,7 @@ it('refreshes destination settings when the side panel collapses, expands, and i
   try {
     const started = side.handleCommandSubmission('Explore settings', []);
     await waitFor(() => expect(harness.backend.sessions).toHaveLength(1));
-    expect(harness.backend.latest.requests[0].configuration).toMatchObject({ model: 'claude-code/claude-sonnet-4-5', reasoning: 'high' });
+    expect(harness.backend.latest.requests[0].configuration).toMatchObject({ model: 'openai-codex/gpt-5.5', reasoning: 'high' });
     harness.backend.latest.establishChild('child-session');
     harness.backend.latest.complete();
     await started;
@@ -72,19 +72,19 @@ it('refreshes destination settings when the side panel collapses, expands, and i
     side.updateSideSettings({ permissionMode: 'yolo', reasoning: 'low' });
     side.collapse();
     fireEvent.click(ui.getByRole('button', { name: 'Explore settings' }));
-    expect(ui.queryByRole('button', { name: 'Permission mode: YOLO' })).not.toBeNull();
+    expect(ui.queryByRole('button', { name: 'Permission mode: Full access' })).not.toBeNull();
     expect(ui.getByText('Low', { selector: '.claudian-thinking-current' })).toBeDefined();
-    expect(ui.queryByRole('button', { name: 'Permission mode: Manual' })).toBeNull();
+    expect(ui.queryByRole('button', { name: 'Permission mode: Ask for approval' })).toBeNull();
 
     fireEvent.click(ui.getByRole('button', { name: 'Collapse' }));
-    expect(ui.queryByRole('button', { name: 'Permission mode: Manual' })).not.toBeNull();
+    expect(ui.queryByRole('button', { name: 'Permission mode: Ask for approval' })).not.toBeNull();
     expect(ui.getByText('High', { selector: '.claudian-thinking-current' })).toBeDefined();
-    expect(ui.queryByRole('button', { name: 'Permission mode: YOLO' })).toBeNull();
+    expect(ui.queryByRole('button', { name: 'Permission mode: Full access' })).toBeNull();
 
     fireEvent.click(ui.getByRole('button', { name: 'Explore settings' }));
-    expect(ui.queryByRole('button', { name: 'Permission mode: YOLO' })).not.toBeNull();
+    expect(ui.queryByRole('button', { name: 'Permission mode: Full access' })).not.toBeNull();
     expect(ui.getByText('Low', { selector: '.claudian-thinking-current' })).toBeDefined();
-    expect(ui.queryByRole('button', { name: 'Permission mode: Manual' })).toBeNull();
+    expect(ui.queryByRole('button', { name: 'Permission mode: Ask for approval' })).toBeNull();
 
     let finishDisposal!: () => void;
     const disposalGate = new Promise<void>(resolve => { finishDisposal = resolve; });
@@ -97,9 +97,9 @@ it('refreshes destination settings when the side panel collapses, expands, and i
     const discarded = side.discard();
     try {
       expect(side.destination).toBe('main');
-      expect(ui.queryByRole('button', { name: 'Permission mode: Manual' })).not.toBeNull();
+      expect(ui.queryByRole('button', { name: 'Permission mode: Ask for approval' })).not.toBeNull();
     expect(ui.getByText('High', { selector: '.claudian-thinking-current' })).toBeDefined();
-      expect(ui.queryByRole('button', { name: 'Permission mode: YOLO' })).toBeNull();
+      expect(ui.queryByRole('button', { name: 'Permission mode: Full access' })).toBeNull();
     } finally {
       finishDisposal();
       await discarded;
@@ -111,21 +111,21 @@ it('refreshes destination settings when the side panel collapses, expands, and i
 
 it('side usage must carry the side model when native usage omits model', async () => {
   const harness = await createHarness({ settings: {
-    model: 'claude-opus-4-6', settingsProvider: 'codex',
-    savedProviderModel: { codex: 'claude-opus-4-6' },
-    providerConfigs: { codex: { enabled: true, visibleModels: ['claude-sonnet-4-5', 'claude-opus-4-6'] } },
+    model: 'gpt-5.4-mini', settingsProvider: 'codex',
+    savedProviderModel: { codex: 'gpt-5.4-mini' },
+    providerConfigs: { codex: { enabled: true, visibleModels: ['gpt-5.5', 'gpt-5.4-mini'] } },
   } });
   const { started } = await startSideChat(harness);
   harness.backend.latest.complete();
   await started;
-  harness.controller.updateSideSettings({ model: 'claude-code/claude-sonnet-4-5', reasoning: 'high', permissionMode: 'normal', serviceTier: 'default' });
+  harness.controller.updateSideSettings({ model: 'openai-codex/gpt-5.5', reasoning: 'high', permissionMode: 'normal', serviceTier: 'default' });
   const pending = harness.controller.submitToSide('second turn', []);
   await waitFor(() => expect(harness.backend.latest.requests).toHaveLength(2));
-  expect(harness.backend.latest.requests[1].configuration.model).toBe('claude-code/claude-sonnet-4-5');
+  expect(harness.backend.latest.requests[1].configuration.model).toBe('openai-codex/gpt-5.5');
   harness.backend.latest.emitOutput({ type: 'usage_updated', usage: {
     inputTokens: 100, contextTokens: 100, contextWindow: 200000, percentage: 0,
   } });
   harness.backend.latest.complete();
   await pending;
-  expect(harness.controller.runtime?.state.usage?.model).toBe('claude-code/claude-sonnet-4-5');
+  expect(harness.controller.runtime?.state.usage?.model).toBe('openai-codex/gpt-5.5');
 });

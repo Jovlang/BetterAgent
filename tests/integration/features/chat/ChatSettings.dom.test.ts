@@ -47,6 +47,7 @@ afterEach(async () => {
 function createSettings({ id, populate }: typeof modelCatalogCases[number], advertisesHigh = true): ClaudianSettings {
   const settings = JSON.parse(JSON.stringify(DEFAULT_CLAUDIAN_SETTINGS)) as typeof DEFAULT_CLAUDIAN_SETTINGS;
   populate(settings);
+  settings.permissionMode = 'auto-review';
   const config = settings.providerConfigs[id]!;
   const levels = advertisesHigh ? ['low', 'medium', 'high'] : ['low', 'medium'];
   if (id === 'codex' && !advertisesHigh) Object.assign((config.discoveredModels as Array<Record<string, unknown>>)[0], {

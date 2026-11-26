@@ -118,7 +118,7 @@ it.each([
   tab['renderGeneralTab'](container);
   const row = within(container).getByRole('textbox', { name: t(label) }).closest<HTMLElement>('.setting-item')!;
   const input = within(row).getByRole<HTMLInputElement | HTMLTextAreaElement>('textbox');
-  const active = await beginExecution(execution, createSubmission({ timestamp: testDate().getTime() }));
+  const active = await beginExecution(execution, createSubmission({ timestamp: testDate().getTime() }), 'codex');
   active.run.events.push({ type: 'turn_started', accepted: true, scope: requestedScope(active.session, active.run, 1) });
   await waitFor(() => expect(execution.repository.recordConversationActivity).toHaveBeenCalled());
   try {
@@ -156,7 +156,7 @@ it.each([
     expect(JSON.parse(saved)[key]).toBe(next);
     expect(transition).toHaveBeenCalledTimes(1);
     expect(transition).toHaveBeenCalledWith(
-      expect.arrayContaining(['claude', 'codex', 'opencode', 'pi']),
+      ['codex'],
       expect.any(Function),
     );
     expect(active.session.disposeCalls).toBe(1);

@@ -3,7 +3,7 @@
 import '@/providers';
 
 import { axe } from '@test/helpers/accessibility';
-import { TEST_CODEX_CATALOG } from '@test/helpers/codexModels';
+import { codexCatalogFixture } from '@test/helpers/codexModels';
 import { fireEvent, waitFor, within } from '@testing-library/dom';
 
 import type { ToolbarCallbacks } from '@/features/chat/composer/toolbar/types';
@@ -97,22 +97,23 @@ it.each([
 
 it('renders saved model order top-to-bottom through the real provider UI config', () => {
   const host = document.body.createDiv();
+  const catalog = codexCatalogFixture(['gpt-preview', 'gpt-fast', 'gpt-balanced']);
   const config = {
-    discoveredModels: ['opus', 'haiku', 'sonnet'].map(value => ({ value, label: value, description: '' })),
-    visibleModels: ['haiku', 'sonnet', 'opus'],
+    ...catalog, discoveredModels: catalog.discoveredModels.map(model => ({ ...model, description: '' })),
+    visibleModels: ['gpt-fast', 'gpt-balanced', 'gpt-preview'],
   };
   const selector = new ModelSelector(host, {
-    getSettings: () => ({ model: 'haiku', providerConfigs: { claude: config } }),
+    getSettings: () => ({ model: 'openai-codex/gpt-fast', providerConfigs: { codex: config } }),
     getUIConfig: () => codexChatUIConfig,
   } as unknown as ToolbarCallbacks);
-  fireEvent.click(within(host).getByRole('button', { name: /^Model: haiku/ }));
+  fireEvent.click(within(host).getByRole('button', { name: /^Model: gpt-fast/ }));
   const labels = () => within(host).getAllByRole('option').map(node => node.textContent);
-  expect(labels()).toEqual(['haiku', 'sonnet', 'opus']);
+  expect(labels()).toEqual(['gpt-fast', 'gpt-balanced', 'gpt-preview']);
   // A single-provider list takes the view's active-provider brand; rows name no provider.
   expect(within(host).getAllByRole('option').map(node => node.getAttribute('data-provider'))).toEqual([null, null, null]);
-  config.visibleModels = ['sonnet', 'opus', 'haiku'];
+  config.visibleModels = ['gpt-balanced', 'gpt-preview', 'gpt-fast'];
   selector.renderOptions();
-  expect(labels()).toEqual(['sonnet', 'opus', 'haiku']);
+  expect(labels()).toEqual(['gpt-balanced', 'gpt-preview', 'gpt-fast']);
 });
 
 it('keeps the session provider\'s icon on an unavailable model in a new session\'s picker', () => {
@@ -120,7 +121,6 @@ it('keeps the session provider\'s icon on an unavailable model in a new session\
   const settings = {
     model: 'openai-codex/retired',
     providerConfigs: {
-      claude: { enabled: true, discoveredModels: [{ value: 'opus', label: 'opus', description: '' }], visibleModels: ['opus'] },
       codex: { enabled: true, discoveredModels: [], visibleModels: [] },
     },
   };
@@ -154,114 +154,6 @@ it('hides the parts column while none of its parts is shown', () => {
   reasoningControl = 'effort';
   effort.updateDisplay();
   expect(parts.classList.contains('claudian-hidden')).toBe(false);
-});
-
-it('lists a new session\'s providers in their own column and shows one provider\'s models at a time', async () => {
-  const host = document.body.createDiv();
-  const settings = {
-    model: 'opus',
-    reasoning: 'high',
-    providerConfigs: {
-      claude: {
-        enabled: true,
-        discoveredModels: ['opus', 'haiku'].map(value => ({ value, label: value, description: '' })),
-        visibleModels: ['haiku', 'opus'],
-      },
-      codex: {
-        enabled: true,
-        discoveredModels: TEST_CODEX_CATALOG,
-        visibleModels: ['gpt-5.4-mini', 'gpt-5.5'],
-      },
-      pi: {
-        enabled: true,
-        discoveredModels: [
-          { encodedId: 'pi:anthropic/claude-sonnet-4', id: 'claude-sonnet-4', label: 'Claude Sonnet 4', provider: 'anthropic', thinkingLevels: ['off'] },
-          { encodedId: 'pi:openai/gpt-5', id: 'gpt-5', label: 'GPT-5', provider: 'openai', thinkingLevels: ['off'] },
-        ],
-        visibleModels: ['pi:anthropic/claude-sonnet-4', 'pi:openai/gpt-5'],
-      },
-      opencode: {
-        enabled: true,
-        discoveredModels: [{ label: 'zai/GLM-5', rawId: 'zai/glm-5' }],
-        visibleModels: ['zai/glm-5'],
-      },
-      grok: { enabled: false },
-    },
-  };
-  const onModelChange = vi.fn(async (model: string) => { settings.model = model; });
-  const callbacks = {
-    getSettings: () => settings,
-    getUIConfig: () => ({
-      getModelOptions: (options: Record<string, unknown>) => getProviderPickerModelOptions(() => options),
-      getReasoningOptions: () => [{ value: 'low', label: 'Low' }, { value: 'high', label: 'High' }],
-      getDefaultReasoningValue: () => 'low',
-    }),
-    getCapabilities: () => ({ reasoningControl: 'effort' }),
-    onModelChange,
-  } as unknown as ToolbarCallbacks;
-  new EffortSelector(new ModelSelector(host, callbacks), callbacks);
-  const button = within(host).getByRole('button', { name: /^Model: opus/ });
-  fireEvent.click(button);
-
-  const providers = within(host).getByRole('tablist', { name: 'Provider' });
-  const tab = (name: string) => within(providers).getByRole('tab', { name });
-  const modelList = () => within(host).getByRole('listbox', { name: 'Model' });
-  const shown = () => within(modelList()).getAllByRole('option')
-    .map(item => item.querySelector('.claudian-toolbar-popover-option-label')?.textContent);
-  // Providers follow the settings tab order; the current model's provider is shown first, in saved model order.
-  expect(within(providers).getAllByRole('tab').map(item => [item.getAttribute('aria-label'), item.getAttribute('aria-selected')]))
-    .toEqual([['Claude Code', 'true'], ['Codex', 'false'], ['OpenCode', 'false'], ['Pi', 'false']]);
-  expect(shown()).toEqual(['haiku', 'opus']);
-  expect(within(modelList()).getByRole('option', { name: 'opus' }).getAttribute('aria-selected')).toBe('true');
-  // The selected model, not the selected provider, takes focus when the popover opens.
-  expect(document.activeElement).toBe(within(modelList()).getByRole('option', { name: 'opus' }));
-  // Each tab names its provider so its icon carries that provider's brand colour.
-  expect(tab('Codex').getAttribute('data-provider')).toBe('codex');
-  expect(tab('Codex').getAttribute('aria-controls')).toBe(modelList().id);
-  expect((await axe(host)).violations).toEqual([]);
-
-  // Choosing a provider only browses its models; the session's model is unchanged until a model is picked.
-  tab('Codex').focus();
-  fireEvent.click(tab('Codex'));
-  expect(tab('Codex').getAttribute('aria-selected')).toBe('true');
-  expect([tab('Claude Code').tabIndex, tab('Codex').tabIndex]).toEqual([-1, 0]);
-  expect(document.activeElement).toBe(tab('Codex'));
-  expect(shown()).toEqual(['GPT-5.4 Mini', 'GPT-5.5']);
-  expect(onModelChange).not.toHaveBeenCalled();
-  expect(within(modelList()).queryAllByRole('option', { selected: true })).toEqual([]);
-  // With no model chosen in the browsed provider, no thinking level is chosen either, and the
-  // current model's levels cannot be changed from here.
-  const levels = () => within(host).getAllByRole('option', { name: /^(Low|High)$/, hidden: true });
-  expect(levels().map(level => level.getAttribute('aria-selected'))).toEqual(['false', 'false']);
-  expect(host.querySelector('.claudian-model-parts')?.hasAttribute('inert')).toBe(true);
-  // Arrow keys skip the faded column: Down from the last model wraps to the first provider.
-  fireEvent.keyDown(within(modelList()).getByRole('option', { name: 'GPT-5.5' }), { key: 'ArrowDown' });
-  expect(document.activeElement).toBe(tab('Claude Code'));
-  // Browsing back to the current model's provider restores its level.
-  fireEvent.click(tab('Claude Code'));
-  expect(levels().map(level => level.getAttribute('aria-selected'))).toEqual(['true', 'false']);
-  expect(host.querySelector('.claudian-model-parts')?.hasAttribute('inert')).toBe(false);
-  fireEvent.click(tab('Codex'));
-
-  fireEvent.click(within(modelList()).getByRole('option', { name: 'GPT-5.5' }));
-  await waitFor(() => expect(button.getAttribute('aria-label')).toBe('Model: GPT-5.5, effort High'));
-  expect(onModelChange).toHaveBeenCalledWith(expect.stringContaining('gpt-5.5'));
-  // Once a model of the browsed provider is chosen, its level is shown and editable again.
-  expect(levels().map(level => level.getAttribute('aria-selected'))).toEqual(['true', 'false']);
-  expect(host.querySelector('.claudian-model-parts')?.hasAttribute('inert')).toBe(false);
-
-  // A provider's upstream groups keep their headings in a new session, as in a started one.
-  fireEvent.click(tab('Pi'));
-  expect(within(modelList()).getAllByRole('group').map(group => [
-    host.querySelector(`#${group.getAttribute('aria-labelledby')}`)?.textContent,
-    within(group).getAllByRole('option').map(item => item.querySelector('.claudian-toolbar-popover-option-label')?.textContent),
-  ])).toEqual([['anthropic', ['Claude Sonnet 4']], ['openai', ['GPT-5']]]);
-
-  // Reopening starts on the provider of the model now in use.
-  fireEvent.click(button);
-  fireEvent.click(button);
-  expect(tab('Codex').getAttribute('aria-selected')).toBe('true');
-  expect(within(modelList()).getByRole('option', { name: 'GPT-5.5', selected: true })).toBe(document.activeElement);
 });
 
 it.each([

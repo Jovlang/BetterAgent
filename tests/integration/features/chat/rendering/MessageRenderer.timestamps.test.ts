@@ -10,7 +10,7 @@ import type { ProviderId } from '@/core/providers/types';
 import type { ChatMessage } from '@/core/types';
 import { MessageRenderer } from '@/features/chat/rendering/MessageRenderer';
 
-const providers: ProviderId[] = ['claude', 'codex', 'opencode', 'pi'];
+const providers: ProviderId[] = ['codex'];
 const timestamp = testDate().getTime();
 
 async function createRenderer(providerId: ProviderId) {
@@ -49,7 +49,7 @@ describe.each(providers)('%s message timestamps', (providerId) => {
 
 describe('assistant message timestamps', () => {
   it.each(['addMessage', 'renderStoredMessage'] as const)('%s shows a timestamp only once a completion time exists', async (method) => {
-    const { renderer, messagesEl } = (await createRenderer('claude'));
+    const { renderer, messagesEl } = (await createRenderer('codex'));
     const msg: ChatMessage = { id: 'assistant', role: 'assistant', content: 'Final reply', timestamp };
     renderer[method](msg);
     expect(messagesEl.querySelectorAll('.claudian-message-timestamp').length).toBe(0);
@@ -66,7 +66,7 @@ it.each([
   [13, '13:05'],
   [0, '00:05'],
 ])('renders hour %s in 24-hour format', async (hour, expected) => {
-  const { renderer, messagesEl } = (await createRenderer('claude'));
+  const { renderer, messagesEl } = (await createRenderer('codex'));
   renderer.addMessage({
     id: 'clock', role: 'user', content: 'Hello',
     timestamp: testDate().setHours(hour, 5, 0, 0),

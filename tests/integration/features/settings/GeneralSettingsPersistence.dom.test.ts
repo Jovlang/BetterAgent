@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 
 import { axe } from '@test/helpers/accessibility';
-import { codexCatalogFixture } from '@test/helpers/codexModels';
+import { TEST_CODEX_CATALOG } from '@test/helpers/codexModels';
 import { createFeatureHostFixture } from '@test/helpers/FeatureHostFixture';
 import { controlChangeSettled } from '@test/helpers/ObsidianHost';
 import { createObsidianPlugin, mountSettingTab } from '@test/helpers/ObsidianSettingsHost';
@@ -23,7 +23,7 @@ const cases = [
   ['deferMathRenderingDuringStreaming', 'settings.deferMathRenderingDuringStreaming.name', true, false],
   ['expandFileEditsByDefault', 'settings.expandFileEditsByDefault.name', false, true],
   ['enableAutoTitleGeneration', 'settings.autoTitle.name', true, false],
-  ['titleGenerationModel', 'settings.titleModel.name', '', 'sonnet'],
+  ['titleGenerationModel', 'settings.titleModel.name', '', 'openai-codex/gpt-5.5'],
   ['titleGenerationLocale', 'settings.titleLanguage.name', '', 'zh-CN'],
   ['sessionAutoArchiveAfter', 'settings.sessionAutoArchiveAfter.name', 'off', '7d'],
   ['requireCommandOrControlEnterToSend', 'settings.requireCommandOrControlEnterToSend.name', false, true],
@@ -33,7 +33,7 @@ describe.each(['persist-failure', 'publish-failure', 'success'] as const)('%s', 
   it.each(cases)('keeps the %s control aligned with committed settings', async (key, label, initial, next) => {
     const persist = vi.fn(async () => { if (phase === 'persist-failure') throw new Error('Storage unavailable'); });
     const fixture = await createFeatureHostFixture({
-      settings: { [key]: initial, providerConfigs: { codex: { ...codexCatalogFixture(['sonnet']) } } },
+      settings: { [key]: initial, providerConfigs: { codex: { enabled: true, visibleModels: ['gpt-5.5'], discoveredModels: TEST_CODEX_CATALOG } } },
       beforePersist: persist,
       afterPublish: () => { if (phase === 'publish-failure') throw new Error('Publication unavailable'); },
     });

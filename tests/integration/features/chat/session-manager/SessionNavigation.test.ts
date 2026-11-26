@@ -15,7 +15,7 @@ import { TabManager } from '@/features/chat/tabs/TabManager';
 import { VaultMentionDataProvider } from '@/shared/mention/VaultMentionDataProvider';
 
 async function createNavigation() {
-  const records = ['active', 'local', 'cross', 'shared'].map(id => conversationRecord(id));
+  const records = ['active', 'local', 'cross', 'shared'].map(id => conversationRecord(id, { providerId: 'codex' }));
   const views: ChatViewHost[] = [];
   const { plugin, pool } = await createSessionBrowserHost({ host: {
     executionPersistence: createExecutionHarness().repository,

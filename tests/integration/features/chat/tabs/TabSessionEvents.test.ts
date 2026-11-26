@@ -96,7 +96,7 @@ async function createCodexChildTab() {
     receiveSuggestion: () => undefined, discardSuggestion: () => undefined, canAcceptBackgroundWork: () => true,
   });
 
-  await coordinator.bindConversation({ conversationId: 'conversation', providerId: 'claude' });
+  await coordinator.bindConversation({ conversationId: 'conversation', providerId: 'codex' });
   await coordinator.prepare();
   // The provider reports background work while a published child is still running.
   const running = new Set<string>();

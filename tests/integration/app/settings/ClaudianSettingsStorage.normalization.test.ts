@@ -187,53 +187,21 @@ describe('ClaudianSettingsStorage', () => {
       });
     });
 
-    it('preserves a legacy seed for a disabled registered provider', async () => {
+    it('preserves an explicitly saved Codex model even when Codex is disabled', async () => {
       mockAdapter.exists.mockResolvedValue(true);
       mockAdapter.read.mockResolvedValue(JSON.stringify({
-        settingsProvider: 'opencode',
-        model: 'opencode:moonshot/kimi-coding',
-        providerConfigs: {
-          opencode: { enabled: false },
-        },
+        settingsProvider: 'codex', model: 'gpt-5.5', providerConfigs: { codex: { enabled: false } },
       }));
-
-      const result = await storage.load();
-
-      expect(result.lastSelectedChatModel).toEqual({
-        providerId: 'opencode',
-        model: 'opencode:moonshot/kimi-coding',
-      });
+      expect((await storage.load()).lastSelectedChatModel).toEqual({ providerId: 'codex', model: 'gpt-5.5' });
     });
 
-    it('preserves a Claude environment-tier alias during legacy migration', async () => {
-      mockAdapter.exists.mockResolvedValue(true);
-      mockAdapter.read.mockResolvedValue(JSON.stringify({
-        settingsProvider: 'claude',
-        model: 'opus',
-      }));
-
-      const result = await storage.load();
-
-      expect(result.lastSelectedChatModel).toEqual({
-        providerId: 'claude',
-        model: 'opus',
-      });
-    });
-
-    it('uses Claude for an unknown legacy provider only when a top-level model exists', async () => {
-      mockAdapter.exists.mockResolvedValue(true);
-      mockAdapter.read.mockResolvedValue(JSON.stringify({
-        settingsProvider: 'unknown-provider',
-        model: 'haiku',
-      }));
-
-      const result = await storage.load();
-
-      expect(result.lastSelectedChatModel).toEqual({
-        providerId: 'claude',
-        model: 'haiku',
-      });
-    });
+    it.each(['claude', 'opencode', 'pi', 'unknown-provider', undefined])(
+      'does not turn legacy model selections from %s into Codex defaults', async provider => {
+        mockAdapter.exists.mockResolvedValue(true);
+        mockAdapter.read.mockResolvedValue(JSON.stringify({ settingsProvider: provider, model: 'old-model' }));
+        expect((await storage.load()).lastSelectedChatModel).toBeNull();
+      },
+    );
 
     it('normalizes invalid chatViewPlacement values', async () => {
       mockAdapter.exists.mockResolvedValue(true);
@@ -578,9 +546,10 @@ describe('ClaudianSettingsStorage', () => {
       mockAdapter.exists.mockResolvedValue(true);
       mockAdapter.read.mockResolvedValue(JSON.stringify({
         providerConfigs: {
-          claude: {
+          codex: {
+            visibleModels: ['gpt-custom'],
             modelAliases: {
-          ' custom-model ': '  Friendly model  ',
+          ' gpt-custom ': '  Friendly model  ',
           empty: '   ',
           ignored: 123,
         }
@@ -590,9 +559,9 @@ describe('ClaudianSettingsStorage', () => {
           id: 'snippet-1',
           name: 'Aliased snippet',
           description: '',
-          envVars: 'ANTHROPIC_MODEL=custom-model',
+          envVars: 'OPENAI_MODEL=gpt-custom',
           modelAliases: {
-            ' custom-model ': '  Snippet model  ',
+            ' gpt-custom ': '  Snippet model  ',
             ignored: 123,
           },
         }],
@@ -602,16 +571,15 @@ describe('ClaudianSettingsStorage', () => {
       const writtenContent = JSON.parse(mockAdapter.write.mock.calls[0][1]);
 
       expect(result).not.toHaveProperty('customModelAliases');
-      expect(result.providerConfigs.claude?.modelAliases).toEqual({
-        'custom-model': 'Friendly model',
+      expect(result.providerConfigs.codex?.modelAliases).toEqual({
+        'gpt-custom': 'Friendly model',
       });
       expect(result.envSnippets[0].modelAliases).toEqual({
-        'custom-model': 'Snippet model',
+        'gpt-custom': 'Snippet model',
       });
-      // The alias remains in runtime discovery, but this model is not selected for persistence.
-      expect(writtenContent.providerConfigs.claude.modelAliases).toEqual({});
+      expect(writtenContent.providerConfigs.codex.modelAliases).toEqual({ 'gpt-custom': 'Friendly model' });
       expect(writtenContent.envSnippets[0].modelAliases).toEqual({
-        'custom-model': 'Snippet model',
+        'gpt-custom': 'Snippet model',
       });
     });
 

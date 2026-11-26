@@ -1,6 +1,4 @@
 /** @vitest-environment jsdom */
-import { axe } from '@test/helpers/accessibility';
-import { codexCatalogFixture } from '@test/helpers/codexModels';
 import { TEST_CODEX_CATALOG } from '@test/helpers/codexModels';
 import { createFeatureHostFixture } from '@test/helpers/FeatureHostFixture';
 import { controlChangeSettled } from '@test/helpers/ObsidianHost';
@@ -36,7 +34,6 @@ async function createSettings(
     settings: {
       enableAutoTitleGeneration: false, ...overrides,
       providerConfigs: {
-        claude: { ...codexCatalogFixture(['sonnet']), ...overrides.providerConfigs?.claude },
         codex: { enabled: true, visibleModels: ['gpt-5.5'], discoveredModels: structuredClone(TEST_CODEX_CATALOG), ...overrides.providerConfigs?.codex },
       },
     },
@@ -49,7 +46,7 @@ async function createSettings(
     await mutate(mutation);
     onCommit(settings);
   });
-  const providers = [codexProviderRegistration, codexProviderRegistration].map(registration => {
+  const providers = [codexProviderRegistration].map(registration => {
     const { id } = registration;
     ProviderRegistry.register(id, registration);
     const render = vi.fn<ProviderSettingsTabRenderer['render']>((container, context) => {
@@ -82,9 +79,11 @@ it('renders the declarative settings surface and loads real skills only on first
   expect(definition).toMatchObject({ name: 'BetterAgent', searchable: false });
   expect(h.container.querySelector('.claudian-settings')).not.toBeNull();
   expect(within(h.container).queryByText('Obsolete settings')).toBeNull();
-  for (const name of ['general', 'providers', 'skills'] as const) {
+  for (const name of ['general', 'skills'] as const) {
     expect(within(h.container).getByRole('button', { name: t(`settings.tabs.${name}`) })).toBeDefined();
   }
+  expect(within(h.container).getByRole('button', { name: 'Codex' })).toBeDefined();
+  expect(within(h.container).queryByRole('button', { name: 'Providers' })).toBeNull();
   expect(within(h.container).queryByRole('button', { name: 'Projects' })).toBeNull();
   expect(within(h.container).queryByRole('switch', { name: 'Enable zen mode' })).toBeNull();
   expect(h.getAdapter).not.toHaveBeenCalled();
@@ -169,54 +168,19 @@ it('lazily initializes provider services once and reuses their settings without 
   const h = await createSettings();
   const original = structuredClone(h.settings);
   for (const provider of h.providers) expect(provider.initialize).not.toHaveBeenCalled();
-  fireEvent.click(within(h.container).getByRole('button', { name: t('settings.tabs.providers') }));
-  await within(h.container).findByText('claude settings loaded');
-  const first = within(h.container).getByText('claude settings loaded');
+  fireEvent.click(within(h.container).getByRole('button', { name: 'Codex' }));
+  const first = await within(h.container).findByText('codex settings loaded');
+  expect(within(h.container).queryByRole('button', { name: 'Claude Code' })).toBeNull();
+  fireEvent.click(within(h.container).getByRole('button', { name: t('settings.tabs.general') }));
   fireEvent.click(within(h.container).getByRole('button', { name: 'Codex' }));
   await within(h.container).findByText('codex settings loaded');
-  fireEvent.click(within(h.container).getByRole('button', { name: 'Claude Code' }));
-  expect(within(h.container).getByText('claude settings loaded')).toBe(first);
+  expect(within(h.container).getByText('codex settings loaded')).toBe(first);
   for (const provider of h.providers) {
     expect(provider.initialize).toHaveBeenCalledTimes(1);
     expect(provider.render).toHaveBeenCalledTimes(1);
   }
   expect(h.persist).not.toHaveBeenCalled();
   expect(h.settings).toEqual(original);
-});
-
-it('titles each provider tab with its own icon, keeping the provider name as its accessible name', async () => {
-  const h = await createSettings();
-  fireEvent.click(within(h.container).getByRole('button', { name: t('settings.tabs.providers') }));
-  for (const [name, providerId] of [['Claude Code', 'claude'], ['Codex', 'codex']] as const) {
-    const tab = within(h.container).getByRole('button', { name });
-    expect(tab.textContent).toBe('');
-    const icon = tab.querySelector('svg.claudian-provider-icon');
-    expect(icon?.getAttribute('data-provider')).toBe(providerId);
-    expect(icon?.getAttribute('viewBox')).toBe(ProviderRegistry.getChatUIConfig(providerId).getProviderIcon?.()?.viewBox);
-  }
-  expect(await axe(h.container.querySelector('.claudian-settings-provider-tabs')!)).toHaveNoViolations();
-});
-
-it('updates a disabled provider surface from its committed enablement notification', async () => {
-  const h = await createSettings({
-    settingsProvider: 'codex', providerConfigs: { codex: { enabled: false } },
-    enableAutoTitleGeneration: true, titleGenerationModel: 'openai-codex/gpt-5.5',
-  });
-  const titleModels = within(h.container).getByRole('combobox', { name: t('settings.titleModel.name') });
-  expect(within(titleModels).queryByRole('option', { name: 'Codex: GPT-5.5' })).toBeNull();
-  expect(within(h.container).getByRole('status').textContent).toBe(t('settings.titleModel.unavailableWarning'));
-  fireEvent.click(within(h.container).getByRole('button', { name: t('settings.tabs.providers') }));
-  const label = await within(h.container).findByText('codex settings loaded');
-  const content = label.closest<HTMLElement>('.claudian-settings-provider-content')!;
-  expect(content.classList.contains('claudian-settings-provider-content--disabled')).toBe(true);
-  const enable = within(content).getByRole('button', { name: 'Enable codex' });
-  fireEvent.click(enable);
-  await controlChangeSettled(enable);
-  expect(content.classList.contains('claudian-settings-provider-content--disabled')).toBe(false);
-  expect((await h.storage.load()).providerConfigs.codex?.enabled).toBe(true);
-  expect(h.notifications).toEqual(['codex']);
-  expect(within(titleModels).getByRole('option', { name: 'Codex: GPT-5.5' })).toBeDefined();
-  expect(within(h.container).queryByRole('status')).toBeNull();
 });
 
 

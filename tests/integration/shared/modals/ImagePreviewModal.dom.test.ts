@@ -32,20 +32,21 @@ afterEach(() => {
 
 /** One real tab runtime with real controllers, session pool, and the fake provider boundary. */
 async function createView() {
+  vi.spyOn(ProviderRegistry.getConversationHistoryService('codex'), 'buildForkProviderState').mockImplementation(async (sessionId, resumeAt) => ({ forkSource: { sessionId, resumeAt } }));
   const backend = new FakeSideBackend();
   vi.spyOn(ProviderRegistry, 'createExecutionBackend').mockReturnValue(backend);
   const app = new App();
   Object.assign(app.vault.adapter, { basePath: '/vault' });
   const settings = {
-    model: 'claude-sonnet-4-5', effortLevel: 'high', permissionMode: 'manual',
+    model: 'gpt-5.5', effortLevel: 'high', permissionMode: 'manual',
     enableAutoTitleGeneration: false, excludedTags: [], mediaFolder: '', systemPrompt: '', userName: '',
     keyboardNavigation: { scrollUpKey: 'w', scrollDownKey: 's', focusInputKey: 'i' },
     providerConfigs: { codex: {
-      ...codexCatalogFixture(['claude-sonnet-4-5'], ['low', 'high']), promptSuggestions: true,
+      ...codexCatalogFixture(['gpt-5.5'], ['low', 'high']), promptSuggestions: true,
     } },
   } satisfies Partial<ClaudianSettings>;
   const conversation: Conversation = {
-    id: 'conversation-1', providerId: 'codex', selectedModel: 'claude-sonnet-4-5',
+    id: 'conversation-1', providerId: 'codex', selectedModel: 'gpt-5.5',
     sessionId: 'main-session', messages: [], title: 'Existing conversation',
     createdAt: testDate().getTime(), lastActivityAt: testDate().getTime(),
   };

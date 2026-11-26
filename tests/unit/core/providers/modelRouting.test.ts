@@ -5,15 +5,15 @@ import { TEST_CODEX_MODEL } from '@test/helpers/codexModels';
 import { getEnabledProviderForModel, getProviderForModel } from '@/core/providers/modelRouting';
 
 describe('getProviderForModel', () => {
-  it('routes Claude default models to claude', () => {
-    expect(getProviderForModel('haiku')).toBe('claude');
-    expect(getProviderForModel('sonnet')).toBe('claude');
-    expect(getProviderForModel('opus')).toBe('claude');
+  it('does not route retired Claude aliases to Codex', () => {
+    expect(getProviderForModel('haiku')).toBeNull();
+    expect(getProviderForModel('sonnet')).toBeNull();
+    expect(getProviderForModel('opus')).toBeNull();
   });
 
-  it('routes Claude extended models to claude', () => {
-    expect(getProviderForModel('claude-sonnet-4-5-20250514')).toBe('claude');
-    expect(getProviderForModel('claude-opus-4-6-20250616')).toBe('claude');
+  it('does not route retired Claude model versions', () => {
+    expect(getProviderForModel('claude-sonnet-4-5-20250514')).toBeNull();
+    expect(getProviderForModel('claude-opus-4-6-20250616')).toBeNull();
   });
 
   it('routes Codex default models to codex', () => {
@@ -39,7 +39,7 @@ describe('getProviderForModel', () => {
     expect(getProviderForModel('my-custom-model', settings)).toBeNull();
   });
 
-  it('routes provider-qualified custom model ids without raw name collisions', () => {
+  it('routes qualified Codex IDs without reviving retired identifiers', () => {
     const settings = {
       providerConfigs: {
         claude: {
@@ -52,7 +52,7 @@ describe('getProviderForModel', () => {
       },
     };
 
-    expect(getProviderForModel('claude-code/deepseek-v4-pro', settings)).toBe('claude');
+    expect(getProviderForModel('claude-code/deepseek-v4-pro', settings)).toBeNull();
     expect(getProviderForModel('openai-codex/deepseek-v4-pro', settings)).toBe('codex');
   });
 
@@ -69,7 +69,7 @@ describe('getProviderForModel', () => {
     expect(getProviderForModel('my-custom-model', settings)).toBeNull();
   });
 
-  it('rejects ambiguous ownership and resolves within enabled providers only', () => {
+  it('does not resolve a disabled Codex model through old settings', () => {
     const settings = {
       settingsProvider: 'claude',
       providerConfigs: {
@@ -82,8 +82,8 @@ describe('getProviderForModel', () => {
       },
     };
 
-    expect(getProviderForModel(TEST_CODEX_MODEL, settings)).toBeNull();
-    expect(getEnabledProviderForModel(TEST_CODEX_MODEL, settings)).toBe('claude');
+    expect(getProviderForModel(TEST_CODEX_MODEL, settings)).toBe('codex');
+    expect(getEnabledProviderForModel(TEST_CODEX_MODEL, settings)).toBeNull();
   });
 });
 

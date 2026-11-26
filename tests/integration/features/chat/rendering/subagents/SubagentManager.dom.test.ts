@@ -5,13 +5,12 @@ import { axe } from '@test/helpers/accessibility';
 import { createChatFeatureHost } from '@test/helpers/features/chat/ChatFeatureHostFixture';
 import { parseCodexSessionContent } from '@test/helpers/providers/codex/parseCodexSessionContent';
 import { testDate, testTime } from '@test/helpers/testClock';
-import { fireEvent, screen, within } from '@testing-library/dom';
+import { fireEvent, within } from '@testing-library/dom';
 import { Component } from 'obsidian';
 
 import { NOOP_TASK_RESULT_INTERPRETER } from '@/core/providers/NoopTaskResultInterpreter';
 import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
 import type { ProviderSubagentLifecycleAdapter } from '@/core/providers/types';
-import { TOOL_SUBAGENT } from '@/core/tools/toolNames';
 import type { ChatMessage, SubagentInfo, ToolCallInfo } from '@/core/types';
 import { MessageRenderer } from '@/features/chat/rendering/MessageRenderer';
 import { SubagentManager } from '@/features/chat/rendering/subagents/SubagentManager';
@@ -23,10 +22,6 @@ import { CodexSubagentTracker } from '@/providers/codex/execution/CodexSubagentT
 import { codexSubagentLifecycleAdapter } from '@/providers/codex/normalization/codexSubagentNormalization';
 import type { Thread } from '@/providers/codex/runtime/codexAppServerTypes';
 import { CodexNotificationRouter } from '@/providers/codex/runtime/CodexNotificationRouter';
-
-
-
-
 
 const cleanups: Array<() => void> = [];
 afterEach(() => {
@@ -324,31 +319,6 @@ it('honors provider lifecycle state and ignores late progress after completion',
   expect(spawn.subagent).toMatchObject({ status: 'completed', result: 'Provider answer' });
 });
 
-it('renders and settles a managed task using provider-normalized mode, identity, and output', async () => {
-  const interpreter = {
-    ...NOOP_TASK_RESULT_INTERPRETER,
-    describeTask: () => ({ mode: 'async' as const, description: 'Provider job', prompt: 'Find details' }),
-    interpretLaunch: () => ({ mode: 'async' as const, agentId: 'native-job', result: 'Started' }),
-    getOutputTaskId: () => 'native-job',
-    interpretResult: () => ({ status: 'completed' as const, result: 'Provider answer' }),
-  };
-  const updates: SubagentInfo[] = [];
-  const manager = new SubagentManager(info => updates.push({ ...info }), interpreter);
-  const parent = document.createElement('div');
-  document.body.append(parent);
-
-  expect(manager.handleTaskToolUse('spawn', { opaqueLaunch: true }, parent).action).toBe('created_async');
-  manager.handleTaskToolResult('spawn', { opaqueResult: true });
-  manager.handleAgentOutputToolUse({ id: 'output', name: 'ProviderOutput', input: { opaqueIdentity: true }, status: 'running' });
-  manager.handleAgentOutputToolResult('output', { opaqueOutput: true }, false);
-
-  expect(updates.at(-1)).toMatchObject({ id: 'spawn', agentId: 'native-job', description: 'Provider job', result: 'Provider answer', asyncStatus: 'completed' });
-  fireEvent.click(screen.getByRole('button', { name: /Background task: Provider job - Completed/ }));
-  expect(screen.getByText('Provider answer')).toBeDefined();
-  expect(await axe(parent)).toHaveNoViolations();
-});
-
-
 it.each(['sync', 'async'] as const)('renders %s snapshots without changing their model or expansion state', async mode => {
   const initial: SubagentInfo = {
     id: 'snapshot', description: 'Snapshot task', mode, status: 'running', asyncStatus: 'running',
@@ -405,7 +375,6 @@ it('reconciles a large expanded child list with linear identity lookups and remo
   expect(parent.querySelector('[data-tool-id="child-99"]')).not.toBeNull();
   expect(identityReads).toBeLessThanOrEqual(400);
 });
-
 
 it.each(['before spawn', 'after spawn', 'native only'])('keeps the native Codex card updated with session events %s, parent settlement, and a follow-up', async timing => {
   const view = await createCodexLifecycleView();
@@ -571,7 +540,6 @@ it.each(['before spawn', 'after spawn', 'native only'])('keeps the native Codex 
   }
 });
 
-
 it('shows previous runs after completed-turn regrouping without navigation or other agents', async () => {
   const view = await createCodexLifecycleView();
   const tool = (id: string, agentId: string): ToolCallInfo => ({
@@ -603,7 +571,6 @@ it('shows previous runs after completed-turn regrouping without navigation or ot
   expect(await axe(view.parent)).toHaveNoViolations();
 });
 
-
 it.each([undefined, '', '   '])('hides an unavailable prompt (%s) and reveals a later readable prompt', prompt => {
   const parent = document.body.createDiv();
   const info: SubagentInfo = { id: 'empty-prompt', description: 'Helper', prompt, status: 'running', isExpanded: true, toolCalls: [] };
@@ -615,103 +582,6 @@ it.each([undefined, '', '   '])('hides an unavailable prompt (%s) and reveals a 
   expect(parent.textContent).toContain('Read this file.');
   updateSubagentBlock(state, { ...info, prompt: undefined });
   expect(within(parent).queryByRole('button', { name: /^Prompt/ })).toBeNull();
-});
-
-async function createOpencodeView() {
-  const parent = document.body.createDiv();
-  const manager = new SubagentManager(() => {}, ProviderRegistry.getTaskResultInterpreter('opencode'));
-  const plugin = await createChatFeatureHost({ settings: { mediaFolder: '' } });
-  const renderer = new MessageRenderer(plugin,
-    new Component(), parent,
-    undefined, undefined, () => ProviderRegistry.getCapabilities('opencode'));
-  const state = new ChatState();
-  const stream = new StreamController({ plugin, state, renderer, subagentManager: manager,
-    getMessagesEl: () => parent, getProviderId: () => 'opencode', updateQueueIndicator: () => {} });
-  const addMessage = (id: string): ChatMessage => {
-    const message: ChatMessage = { id, role: 'assistant', timestamp: testDate().getTime(), content: '', contentBlocks: [], toolCalls: [] };
-    state.addMessage(message);
-    state.currentContentEl = renderer.addMessage(message).querySelector('.claudian-message-content');
-    return message;
-  };
-  cleanups.push(() => { stream.dispose(); manager.clear(); renderer.dispose(); });
-  return { parent, renderer, state, stream, addMessage };
-}
-
-it('runs OpenCode 2.3 spawns as background cards that each settle on their own completion', async () => {
-  const view = await createOpencodeView();
-  const message = view.addMessage('spawns');
-  // OpenCode 2.3 spawn input carries no background flag; only the launch result reveals the mode.
-  for (const [id, input] of [
-    ['spawn', { description: 'Survey', prompt: 'Survey the vault', subagent_type: 'general' }],
-    ['follow-up', { description: 'Follow up', prompt: 'Also check tags', subagent_type: 'general', task_id: 'ses_child' }],
-  ] as const) {
-    await view.stream.handleStreamChunk({ type: 'tool_use', id, name: TOOL_SUBAGENT, input }, message);
-    await view.stream.handleStreamChunk({ type: 'tool_result', id, content: 'The subagent is working in the background (sessionID: ses_child). You will receive a <subagent> message when it goes idle.' }, message);
-  }
-  await view.stream.handleStreamChunk({ type: 'done' }, message);
-  expect(screen.getByRole('button', { name: /Survey.*Running/i })).toBeDefined();
-  expect(screen.getByRole('button', { name: /Follow up.*Running/i })).toBeDefined();
-  await view.stream.subagents.handleAsyncSubagentCompletion({
-    type: 'async_subagent_completion', providerSessionId: 'ses_parent', taskId: 'ses_child', toolUseId: 'follow-up', status: 'completed', result: 'Tags checked',
-  });
-  expect(screen.getByRole('button', { name: /Follow up.*Completed/i })).toBeDefined();
-  expect(screen.getByRole('button', { name: /Survey.*Running/i })).toBeDefined();
-  await view.stream.subagents.handleAsyncSubagentCompletion({
-    type: 'async_subagent_completion', providerSessionId: 'ses_parent', taskId: 'ses_child', toolUseId: 'spawn', status: 'completed', result: 'Vault surveyed',
-  });
-  expect(screen.getByRole('button', { name: /Survey.*Completed/i })).toBeDefined();
-  expect(screen.getByText('Vault surveyed')).toBeDefined();
-});
-
-it('continues a foreground OpenCode spawn that native detaches as a background card', async () => {
-  const view = await createOpencodeView();
-  const message = view.addMessage('detached');
-  // An OpenCode 2.2 foreground call becomes sync from its child's tool, then native detaches it to the background.
-  await view.stream.handleStreamChunk({ type: 'tool_use', id: 'spawn', name: TOOL_SUBAGENT, input: { description: 'Survey', prompt: 'Survey the vault' } }, message);
-  await view.stream.handleStreamChunk({ type: 'subagent_tool_use', subagentId: 'spawn', id: 'child-read', name: 'Read', input: { file_path: 'notes.md' } }, message);
-  await view.stream.handleStreamChunk({ type: 'tool_result', id: 'spawn', content: 'The subagent is working in the background (sessionID: ses_child). You will be notified automatically when it finishes.' }, message);
-  await view.stream.handleStreamChunk({ type: 'done' }, message);
-  expect(screen.getByRole('button', { name: /Survey.*Running/i })).toBeDefined();
-  expect(message.contentBlocks).toContainEqual({ type: 'subagent', subagentId: 'spawn', mode: 'async' });
-  await view.stream.subagents.handleAsyncSubagentCompletion({
-    type: 'async_subagent_completion', providerSessionId: 'ses_parent', taskId: 'ses_child', toolUseId: 'spawn', status: 'completed', result: 'Vault surveyed',
-  });
-  expect(screen.getByRole('button', { name: /Survey.*Completed/i })).toBeDefined();
-  expect(screen.getByText('Vault surveyed')).toBeDefined();
-});
-
-it('shows previous runs of reused OpenCode subagents live and after reload', async () => {
-  const view = await createOpencodeView();
-  const runs = [
-    { message: 'first', sync: 'Answer A', background: 'Survey A' },
-    { message: 'second', sync: 'Answer B', background: 'Survey B' },
-  ];
-  for (const [index, run] of runs.entries()) {
-    const message = view.addMessage(run.message);
-    await view.stream.handleStreamChunk({ type: 'tool_use', id: `sync-${index}`, name: TOOL_SUBAGENT, input: { description: 'Worker', prompt: `Task ${index}` } }, message);
-    await view.stream.handleStreamChunk({ type: 'tool_result', id: `sync-${index}`, content: `<subagent sessionID="ses_worker" state="completed">\n${run.sync}\n</subagent>` }, message);
-    await view.stream.handleStreamChunk({ type: 'tool_use', id: `bg-${index}`, name: TOOL_SUBAGENT, input: { description: 'Surveyor', prompt: `Survey ${index}`, run_in_background: true } }, message);
-    await view.stream.handleStreamChunk({ type: 'tool_result', id: `bg-${index}`, content: 'The subagent is working in the background (sessionID: ses_background)' }, message);
-    await view.stream.handleStreamChunk({ type: 'done' }, message);
-  }
-  for (const reload of [false, true]) {
-    if (reload) view.renderer.renderMessages(view.state.messages, () => 'Hello');
-    const first = view.parent.querySelector<HTMLElement>('[data-message-id="first"]')!;
-    const second = view.parent.querySelector<HTMLElement>('[data-message-id="second"]')!;
-    expect(within(first).queryByRole('button', { name: /^Previous runs/ })).toBeNull();
-    const [syncHistory, backgroundHistory] = within(second).getAllByRole('button', { name: 'Previous runs (1)' });
-    fireEvent.click(syncHistory);
-    fireEvent.click(backgroundHistory);
-    const [syncRun, backgroundRun] = within(second).getAllByRole('button', { name: /^Run 1 · / });
-    fireEvent.click(syncRun);
-    fireEvent.click(backgroundRun);
-    const histories = second.querySelectorAll<HTMLElement>('.claudian-subagent-history');
-    expect(histories[0].textContent).toContain('Answer A');
-    expect(histories[0].textContent).not.toContain('Answer B');
-    expect(histories[1].textContent).toContain('Survey 0');
-    expect(histories[1].textContent).not.toContain('Answer A');
-    expect(await axe(view.parent)).toHaveNoViolations();
-  }
 });
 
 it.each([

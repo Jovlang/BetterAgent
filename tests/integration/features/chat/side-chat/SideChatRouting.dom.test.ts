@@ -4,7 +4,6 @@ import '@/providers';
 import { createHarness as createExecutionHarness, FakeBranchSession } from '@test/helpers/ChatExecutionHarness';
 import { deferred } from '@test/helpers/ChatInputHarness';
 import { createTestSession } from '@test/helpers/ConversationPorts';
-import { conversationRecord } from '@test/helpers/features/chat/ConversationFixture';
 import {
   createHarness,
   releaseSideChatHarnesses,
@@ -14,7 +13,6 @@ import {
 import { waitFor } from '@testing-library/dom';
 import { Component } from 'obsidian';
 
-import type { ConversationBranchResult } from '@/core/execution';
 import type { ChatMessage, ImageAttachment } from '@/core/types';
 import { ConversationController } from '@/features/chat/conversation/ConversationController';
 import { BuiltInCommandController } from '@/features/chat/input/BuiltInCommandController';
@@ -500,7 +498,6 @@ it('uses the configured provider environment when preparing the native side fork
   expect(database).toBe('/custom/chat.db');
 });
 
-
 /** Routes the side parent to a real main turn whose provider assigns the reply's native id before it completes. */
 function createRunningMainRouting(harness: SideChatDOMHarness, settled: ChatMessage[], mainText = 'Long main work') {
   const routing = createRouting(harness);
@@ -611,43 +608,6 @@ it('protects parked main drafts and cancels branch previews when switching to si
   harness.controller.collapse();
   expect(harness.inputEl.value).toBe('');
   expect(routing.state.messages).toEqual(history);
-});
-
-
-it.each([false, true])('keeps side drafts separate while a branch submission settles (cancelled: %s)', async cancelled => {
-  const harness = await createHarness();
-  harness.plugin.updateConversation = vi.fn();
-  harness.plugin.getConversationSummary = id => conversationRecord(id);
-  const navigation = deferred<ConversationBranchResult>();
-  const entered = deferred<void>();
-  const routing = createRouting(harness);
-  routing.native.navigateConversationBranch.mockImplementationOnce(() => { entered.resolve(); return navigation.promise; });
-  const conversation = routing.deps.conversationController;
-  const { started } = await startSideChat(harness);
-  harness.backend.latest.establishChild('child-session');
-  harness.backend.latest.complete();
-  await started;
-  const sideImage: ImageAttachment = { id: 'side', name: 'side.png', data: 'side-data', mediaType: 'image/png' , size: 5, source: 'paste' };
-  const mainImage: ImageAttachment = { id: 'main', name: 'main.png', data: 'main-data', mediaType: 'image/png' , size: 5, source: 'paste' };
-  harness.inputEl.value = 'Unsent side draft';
-  harness.imageContextManager.setImages([sideImage]);
-  harness.controller.collapse();
-  const first: ChatMessage = { id: 'first', role: 'user', content: 'First', timestamp: Date.now() };
-  const prompt: ChatMessage = { id: 'second', role: 'user', content: 'Original', images: [mainImage], timestamp: Date.now(), userMessageId: 'native-second' };
-  routing.state.messages = [first, prompt];
-  await conversation.navigateBranch('second');
-  harness.inputEl.value = 'Edited main';
-  const sending = routing.controller.sendMessage();
-  await entered.promise;
-  harness.controller.expand();
-  conversation.cancelBranchDraft();
-  navigation.resolve({ status: cancelled ? 'cancelled' : 'committed', messages: [first] });
-  await sending;
-  expect(harness.inputEl.value).toBe('Unsent side draft');
-  expect(harness.imageContextManager.getAttachedImages()).toEqual([sideImage]);
-  expect(routing.mainExecutions).toEqual(cancelled ? [] : ['Edited main']);
-  expect(routing.state.messages.filter(message => message.role === 'user' && message.content === 'Edited main').map(message => message.images)).toEqual(cancelled ? [] : [[mainImage]]);
-  expect(harness.drafts.capture('main').content).toBe(cancelled ? 'Edited main' : '');
 });
 
 it.each(['side', 'btw'].flatMap(command => ['new', 'collapsed', 'queued'].map(mode => ({ command, mode }))))('keeps old mention labels without loading their sessions in /$command ($mode)', async ({ command, mode }) => {

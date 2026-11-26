@@ -35,14 +35,14 @@ async function setup() {
   Object.assign(app.workspace, { getActiveFile: () => null });
   const backend = new FakeSideBackend();
   vi.spyOn(ProviderRegistry, 'createExecutionBackend').mockReturnValue(backend);
-  vi.spyOn(ProviderRegistry.getConversationHistoryService('claude'), 'buildForkProviderState').mockResolvedValue({});
-  ProviderWorkspaceRegistry.setServices('claude', {});
+  vi.spyOn(ProviderRegistry.getConversationHistoryService('codex'), 'buildForkProviderState').mockResolvedValue({});
+  ProviderWorkspaceRegistry.setServices('codex', {});
   const settings: Partial<ClaudianSettings> = {
-    model: 'claude-sonnet-4-5', permissionMode: 'normal', effortLevel: 'high', excludedTags: [],
-    providerConfigs: { claude: codexCatalogFixture(['claude-sonnet-4-5'], ['low', 'high']) },
+    model: 'gpt-5.5', permissionMode: 'normal', effortLevel: 'high', excludedTags: [],
+    providerConfigs: { codex: codexCatalogFixture(['gpt-5.5'], ['low', 'high']) },
   };
   const conversation: Conversation = {
-    id: 'conversation', providerId: 'claude', selectedModel: 'claude-sonnet-4-5', sessionId: 'native',
+    id: 'conversation', providerId: 'codex', selectedModel: 'gpt-5.5', sessionId: 'native',
     title: 'Conversation', messages: [], createdAt: testDate().getTime(), lastActivityAt: testDate().getTime(),
   };
   const conversations = new Map(['conversation', 'second', 'third'].map(id => [id, { ...conversation, id, title: id === 'conversation' ? 'Conversation' : id }]));
@@ -163,7 +163,7 @@ it('restores cold identities with only the active runtime and hydrates another o
   const createTitle = vi.spyOn(ProviderRegistry, 'createTitleGenerationService');
   const saved = {
     openTabs: Array.from({ length: 20 }, (_, index) => ({
-      tabId: `saved-${index}`, conversationId: null, draftModel: 'claude-sonnet-4-5',
+      tabId: `saved-${index}`, conversationId: null, draftModel: 'gpt-5.5',
     })),
     activeTabId: 'saved-0',
   };
@@ -180,7 +180,7 @@ it('restores cold identities with only the active runtime and hydrates another o
     expect(pool.getAll()).toHaveLength(1);
     await plugin.mutateSettings(settings => { settings.lastSelectedChatModel = { model: 'changed-model', providerId: 'codex' }; });
     await manager.switchToTab('saved-1');
-    expect(manager.getActiveTab()?.draftModel).toBe('claude-sonnet-4-5');
+    expect(manager.getActiveTab()?.draftModel).toBe('gpt-5.5');
     expect(pool.getAll()).toHaveLength(2);
     expect(createTitle).toHaveBeenCalledTimes(2);
     expect(root.querySelectorAll('.claudian-tab-content')).toHaveLength(2);

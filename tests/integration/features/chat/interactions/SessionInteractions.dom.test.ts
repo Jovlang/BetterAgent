@@ -202,10 +202,8 @@ it('keeps answer drafts and an in-flight submission across presentation disposal
   expect(answer).toHaveBeenCalledTimes(2);
 });
 
-it.each([
-  ['rejected', 'chat.questions.notSent'],
-  ['unsupported', 'chat.questions.unsupportedReply'],
-] as const)('shows a localized %s delivery failure in the real question panel', async (failure, expectedKey) => {
+it('shows a localized Codex delivery failure in the real question panel', async () => {
+  const expectedKey = 'chat.questions.notSent';
   const englishMessage = t(expectedKey);
   setLocale('zh-CN');
   const expected = t(expectedKey);
@@ -219,7 +217,7 @@ it.each([
   const submit = vi.fn();
   const pending = prompts.askUserQuestion('question', tool.input, undefined, {
     onSubmit: answers => deliverAsyncQuestion(tool, answers, {
-      providerId: failure === 'unsupported' ? 'claude' : 'codex', assertCurrent: () => undefined,
+      providerId: 'codex', assertCurrent: () => undefined,
       prepare: () => ({ steer, submit }),
     }),
   });

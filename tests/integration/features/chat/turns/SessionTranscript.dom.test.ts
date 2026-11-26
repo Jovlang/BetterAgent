@@ -7,9 +7,8 @@ import { fireEvent, within } from '@testing-library/dom';
 import { Component } from 'obsidian';
 
 import type { ProviderExecutionEvent, ProviderRequestedEventScope } from '@/core/execution';
-import { NOOP_TASK_RESULT_INTERPRETER } from '@/core/providers/NoopTaskResultInterpreter';
 import type { ProviderCapabilities } from '@/core/providers/types';
-import { TOOL_SPAWN_AGENT, TOOL_SUBAGENT, TOOL_WAIT_AGENT } from '@/core/tools/toolNames';
+import { TOOL_SPAWN_AGENT, TOOL_WAIT_AGENT } from '@/core/tools/toolNames';
 import type { ChatMessage } from '@/core/types';
 import { MessageRenderer } from '@/features/chat/rendering/MessageRenderer';
 import { SubagentManager } from '@/features/chat/rendering/subagents/SubagentManager';
@@ -20,7 +19,6 @@ import { ResponseStream } from '@/features/chat/turns/ResponseStream';
 import { SessionTranscript } from '@/features/chat/turns/SessionTranscript';
 import { StreamController } from '@/features/chat/turns/StreamController';
 import { TurnCoordinator } from '@/features/chat/turns/TurnCoordinator';
-
 
 const cleanups: Array<() => void> = [];
 
@@ -34,10 +32,10 @@ async function createSession(providerId?: ProviderCapabilities['providerId']) {
   const plugin = await createChatFeatureHost({ settings: { mediaFolder: '' } });
   const turns = new TurnCoordinator();
   const state = new ChatState({}, undefined, turns);
-  const subagents = new SubagentManager(info => stream.subagents.onAsyncSubagentStateChange(info), NOOP_TASK_RESULT_INTERPRETER);
+  const subagents = new SubagentManager(info => stream.subagents.onAsyncSubagentStateChange(info));
   const stream: StreamController = new StreamController({ plugin, state, subagentManager: subagents,
     get renderer() { return transcript.renderer; }, getMessagesEl: () => transcript.messagesEl,
-    getProviderId: () => providerId ?? 'claude', updateQueueIndicator: () => undefined });
+    getProviderId: () => providerId ?? 'codex', updateQueueIndicator: () => undefined });
   const transcript: SessionTranscript = new SessionTranscript(state, stream, subagents);
   let nextId = 0;
   const host = { state, stream, turns, get renderer() { return transcript.renderer; }, createMessageId: () => `message-${++nextId}` };
@@ -47,7 +45,7 @@ async function createSession(providerId?: ProviderCapabilities['providerId']) {
   const scope = (): ProviderRequestedEventScope => ({ kind: 'requested', sessionInstanceId: 'native', executionId: 'execution', turnId: 'turn', sequence: ++sequence });
   const emit = (event: Omit<ProviderExecutionEvent, 'scope'>) => response.handleEvent({ ...event, scope: scope() } as ProviderExecutionEvent);
   const createRenderer = (root: HTMLElement) => new MessageRenderer(plugin, new Component(), root, undefined, undefined,
-    providerId ? () => ({ providerId } as ProviderCapabilities) : undefined);
+    () => ({ providerId: providerId ?? 'codex' } as ProviderCapabilities));
   const attach = () => {
     const root = document.body.createDiv();
     const renderer = createRenderer(root);
@@ -59,7 +57,7 @@ async function createSession(providerId?: ProviderCapabilities['providerId']) {
   return { state, stream, transcript, response, background, host, emit, attach, finish, createRenderer };
 }
 
-it.each(['text', 'thinking'] as const)('reattaches during %s without losing open blocks, child output, or live tools', async openKind => {
+it.each(['text', 'thinking'] as const)('reattaches during %s without losing open blocks or live tools', async openKind => {
   const clock = testClock();
   vi.spyOn(Date, 'now').mockImplementation(() => clock().getTime());
   const control = (await createSession());
@@ -80,19 +78,13 @@ it.each(['text', 'thinking'] as const)('reattaches during %s without losing open
   for (const session of [control, moved]) {
     await session.emit({ type: `${openKind}_delta`, text: ' Reattached.' } as Omit<ProviderExecutionEvent, 'scope'>);
     await session.stream.handleStreamChunk({ type: 'tool_use', id: 'read', name: 'Read', input: { file_path: 'note.md' } }, session.response.active!);
-    await session.stream.handleStreamChunk({ type: 'tool_use', id: 'task', name: TOOL_SUBAGENT, input: { description: 'Research', run_in_background: false } }, session.response.active!);
   }
   // Detach with live tool cards; their later results must update a new view.
   moved.transcript.detach();
   root.remove();
-  for (const session of [control, moved]) {
-    await session.stream.handleStreamChunk({ type: 'subagent_tool_use', subagentId: 'task', id: 'child-read', name: 'Read', input: { file_path: 'child.md' } }, session.response.active!);
-  }
   const finalRoot = moved.attach();
   for (const session of [control, moved]) {
     await session.stream.handleStreamChunk({ type: 'tool_result', id: 'read', content: 'Parent note.' }, session.response.active!);
-    await session.stream.handleStreamChunk({ type: 'subagent_tool_result', subagentId: 'task', id: 'child-read', content: 'Child note.' }, session.response.active!);
-    await session.stream.handleStreamChunk({ type: 'tool_result', id: 'task', content: 'Research finished.' }, session.response.active!);
     await session.emit({ type: 'text_delta', text: 'Final answer.' } as Omit<ProviderExecutionEvent, 'scope'>);
     await session.finish();
   }
@@ -101,16 +93,11 @@ it.each(['text', 'thinking'] as const)('reattaches during %s without losing open
   expect(moved.state.messages[0].contentBlocks).toEqual([
     { type: openKind, content: 'Before detached. Reattached.', ...(openKind === 'thinking' ? { durationSeconds: 2 } : {}) },
     { type: 'tool_use', toolId: 'read' },
-    { type: 'subagent', subagentId: 'task' },
     { type: 'text', content: 'Final answer.' },
   ]);
   expect(within(finalRoot).getByText('Final answer.')).toBeTruthy();
   fireEvent.click(within(finalRoot).getByRole('button', { name: 'Worked' }));
   expect(within(finalRoot).getByRole('button', { name: /Read.*note.md/ })).toBeTruthy();
-  fireEvent.click(within(finalRoot).getByRole('button', { name: /Subagent task: Research.*completed/ }));
-  expect(finalRoot.textContent).toContain('Research finished.');
-  fireEvent.click(within(finalRoot).getByRole('button', { name: /Read.*child.md/ }));
-  expect(finalRoot.textContent).toContain('Child note.');
 });
 
 it('reattaches a reserved background response before its buffered output completes', async () => {
@@ -132,31 +119,7 @@ it('reattaches a reserved background response before its buffered output complet
   expect(within(root).getByText('After.')).toBeTruthy();
 });
 
-it('keeps one live card when a buffered subagent resolves after reattachment', async () => {
-  const session = (await createSession());
-  const previous = session.attach();
-  session.response.start();
-  await session.stream.handleStreamChunk({ type: 'tool_use', id: 'task', name: TOOL_SUBAGENT, input: { description: 'Research' } }, session.response.active!);
-  session.transcript.detach();
-  previous.remove();
-  const root = session.attach();
-  await session.stream.handleStreamChunk({ type: 'subagent_tool_use', subagentId: 'task', id: 'child-read', name: 'Read', input: { file_path: 'child.md' } }, session.response.active!);
-  await session.stream.handleStreamChunk({ type: 'subagent_tool_result', subagentId: 'task', id: 'child-read', content: 'Child note.' }, session.response.active!);
-  await session.stream.handleStreamChunk({ type: 'tool_result', id: 'task', content: 'Research finished.' }, session.response.active!);
-  expect(within(root).getAllByRole('button', { name: /Subagent task: Research/ })).toHaveLength(1);
-  fireEvent.click(within(root).getByRole('button', { name: /Subagent task: Research.*completed/ }));
-  fireEvent.click(within(root).getByRole('button', { name: /Read.*child.md/ }));
-  expect(root.textContent).toContain('Child note.');
-  expect(root.textContent).toContain('Research finished.');
-  await session.finish();
-});
-
 it.each<[string, ProviderCapabilities['providerId'], Pick<ChatMessage, 'toolCalls' | 'contentBlocks'>]>([
-  ['a managed-agent task whose block hint makes it async', 'claude', {
-    toolCalls: [{ id: 'task', name: TOOL_SUBAGENT, input: { description: 'Research' }, status: 'completed', result: 'Launched.',
-      subagent: { id: 'task', description: 'Research', prompt: '', mode: 'sync', status: 'completed', toolCalls: [], isExpanded: false } }],
-    contentBlocks: [{ type: 'subagent', subagentId: 'task', mode: 'async' }],
-  }],
   ['a finished Codex spawn whose result arrives through wait', 'codex', {
     toolCalls: [
       { id: 'spawn', name: TOOL_SPAWN_AGENT, input: { message: 'Inspect utils.ts.', model: 'gpt-5.4-mini' }, status: 'completed',
@@ -213,26 +176,4 @@ it('keeps a lifecycle update for an unrendered earlier turn out of the streaming
   expect(within(root.querySelector<HTMLElement>('[data-message-id="answer"]')!).getAllByRole('button', { name: /Subagent task/ })).toHaveLength(1);
   expect(within(root).getAllByRole('button', { name: /Subagent task/ })).toHaveLength(1);
   await session.finish();
-});
-
-it('keeps a background task from a settled response connected across reattachment', async () => {
-  const session = (await createSession());
-  const previous = session.attach();
-  session.response.start();
-  await session.stream.handleStreamChunk({ type: 'tool_use', id: 'task', name: TOOL_SUBAGENT,
-    input: { description: 'Survey', prompt: 'Survey the vault.', run_in_background: true } }, session.response.active!);
-  await session.stream.handleStreamChunk({ type: 'tool_result', id: 'task', content: 'agentId: child-1' }, session.response.active!);
-  await session.emit({ type: 'text_delta', text: 'Started.' } as Omit<ProviderExecutionEvent, 'scope'>);
-  await session.finish();
-  session.transcript.detach();
-  previous.remove();
-
-  const root = session.attach();
-  fireEvent.click(within(root).getByRole('button', { name: 'Worked' }));
-  expect(within(root).getByRole('button', { name: /Background task: Survey.*Running/ })).toBeTruthy();
-  await session.stream.subagents.handleAsyncSubagentCompletion({ type: 'async_subagent_completion', providerSessionId: 'native',
-    taskId: 'child-1', status: 'completed', result: 'Survey complete.' });
-  expect(within(root).getAllByRole('button', { name: /Background task: Survey/ })).toHaveLength(1);
-  expect(within(root).queryByRole('button', { name: /Background task: Survey.*Running/ })).toBeNull();
-  expect(root.textContent).toContain('Survey complete.');
 });

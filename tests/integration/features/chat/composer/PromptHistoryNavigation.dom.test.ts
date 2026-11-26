@@ -49,19 +49,20 @@ afterEach(() => {
 });
 
 async function createView(provisional = false, options: { managed?: boolean; draft?: boolean } = {}) {
+  vi.spyOn(ProviderRegistry.getConversationHistoryService('codex'), 'buildForkProviderState').mockImplementation(async (sessionId, resumeAt) => ({ forkSource: { sessionId, resumeAt } }));
   const backend = new FakeSideBackend();
   vi.spyOn(ProviderRegistry, 'createExecutionBackend').mockReturnValue(backend);
   const app = new App();
   Object.assign(app.vault.adapter, { basePath: '/vault' });
   const settings = {
-    model: 'claude-sonnet-4-5', effortLevel: 'high', permissionMode: 'manual',
+    model: 'gpt-5.5', effortLevel: 'high', permissionMode: 'manual',
     enableAutoTitleGeneration: false, excludedTags: [], mediaFolder: '', systemPrompt: '', userName: '',
     providerConfigs: { codex: {
-      ...codexCatalogFixture(['claude-sonnet-4-5'], ['low', 'high']), promptSuggestions: true,
+      ...codexCatalogFixture(['gpt-5.5'], ['low', 'high']), promptSuggestions: true,
     } },
   } as unknown as ClaudianSettings;
   const conversation = {
-    id: 'conversation-1', providerId: 'codex', selectedModel: 'claude-sonnet-4-5',
+    id: 'conversation-1', providerId: 'codex', selectedModel: 'gpt-5.5',
     sessionId: 'main-session', messages: [], title: 'Existing conversation',
     createdAt: testDate().getTime(), lastActivityAt: testDate().getTime(),
   } as unknown as Conversation;
@@ -542,7 +543,7 @@ it('keeps IME suppression until compositionend despite input and identity resets
     view.tab.dom.inputEl.value = '';
     fireEvent.input(view.tab.dom.inputEl);
     view.tab.session.runtime.selectDraft('codex', 'different-draft-model');
-    view.tab.session.runtime.selectDraft('codex', 'claude-sonnet-4-5');
+    view.tab.session.runtime.selectDraft('codex', 'gpt-5.5');
     expect(key(view, 'ArrowUp', { isComposing: false }).inputPrevented).toBe(false);
     expect(view.tab.dom.inputEl.value).toBe('');
     fireEvent.compositionEnd(textbox(view));

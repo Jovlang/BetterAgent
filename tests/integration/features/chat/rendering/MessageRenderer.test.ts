@@ -7,13 +7,7 @@ import { fireEvent, within } from '@testing-library/dom';
 import { App, Component } from 'obsidian';
 const { Menu } = await vi.importActual<typeof import('@test/__mocks__/obsidian')>('obsidian');
 
-import {
-  TOOL_AGENT_OUTPUT,
-  TOOL_SPAWN_AGENT,
-  TOOL_SUBAGENT,
-  TOOL_WAIT_AGENT,
-  TOOL_WRITE_STDIN,
-} from '@/core/tools/toolNames';
+import { TOOL_SPAWN_AGENT, TOOL_WAIT_AGENT, TOOL_WRITE_STDIN } from '@/core/tools/toolNames';
 import type { ChatMessage, ImageAttachment } from '@/core/types';
 import { MessageRenderer } from '@/features/chat/rendering/MessageRenderer';
 
@@ -52,11 +46,11 @@ function createMockComponent() {
   return component;
 }
 
-function mockCapabilities(providerId: 'claude' | 'codex' = 'claude') {
+function mockCapabilities(providerId: 'codex' = 'codex') {
   return () => ({
     providerId,
     supportsEphemeralSessions: false,
-    supportsNativeHistory: providerId === 'claude',
+    supportsNativeHistory: providerId === 'codex',
     supportsRewind: true,
     supportsFork: true,
     supportsProviderCommands: true,
@@ -67,7 +61,7 @@ function mockCapabilities(providerId: 'claude' | 'codex' = 'claude') {
 
 function createRenderer(
   messagesEl?: HTMLElement,
-  providerId: 'claude' | 'codex' = 'claude',
+  providerId: 'codex' = 'codex',
 ) {
   const el = messagesEl ?? document.body.createDiv();
   const comp = createMockComponent();
@@ -464,20 +458,6 @@ describe('MessageRenderer', () => {
         ] }, status: 'completed' },
         { id: 'edit', name: 'Edit', input: { file_path: 'notes/edited.md' }, status: 'completed' },
         { id: 'read', name: 'Read', input: { file_path: 'notes/read.md' }, result: 'Stored note contents', status: 'completed' },
-        {
-          id: 'sub-1',
-          name: TOOL_SUBAGENT,
-          input: { description: 'Async subagent' },
-          status: 'running',
-          subagent: { id: 'sub-1', description: 'Async subagent', mode: 'async', status: 'running', toolCalls: [], isExpanded: false },
-        },
-        {
-          id: 'sub-2',
-          name: TOOL_SUBAGENT,
-          input: { description: 'Sync subagent' },
-          status: 'running',
-          subagent: { id: 'sub-2', description: 'Sync subagent', mode: 'sync', status: 'running', toolCalls: [], isExpanded: false },
-        },
       ],
       contentBlocks: [
         { type: 'thinking', content: 'thinking', durationSeconds: 2 },
@@ -485,13 +465,10 @@ describe('MessageRenderer', () => {
         { type: 'tool_use', toolId: 'todo' },
         { type: 'tool_use', toolId: 'edit' },
         { type: 'tool_use', toolId: 'read' },
-        { type: 'subagent', subagentId: 'sub-1', mode: 'async' },
-        { type: 'subagent', subagentId: 'sub-2' },
       ],
     };
 
     renderer.renderStoredMessage(msg);
-
 
     expect(renderContentSpy).toHaveBeenCalledWith(expect.anything(), 'Text block');
 
@@ -507,8 +484,6 @@ describe('MessageRenderer', () => {
     expect(within(edit).getByText('DONE')).toBeDefined();
     const read = expandStoredTool(messagesEl, 'read', /^Read: notes\/read.md/);
     expect(within(read).getByText('Stored note contents')).toBeDefined();
-    expect(within(messagesEl).getByRole('button', { name: /^Background task: Async subagent - Running in background/ })).toBeDefined();
-    expect(within(messagesEl).getByRole('button', { name: /^Subagent task: Sync subagent - Status: running/ })).toBeDefined();
 });
 
   it('skips empty or whitespace-only text blocks', async () => {
@@ -560,7 +535,6 @@ describe('MessageRenderer', () => {
 
     renderer.renderStoredMessage(msg);
 
-
     expect(messagesEl.children).toHaveLength(0);
   });
 
@@ -588,7 +562,6 @@ describe('MessageRenderer', () => {
     };
 
     renderer.renderStoredMessage(msg);
-
 
     expect(messagesEl.children).toHaveLength(1);
 
@@ -621,7 +594,6 @@ describe('MessageRenderer', () => {
     expect(addCopySpy).toHaveBeenCalledWith(expect.anything(), 'Legacy response text');
     // Should render tool call
 
-
     await Promise.all(contentRenders);
     expect(messagesEl.textContent).toContain("Legacy response text");
     fireEvent.click(within(messagesEl).getByRole('button', { name: /^Worked/, expanded: false }));
@@ -632,7 +604,6 @@ describe('MessageRenderer', () => {
     const messagesEl = document.body.createDiv();
     const { renderer } = createRenderer(messagesEl);
     const renderContentSpy = vi.mocked(renderer.renderContent);
-
 
     const msg: ChatMessage = {
       id: 'm-unreferenced-tool',
@@ -651,178 +622,10 @@ describe('MessageRenderer', () => {
 
     expect(renderContentSpy).toHaveBeenCalledWith(expect.anything(), 'Only text block persisted');
 
-
     await Promise.all(contentRenders);
     expect(messagesEl.textContent).toContain("Only text block persisted");
     fireEvent.click(within(messagesEl).getByRole('button', { name: /^Worked/, expanded: false }));
     storedToolCard(messagesEl, 'read-1', /^Read: a.md/);
-});
-
-  it('renders Task tool calls as subagents for backward compatibility', async () => {
-    const messagesEl = document.body.createDiv();
-    const { renderer } = createRenderer(messagesEl);
-
-
-    const msg: ChatMessage = {
-      id: 'm1',
-      role: 'assistant',
-      content: '',
-      timestamp: Date.now(),
-      toolCalls: [
-        {
-          id: 'task-1',
-          name: TOOL_SUBAGENT,
-          input: { description: 'Run tests' },
-          status: 'completed',
-          result: 'All passed',
-        },
-      ],
-      contentBlocks: [
-        { type: 'tool_use', toolId: 'task-1' },
-      ],
-    };
-
-    renderer.renderStoredMessage(msg);
-
-    await Promise.all(contentRenders);
-    const card = messagesEl.querySelector<HTMLElement>('[data-subagent-id="task-1"]')!;
-    expect(within(card).getByRole('button', { name: /^Subagent task: Run tests - Status: completed/ })).toBeDefined();
-    expect(within(card).getByText('All passed')).toBeDefined();
-});
-
-  it('renders Task tool as async subagent when linked subagent mode is async', async () => {
-    const messagesEl = document.body.createDiv();
-    const { renderer } = createRenderer(messagesEl);
-
-    const msg: ChatMessage = {
-      id: 'm-task-async',
-      role: 'assistant',
-      content: '',
-      timestamp: Date.now(),
-      toolCalls: [
-        {
-          id: 'task-async-1',
-          name: TOOL_SUBAGENT,
-          input: { description: 'Background task', run_in_background: true },
-          status: 'completed',
-          result: 'Task running',
-          subagent: {
-            id: 'task-async-1',
-            description: 'Background task',
-            mode: 'async',
-            asyncStatus: 'running',
-            status: 'running',
-            toolCalls: [],
-            isExpanded: false,
-          },
-        },
-      ],
-      contentBlocks: [
-        { type: 'tool_use', toolId: 'task-async-1' },
-      ],
-    };
-
-    renderer.renderStoredMessage(msg);
-
-    await Promise.all(contentRenders);
-    expect(messagesEl.textContent).toContain("Background task");
-    expect(within(messagesEl).getByRole('button', { name: /Background task: .*Running in background/ })).toBeDefined();
-});
-
-  it('uses subagent block mode hint when linked subagent mode is missing', async () => {
-    const messagesEl = document.body.createDiv();
-    const { renderer } = createRenderer(messagesEl);
-
-    const msg: ChatMessage = {
-      id: 'm-task-mode-hint',
-      role: 'assistant',
-      content: '',
-      timestamp: Date.now(),
-      toolCalls: [
-        {
-          id: 'task-hint-1',
-          name: TOOL_SUBAGENT,
-          input: { description: 'Background task from block hint' },
-          status: 'running',
-          subagent: {
-            id: 'task-hint-1',
-            description: 'Background task from block hint',
-            status: 'running',
-            toolCalls: [],
-            isExpanded: false,
-          },
-        },
-      ],
-      contentBlocks: [
-        { type: 'subagent', subagentId: 'task-hint-1', mode: 'async' },
-      ],
-    };
-
-    renderer.renderStoredMessage(msg);
-
-    await Promise.all(contentRenders);
-    expect(messagesEl.textContent).toContain("Background task from block hint");
-    expect(within(messagesEl).getByRole('button', { name: /Background task: .*Running in background/ })).toBeDefined();
-});
-
-  // ============================================
-  // TaskOutput skipping
-  // ============================================
-
-  it('should skip TaskOutput tool calls (internal async subagent communication)', async () => {
-    const messagesEl = document.body.createDiv();
-    const mockComponent = createMockComponent();
-    const renderer = trackRenderer(new MessageRenderer(plugin, mockComponent, messagesEl));
-
-
-    const msg: ChatMessage = {
-      id: 'm1',
-      role: 'assistant',
-      content: '',
-      timestamp: Date.now(),
-      toolCalls: [
-        { id: 'agent-output-1', name: TOOL_AGENT_OUTPUT, input: { task_id: 'abc', block: true }, status: 'running' },
-      ],
-      contentBlocks: [
-        { type: 'tool_use', toolId: 'agent-output-1' },
-      ],
-    };
-
-    renderer.renderStoredMessage(msg);
-
-
-      expect(messagesEl.querySelector('[data-tool-id="agent-output-1"]')).toBeNull();
-});
-
-  it('should render other tool calls but skip TaskOutput when mixed', async () => {
-    const messagesEl = document.body.createDiv();
-    const mockComponent = createMockComponent();
-    const renderer = trackRenderer(new MessageRenderer(plugin, mockComponent, messagesEl));
-
-
-    const msg: ChatMessage = {
-      id: 'm1',
-      role: 'assistant',
-      content: '',
-      timestamp: Date.now(),
-      toolCalls: [
-        { id: 'read-1', name: 'Read', input: { file_path: 'test.md' }, status: 'completed' },
-        { id: 'agent-output-1', name: TOOL_AGENT_OUTPUT, input: { task_id: 'abc' }, status: 'running' },
-        { id: 'grep-1', name: 'Grep', input: { pattern: 'test' }, status: 'completed' },
-      ],
-      contentBlocks: [
-        { type: 'tool_use', toolId: 'read-1' },
-        { type: 'tool_use', toolId: 'agent-output-1' },
-        { type: 'tool_use', toolId: 'grep-1' },
-      ],
-    };
-
-    renderer.renderStoredMessage(msg);
-
-    await Promise.all(contentRenders);
-    storedToolCard(messagesEl, 'read-1', /^Read: test.md/);
-    storedToolCard(messagesEl, 'grep-1', /^Grep:/);
-    expect(messagesEl.querySelector('[data-tool-id="agent-output-1"]')).toBeNull();
 });
 
   // ============================================
@@ -989,7 +792,6 @@ describe('MessageRenderer', () => {
     it('renders Codex spawn_agent with the same prompt and result recovered on reload', async () => {
       const messagesEl = document.body.createDiv();
       const { renderer } = createRenderer(messagesEl, 'codex');
-
 
       const msg: ChatMessage = {
         id: 'm-codex-subagent',

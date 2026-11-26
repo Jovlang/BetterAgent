@@ -63,7 +63,7 @@ function notifyCalls(notice: Mock): string[] {
 it.each(['Name', 'Description'])('closes once when host Escape reaches the %s field', async fieldName => {
   const { host } = await createProviderHostFixture();
   const save = vi.fn();
-  const modal = new EnvSnippetModal(host.app, host, null, 'provider:claude', save);
+  const modal = new EnvSnippetModal(host.app, host, null, 'provider:codex', save);
   onTestFinished(() => {
     if (modal.containerEl.isConnected) modal.close();
   });
@@ -102,52 +102,46 @@ it.each(['Name', 'Description'])('closes once when host Escape reaches the %s fi
 });
 
 it.each([
-  { envVars: 'ANTHROPIC_MODEL=custom\n# Claude trailing', model: 'custom' },
-  { envVars: '# Claude only', model: undefined },
+  { envVars: 'OPENAI_MODEL=custom\n# Codex trailing', model: 'custom' },
+  { envVars: '# Codex only', model: undefined },
 ])('preserves shared settings when inserting the scoped snippet $envVars', async ({ envVars, model }) => {
   const shared = 'PATH=/generated/bin\nHTTPS_PROXY=http://proxy.example.test:8080\n# shared keep';
   const { host, settings, settingsStorage } = await createProviderHostFixture({ settings: {
     sharedEnvironmentVariables: shared,
     providerConfigs: {
-      claude: { environmentVariables: 'ANTHROPIC_MODEL=old' },
-      codex: { environmentVariables: 'OPENAI_MODEL=codex-keep' },
+      codex: { environmentVariables: 'OPENAI_MODEL=old' },
     },
-    envSnippets: [{ id: 'commented', name: 'Commented Claude', description: '', scope: 'provider:claude', envVars }],
+    envSnippets: [{ id: 'commented', name: 'Commented Codex', description: '', scope: 'provider:codex', envVars }],
   } });
   const container = document.body.createEl('main');
   const completed = vi.fn();
-  new EnvSnippetManager(container, host, 'provider:claude', completed);
+  new EnvSnippetManager(container, host, 'provider:codex', completed);
 
   fireEvent.click(within(container).getByRole('button', { name: 'Insert' }));
   await waitFor(() => expect(completed).toHaveBeenCalledTimes(1));
 
   expect(settings.sharedEnvironmentVariables).toBe(shared);
-  expect(getProviderEnvironmentVariables(settings, 'claude')).toBe(envVars);
-  expect(getProviderEnvironmentVariables(settings, 'codex')).toBe('OPENAI_MODEL=codex-keep');
-  expect(getRuntimeEnvironmentVariables(settings, 'claude')).toEqual({
-    PATH: '/generated/bin', HTTPS_PROXY: 'http://proxy.example.test:8080',
-    ...(model ? { ANTHROPIC_MODEL: model } : {}),
-  });
+  expect(getProviderEnvironmentVariables(settings, 'codex')).toBe(envVars);
   expect(getRuntimeEnvironmentVariables(settings, 'codex')).toEqual({
-    PATH: '/generated/bin', HTTPS_PROXY: 'http://proxy.example.test:8080', OPENAI_MODEL: 'codex-keep',
+    PATH: '/generated/bin', HTTPS_PROXY: 'http://proxy.example.test:8080',
+    ...(model ? { OPENAI_MODEL: model } : {}),
   });
   const reloaded = await settingsStorage.load();
   expect(reloaded.sharedEnvironmentVariables).toBe(shared);
-  expect(getProviderEnvironmentVariables(reloaded, 'claude')).toBe(envVars);
-  expect(getProviderEnvironmentVariables(reloaded, 'codex')).toBe('OPENAI_MODEL=codex-keep');
+  expect(getProviderEnvironmentVariables(reloaded, 'codex')).toBe(envVars);
 });
 
 it('offers saving the current environment from the empty snippet state', async () => {
   const { host, settings } = await createProviderHostFixture({
     overrides: {
       notifyProviderChatOptionsChanged: vi.fn(),
-      getEnvironmentVariablesForScope: () => 'ANTHROPIC_MODEL=custom',
+      getEnvironmentVariablesForScope: () => 'OPENAI_MODEL=custom',
     },
   });
   settings.envSnippets = [];
 
   const container = document.body.createEl('main');
-  new EnvSnippetManager(container, host, 'provider:claude');
+  new EnvSnippetManager(container, host, 'provider:codex');
 
   expect(within(container).getAllByRole('button')).toHaveLength(1);
   expect(await axe(container)).toHaveNoViolations();
@@ -161,12 +155,12 @@ it('offers saving the current environment from the empty snippet state', async (
   const name = within(dialog).getByRole('textbox', { name: 'Name' });
   const description = within(dialog).getByRole('textbox', { name: 'Description' });
   const environment = within(dialog).getByRole('textbox', { name: 'Environment variables' });
-  expect((environment as HTMLTextAreaElement).value).toBe('ANTHROPIC_MODEL=custom');
+  expect((environment as HTMLTextAreaElement).value).toBe('OPENAI_MODEL=custom');
   // The editor offers no per-model alias or context-limit fields for environment-declared models.
   expect(within(dialog).getAllByRole('textbox')).toEqual([name, description, environment]);
   fireEvent.input(name, { target: { value: 'Work endpoint' } });
   fireEvent.input(description, { target: { value: 'Used for work' } });
-  fireEvent.input(environment, { target: { value: 'ANTHROPIC_MODEL=custom\nANTHROPIC_BASE_URL=https://example.invalid' } });
+  fireEvent.input(environment, { target: { value: 'OPENAI_MODEL=custom\nOPENAI_BASE_URL=https://example.invalid' } });
   fireEvent.blur(environment);
   expect(['Cancel', 'Save'].map(name =>
     within(dialog).getByRole<HTMLButtonElement>('button', { name }).type,
@@ -174,7 +168,7 @@ it('offers saving the current environment from the empty snippet state', async (
   fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
   await waitFor(() => expect(within(document.body).queryByRole('dialog', { name: 'Save snippet' })).toBeNull());
   expect(settings.envSnippets).toEqual([expect.objectContaining({
-    name: 'Work endpoint', description: 'Used for work', envVars: 'ANTHROPIC_MODEL=custom\nANTHROPIC_BASE_URL=https://example.invalid',
+    name: 'Work endpoint', description: 'Used for work', envVars: 'OPENAI_MODEL=custom\nOPENAI_BASE_URL=https://example.invalid',
   })]);
   expect(settings.envSnippets[0]).not.toHaveProperty('contextLimits');
   expect(settings.envSnippets[0].modelAliases).toBeUndefined();
@@ -184,12 +178,12 @@ it('offers saving the current environment from the empty snippet state', async (
 it('keeps stored aliases when an edited snippet no longer declares their models', async () => {
   const { host } = await createProviderHostFixture();
   const snippet = {
-    id: 'snippet', name: 'Custom endpoint', description: '', scope: 'provider:claude' as const,
-    envVars: 'ANTHROPIC_MODEL=custom', modelAliases: { custom: 'Old alias' },
+    id: 'snippet', name: 'Custom endpoint', description: '', scope: 'provider:codex' as const,
+    envVars: 'OPENAI_MODEL=custom', modelAliases: { custom: 'Old alias' },
   };
   const save = vi.fn();
 
-  const modal = new EnvSnippetModal(host.app, host, snippet, 'provider:claude', save);
+  const modal = new EnvSnippetModal(host.app, host, snippet, 'provider:codex', save);
   const joinFocusTimers = captureModalFocusTimers(() => { modal.open(); });
   const dialog = within(document.body).getByRole('dialog', { name: 'Edit snippet' });
   const environment = within(dialog).getByRole<HTMLTextAreaElement>('textbox', { name: 'Environment variables' });
@@ -199,11 +193,11 @@ it('keeps stored aliases when an edited snippet no longer declares their models'
     within(dialog).getByRole('textbox', { name: 'Description' }),
     environment,
   ]);
-  fireEvent.input(environment, { target: { value: 'ANTHROPIC_MODEL=other\nCUSTOM_FLAG=true' } });
+  fireEvent.input(environment, { target: { value: 'OPENAI_MODEL=other\nCUSTOM_FLAG=true' } });
   fireEvent.blur(environment);
   fireEvent.click(within(dialog).getByRole('button', { name: 'Update' }));
   expect(save).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
-    envVars: 'ANTHROPIC_MODEL=other\nCUSTOM_FLAG=true',
+    envVars: 'OPENAI_MODEL=other\nCUSTOM_FLAG=true',
     modelAliases: { custom: 'Old alias' },
   }));
   await joinFocusTimers();
@@ -218,14 +212,14 @@ it.each(['Update', 'name Enter', 'Save'] as const)(
       beforePersist: draft => persist(draft),
       overrides: { getEnvironmentVariablesForScope: () => envVars },
     });
-    const envVars = 'ANTHROPIC_MODEL=sibling\nANTHROPIC_DEFAULT_SONNET_MODEL=custom';
+    const envVars = 'OPENAI_MODEL=sibling\nCODEX_HOME=custom';
     // Prototype-named keys must survive the edit and a storage round trip as own entries.
     const storedOverrides = {
       modelAliases: JSON.parse('{"__proto__":"Prototype model","constructor":"Constructor model"}') as Record<string, string>,
     };
     const originalSnippet = {
       id: 'snippet', name: 'Existing snippet name', description: 'Original description',
-      scope: 'provider:claude' as const, envVars, ...storedOverrides,
+      scope: 'provider:codex' as const, envVars, ...storedOverrides,
     };
     const unrelatedSnippet = {
       id: 'unrelated', name: 'Unrelated snippet', description: '', envVars: 'OTHER=value', scope: 'shared' as const,
@@ -240,7 +234,7 @@ it.each(['Update', 'name Enter', 'Save'] as const)(
     const mutateSettings = vi.spyOn(host, 'mutateSettings');
 
     const container = document.body.createEl('main');
-    new EnvSnippetManager(container, host, 'provider:claude');
+    new EnvSnippetManager(container, host, 'provider:codex');
     const joinFocusTimers = captureModalFocusTimers(() => {
       fireEvent.click(within(container).getByRole('button', {
         name: action === 'Save' ? 'Save current environment as a snippet' : 'Edit',
@@ -259,7 +253,7 @@ it.each(['Update', 'name Enter', 'Save'] as const)(
     fireEvent.input(descriptionField, { target: { value: 'Draft description' } });
     const environment = fields.getByRole<HTMLTextAreaElement>('textbox', { name: 'Environment variables' });
     expect(environment.value).toBe(envVars);
-    const draftEnvironment = `${envVars}\nANTHROPIC_BASE_URL=https://example.invalid`;
+    const draftEnvironment = `${envVars}\nOPENAI_BASE_URL=https://example.invalid`;
     fireEvent.input(environment, { target: { value: draftEnvironment } });
     fireEvent.blur(environment);
     const submit = (): boolean => {
@@ -277,7 +271,7 @@ it.each(['Update', 'name Enter', 'Save'] as const)(
     fireEvent.click(fields.getByRole('button', { name: action === 'Save' ? 'Save' : 'Update' }));
     const savedSnippet = {
       id: expect.stringMatching(action === 'Save' ? /^snippet-/ : /^snippet$/),
-      name: 'Renamed snippet name', description: 'Draft description', scope: 'provider:claude',
+      name: 'Renamed snippet name', description: 'Draft description', scope: 'provider:codex',
       envVars: draftEnvironment, ...(action === 'Save' ? {} : storedOverrides),
     };
     const expectedSnippets = action === 'Save'
@@ -310,19 +304,19 @@ it.each(['Save', 'Update'] as const)('retains every %s draft after persistence f
     beforePersist: draft => persist(draft),
     overrides: {
       notifyProviderChatOptionsChanged: vi.fn(),
-      getEnvironmentVariablesForScope: () => 'ANTHROPIC_MODEL=custom',
+      getEnvironmentVariablesForScope: () => 'OPENAI_MODEL=custom',
     },
   });
   settings.envSnippets = action === 'Save' ? [] : [{
-    id: 'snippet', name: 'Existing snippet name', description: '', scope: 'provider:claude',
-    envVars: 'ANTHROPIC_MODEL=custom',
+    id: 'snippet', name: 'Existing snippet name', description: '', scope: 'provider:codex',
+    envVars: 'OPENAI_MODEL=custom',
   }];
   const originalSnippets = structuredClone(settings.envSnippets);
   const persist = vi.fn<(...args: [typeof settings]) => Promise<void>>()
     .mockRejectedValueOnce(new Error('storage unavailable')).mockResolvedValue(undefined);
 
   const container = document.body.createEl('main');
-  new EnvSnippetManager(container, host, 'provider:claude');
+  new EnvSnippetManager(container, host, 'provider:codex');
   const joinFocusTimers = captureModalFocusTimers(() => {
     fireEvent.click(within(container).getByRole('button', {
       name: action === 'Save' ? 'Save current environment as a snippet' : 'Edit',
@@ -335,7 +329,7 @@ it.each(['Save', 'Update'] as const)('retains every %s draft after persistence f
   const field = (name: string) => fields.getByRole<HTMLInputElement>('textbox', { name });
   const name = 'Work endpoint';
   const description = 'Keep these settings';
-  const envVars = 'ANTHROPIC_MODEL=custom\nANTHROPIC_BASE_URL=https://example.invalid';
+  const envVars = 'OPENAI_MODEL=custom\nOPENAI_BASE_URL=https://example.invalid';
   fireEvent.input(field('Name'), { target: { value: name } });
   fireEvent.input(field('Description'), { target: { value: description } });
   fireEvent.input(field('Environment variables'), { target: { value: envVars } });
@@ -372,17 +366,17 @@ it.each(['Save', 'Update'] as const)('does not offer another %s after persistenc
   const { host, settings } = await createProviderHostFixture({
     beforePersist: draft => persist(draft),
     afterPublish: () => publish(),
-    overrides: { getEnvironmentVariablesForScope: () => 'ANTHROPIC_MODEL=custom' }
+    overrides: { getEnvironmentVariablesForScope: () => 'OPENAI_MODEL=custom' }
   });
   settings.envSnippets = action === 'Save' ? [] : [{
-    id: 'snippet', name: 'Existing snippet name', description: '', scope: 'provider:claude',
-    envVars: 'ANTHROPIC_MODEL=custom',
+    id: 'snippet', name: 'Existing snippet name', description: '', scope: 'provider:codex',
+    envVars: 'OPENAI_MODEL=custom',
   }];
   const persist = vi.fn<(...args: [typeof settings]) => Promise<void>>().mockResolvedValue(undefined);
   const publish = vi.fn(() => { throw new Error('view refresh failed'); });
 
   const container = document.body.createEl('main');
-  new EnvSnippetManager(container, host, 'provider:claude');
+  new EnvSnippetManager(container, host, 'provider:codex');
   await captureModalFocusTimers(() => {
     fireEvent.click(within(container).getByRole('button', {
       name: action === 'Save' ? 'Save current environment as a snippet' : 'Edit',
@@ -408,14 +402,14 @@ it('saves a snippet through the coordinator and renders it when persistence succ
     beforePersist: draft => persist(draft),
     overrides: {
       notifyProviderChatOptionsChanged: vi.fn(),
-      getEnvironmentVariablesForScope: () => 'ANTHROPIC_MODEL=custom',
+      getEnvironmentVariablesForScope: () => 'OPENAI_MODEL=custom',
     },
   });
   settings.envSnippets = [];
   const persist = vi.fn<(...args: [typeof settings]) => Promise<void>>().mockResolvedValue(undefined);
 
   const container = document.body.createEl('main');
-  new EnvSnippetManager(container, host, 'provider:claude');
+  new EnvSnippetManager(container, host, 'provider:codex');
 
   const joinFocusTimers = captureModalFocusTimers(() => {
     fireEvent.click(within(container).getByRole('button', { name: 'Save current environment as a snippet' }));
@@ -432,8 +426,8 @@ it('saves a snippet through the coordinator and renders it when persistence succ
   expect(persistedSettings.envSnippets).toEqual([
     expect.objectContaining({
       name: 'New snippet name',
-      envVars: 'ANTHROPIC_MODEL=custom',
-      scope: 'provider:claude',
+      envVars: 'OPENAI_MODEL=custom',
+      scope: 'provider:codex',
     }),
   ]);
   expect(persistedSettings.envSnippets[0].id).toMatch(/^snippet-/);

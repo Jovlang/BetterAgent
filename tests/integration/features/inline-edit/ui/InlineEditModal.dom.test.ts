@@ -4,7 +4,6 @@ import {
   createInlineEditHarness as createHarness,
   disposeInlineEditHarnesses,
   instructionInput as input,
-  registerFakeInlineEditProvider,
   showReplacementPreview,
   submitInstruction,
   typeInstruction,
@@ -13,14 +12,12 @@ import { testDate } from '@test/helpers/testClock';
 import { fireEvent, screen, waitFor, within } from '@testing-library/dom';
 import { Component, type Editor, MarkdownRenderer, Notice, TFile, TFolder, WorkspaceLeaf } from 'obsidian';
 
-import { ProviderWorkspaceRegistry } from '@/core/providers/ProviderWorkspaceRegistry';
 import { InlineEditSession } from '@/features/inline-edit/ui/InlineEditModal';
 
 afterEach(async () => {
   await disposeInlineEditHarnesses();
   vi.mocked(MarkdownRenderer.render).mockReset();
   vi.clearAllMocks();
-  // Held provider starts must not outlive their test.
   vi.restoreAllMocks();
 });
 
@@ -43,193 +40,17 @@ describe('editor resolution', () => {
   });
 });
 
-describe('provider and model resolution', () => {
-  it.each([
-    {
-      name: 'uses the enabled settings provider when nothing is selected',
-      selection: null,
-      settings: { settingsProvider: 'claude', providerConfigs: { claude: { enabled: false } } },
-      expectedModel: 'sonnet',
-      expectedChip: 'Model: Sonnet, effort High',
-    },
-    {
-      name: 'falls back to the settings provider without the model of a disabled selection',
-      selection: { providerId: 'claude', model: 'sonnet' },
-      settings: { settingsProvider: 'codex', providerConfigs: { claude: { enabled: false } } },
-      expectedModel: 'sonnet',
-      expectedChip: 'Model: Sonnet, effort High',
-    },
-    {
-      name: 'uses the selected provider and model',
-      selection: { providerId: 'codex', model: 'opus' },
-      settings: { settingsProvider: 'claude' },
-      expectedModel: 'opus',
-      expectedChip: 'Model: Opus, effort High',
-    },
-  ])('$name', async ({ selection, settings, expectedModel, expectedChip }) => {
-    const h = await createHarness();
-    const codex = registerFakeInlineEditProvider('codex');
-    Object.assign(h.plugin.settings, settings);
-    h.plugin.getActiveModelSelection = () => selection;
-    const result = h.createModal().openAndWait();
-    await screen.findByRole('textbox', { name: 'Edit instructions' });
-    // Without a saved model the provider's default is resolved once, shown on the chip and sent.
-    expect(screen.getByRole('button', { name: expectedChip })).toBeDefined();
-    submitInstruction();
-    await waitFor(() => expect(codex.sessions[0]?.requests).toHaveLength(1));
-    expect(h.backend.sessions).toHaveLength(0);
-    expect(codex.sessions[0].requests[0].configuration.model).toBe(expectedModel);
-    fireEvent.keyDown(h.editorView.contentDOM, { key: 'Escape' });
-    await expect(result).resolves.toEqual({ decision: 'reject' });
-  });
-});
-
-/**
- * Holds a provider's start until the test settles it. Like the provider registry, callers share the
- * start in flight, and a call after a failed start begins a new one.
- */
-function holdProviderStart(heldProviderId: string) {
-  let pending: { promise: Promise<void>; resolve: () => void; reject: (error: Error) => void } | null = null;
-  const ensureInitialized = ProviderWorkspaceRegistry.ensureInitialized.bind(ProviderWorkspaceRegistry);
-  vi.spyOn(ProviderWorkspaceRegistry, 'ensureInitialized').mockImplementation((host, providerId, reason) => {
-    if (providerId !== heldProviderId) return ensureInitialized(host, providerId, reason);
-    if (!pending) {
-      let resolve = (): void => {};
-      let reject = (_error: Error): void => {};
-      const promise = new Promise<void>((onResolve, onReject) => { resolve = onResolve; reject = onReject; });
-      pending = { promise, resolve, reject };
-    }
-    return pending.promise;
-  });
-  return {
-    finish: () => pending?.resolve(),
-    fail: (error: Error) => {
-      const failed = pending;
-      pending = null;
-      failed?.reject(error);
-    },
-  };
-}
-
-it('switches provider from the model picker until the first request, then keeps it', async () => {
+it('shows and sends the active Codex model when no inline default is saved', async () => {
   const h = await createHarness();
-  const saves: Array<() => Promise<void>> = [];
-  const mutateSettings = h.plugin.mutateSettings;
-  h.plugin.mutateSettings = (mutation) => {
-    let release!: () => void;
-    const held = new Promise<void>(resolve => { release = resolve; });
-    const saving = held.then(() => mutateSettings(mutation));
-    saves.push(() => { release(); return saving; });
-    return saving;
-  };
-  // GPT's Max effort is known only once the provider has fetched the picked model's metadata.
-  let gptMetadataReady = false;
-  const codex = registerFakeInlineEditProvider('codex', [{ value: 'gpt', label: 'GPT' }], {
-    getReasoningOptions: () => [
-      { value: 'low', label: 'Low' },
-      { value: 'high', label: 'High' },
-      ...(gptMetadataReady ? [{ value: 'max', label: 'Max' }] : []),
-    ],
-    prepareModelMetadata: async (model) => { gptMetadataReady ||= model === 'gpt'; },
-  });
+  h.plugin.getActiveModelSelection = () => ({ providerId: 'codex', model: 'opus' });
   const result = h.createModal().openAndWait();
   await screen.findByRole('textbox', { name: 'Edit instructions' });
-  typeInstruction('Make it formal');
-  const codexStart = holdProviderStart('codex');
-
-  try {
-    fireEvent.click(screen.getByRole('button', { name: 'Model: Sonnet, effort High' }));
-    const providers = within(screen.getByRole('dialog', { name: 'Model options' })).getAllByRole('tab');
-    expect(providers.map(tab => tab.getAttribute('aria-label'))).toEqual(['claude', 'codex']);
-    fireEvent.click(within(screen.getByRole('tablist', { name: 'Provider' })).getByRole('tab', { name: 'codex' }));
-    fireEvent.click(screen.getByRole('option', { name: 'GPT' }));
-    // The chip shows the pick while its provider starts, and an effort chosen meanwhile is kept.
-    await screen.findByRole('button', { name: 'Model: GPT, effort High' });
-    fireEvent.click(within(screen.getByRole('listbox', { name: 'Thinking' })).getByRole('option', { name: 'Low' }));
-    await screen.findByRole('button', { name: 'Model: GPT, effort Low' });
-    // Enter while the provider starts sends nothing until the edit runs on it.
-    fireEvent.keyDown(input(), { key: 'Enter' });
-    // Request admission is independent of remembering the low selection.
-    await saves[0]();
-    expect(h.plugin.settings.inlineEditModel).toEqual({ providerId: 'codex', model: 'gpt', reasoning: 'high' });
-    expect([h.backend.sessions, codex.sessions]).toEqual([[], []]);
-    codexStart.finish();
-
-    await waitFor(() => expect(codex.sessions[0]?.requests).toHaveLength(1));
-    expect(h.backend.sessions).toHaveLength(0);
-    expect(codex.sessions[0].requests[0].configuration).toMatchObject({ model: 'gpt', reasoning: 'low' });
-    // The instruction typed before the switch survives the composer's rebuild.
-    expect(codex.sessions[0].requests[0].input[0]).toMatchObject({ text: expect.stringContaining('Make it formal') });
-    // Sending the local low pick does not wait for its default to become durable.
-    expect(h.plugin.settings.inlineEditModel).toEqual({ providerId: 'codex', model: 'gpt', reasoning: 'high' });
-    await saves[1]();
-    await waitFor(() => expect(h.plugin.settings.inlineEditModel).toEqual({ providerId: 'codex', model: 'gpt', reasoning: 'low' }));
-
-    // A clarification continues the conversation on its provider, so the picker offers only its models.
-    codex.sessions[0].emitText('Which tone?');
-    codex.sessions[0].complete();
-    await waitFor(() => expect(input().placeholder).toBe('Reply to continue...'));
-    fireEvent.click(screen.getByRole('button', { name: 'Model: GPT, effort Low' }));
-    const menu = screen.getByRole('dialog', { name: 'Model options' });
-    expect(within(menu).getAllByRole('option').map(option => option.textContent)).toContain('GPT');
-    expect(within(menu).queryAllByRole('tab')).toEqual([]);
-    expect(within(within(menu).getByRole('listbox', { name: 'Thinking' })).getByRole('option', { name: 'Max' })).toBeDefined();
-    fireEvent.keyDown(h.editorView.contentDOM, { key: 'Escape' });
-    fireEvent.keyDown(h.editorView.contentDOM, { key: 'Escape' });
-    await expect(result).resolves.toEqual({ decision: 'reject' });
-  } finally {
-    codexStart.finish();
-    await Promise.all(saves.map(save => save()));
-  }
-});
-
-describe('a submit waiting for a picked provider to start', () => {
-  /** Opens an edit with codex registered, whose start is held until the returned controls settle it. */
-  async function openWithHeldCodexStart() {
-    const h = await createHarness();
-    const codex = registerFakeInlineEditProvider('codex', [{ value: 'gpt', label: 'GPT' }]);
-    const result = h.createModal().openAndWait();
-    await screen.findByRole('textbox', { name: 'Edit instructions' });
-    const start = holdProviderStart('codex');
-    fireEvent.click(screen.getByRole('button', { name: 'Model: Sonnet, effort High' }));
-    fireEvent.click(within(screen.getByRole('tablist', { name: 'Provider' })).getByRole('tab', { name: 'codex' }));
-    fireEvent.click(screen.getByRole('option', { name: 'GPT' }));
-    return { h, codex, result, start };
-  }
-
-  it('sends nothing when the picked provider fails to start, and retries it on the next submit', async () => {
-    const { h, codex, result, start } = await openWithHeldCodexStart();
-    submitInstruction('Make it formal');
-    start.fail(new Error('no CLI'));
-    await waitFor(() => expect(Notice).toHaveBeenCalledWith('Failed to start the codex provider.'));
-    await waitFor(() => expect(input().disabled).toBe(false));
-    expect([h.backend.sessions, codex.sessions]).toEqual([[], []]);
-    expect(input().value).toBe('Make it formal');
-
-    // The chip keeps the pick, so the retry starts its provider again and runs there.
-    expect(screen.getByRole('button', { name: 'Model: GPT, effort High' })).toBeDefined();
-    fireEvent.keyDown(input(), { key: 'Enter' });
-    start.finish();
-    await waitFor(() => expect(codex.sessions[0]?.requests).toHaveLength(1));
-    expect(codex.sessions[0].requests[0].configuration).toMatchObject({ model: 'gpt' });
-    expect(h.backend.sessions).toHaveLength(0);
-    fireEvent.keyDown(h.editorView.contentDOM, { key: 'Escape' });
-    await expect(result).resolves.toEqual({ decision: 'reject' });
-  });
-
-  it('sends at once on the current provider when a later pick returns to it', async () => {
-    const { h, codex, result } = await openWithHeldCodexStart();
-    fireEvent.click(within(screen.getByRole('tablist', { name: 'Provider' })).getByRole('tab', { name: 'claude' }));
-    fireEvent.click(screen.getByRole('option', { name: 'Opus' }));
-    await screen.findByRole('button', { name: 'Model: Opus, effort High' });
-    submitInstruction();
-    // The codex start never settles; the edit no longer waits for it.
-    await waitFor(() => expect(h.backend.sessions[0]?.requests).toHaveLength(1));
-    expect(h.backend.sessions[0].requests[0].configuration).toMatchObject({ model: 'opus' });
-    expect(codex.sessions).toHaveLength(0);
-    fireEvent.keyDown(h.editorView.contentDOM, { key: 'Escape' });
-    await expect(result).resolves.toEqual({ decision: 'reject' });
-  });
+  expect(screen.getByRole('button', { name: 'Model: Opus, effort High' })).toBeDefined();
+  submitInstruction();
+  await waitFor(() => expect(h.backend.sessions[0]?.requests).toHaveLength(1));
+  expect(h.backend.sessions[0].requests[0].configuration.model).toBe('opus');
+  fireEvent.keyDown(h.editorView.contentDOM, { key: 'Escape' });
+  await expect(result).resolves.toEqual({ decision: 'reject' });
 });
 
 it('shows a model or effort pick on the chip without waiting for it to save as the default', async () => {
@@ -247,27 +68,7 @@ it('shows a model or effort pick on the chip without waiting for it to save as t
   await screen.findByRole('button', { name: 'Model: Opus, effort Low' });
   expect(h.plugin.settings.inlineEditModel).toBeNull();
   for (const save of saves) save();
-  await waitFor(() => expect(h.plugin.settings.inlineEditModel).toEqual({ providerId: 'claude', model: 'opus', reasoning: 'low' }));
-});
-
-it('keeps the provider when a picked model is not uniquely owned by one enabled provider', async () => {
-  const h = await createHarness();
-  const codex = registerFakeInlineEditProvider('codex', [{ value: 'opus', label: 'Opus' }]);
-  const result = h.createModal().openAndWait();
-  await screen.findByRole('textbox', { name: 'Edit instructions' });
-  fireEvent.click(screen.getByRole('button', { name: 'Model: Sonnet, effort High' }));
-  fireEvent.click(within(screen.getByRole('tablist', { name: 'Provider' })).getByRole('tab', { name: 'codex' }));
-  fireEvent.click(screen.getByRole('option', { name: 'Opus' }));
-  // Like a new chat, a model both providers own resolves to neither.
-  await waitFor(() => expect(Notice).toHaveBeenCalledWith('Select an available model in BetterAgent settings.'));
-  expect(screen.getByRole('button', { name: 'Model: Sonnet, effort High' })).toBeDefined();
-  expect(h.plugin.settings.inlineEditModel).toBeNull();
-  submitInstruction();
-  await waitFor(() => expect(h.backend.sessions[0]?.requests).toHaveLength(1));
-  expect(codex.sessions).toHaveLength(0);
-  expect(h.backend.sessions[0].requests[0].configuration).toMatchObject({ model: 'sonnet' });
-  fireEvent.keyDown(h.editorView.contentDOM, { key: 'Escape' });
-  await expect(result).resolves.toEqual({ decision: 'reject' });
+  await waitFor(() => expect(h.plugin.settings.inlineEditModel).toEqual({ providerId: 'codex', model: 'opus', reasoning: 'low' }));
 });
 
 it('refreshes file and folder suggestions when the same inline session reopens its popup', async () => {
@@ -582,7 +383,7 @@ it.each([false, true].flatMap(alreadyOpen => [
     code.textContent = `[[${target}|${label}]]`;
   });
   const session = new InlineEditSession(h.app, h.plugin, h.component, h.editorView, h.editor,
-    { mode: 'selection', selectedText: 'hello' }, sourcePath, h.settled, { providerId: 'claude' });
+    { mode: 'selection', selectedText: 'hello' }, sourcePath, h.settled, { providerId: 'codex' });
   try {
     session.show();
     submitInstruction();

@@ -2,9 +2,6 @@
 import '@/providers';
 
 import { axe } from '@test/helpers/accessibility';
-import { createHarness as createExecutionHarness } from '@test/helpers/ChatExecutionHarness';
-import { createConversationPorts } from '@test/helpers/ConversationPorts';
-import { triggerResize } from '@test/helpers/dom/ResizeObserver';
 import { createChatFeatureHost } from '@test/helpers/features/chat/ChatFeatureHostFixture';
 import { testDate } from '@test/helpers/testClock';
 import { fireEvent, within } from '@testing-library/dom';
@@ -12,12 +9,8 @@ import { Component, MarkdownRenderer } from 'obsidian';
 
 import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
 import type { ChatMessage } from '@/core/types';
-import { ConversationController } from '@/features/chat/conversation/ConversationController';
-import { LinkedContentController } from '@/features/chat/linked-content';
 import { NavigationSidebar } from '@/features/chat/navigation/NavigationSidebar';
 import { MessageRenderer } from '@/features/chat/rendering/MessageRenderer';
-import { SubagentManager } from '@/features/chat/rendering/subagents/SubagentManager';
-import { ChatState } from '@/features/chat/state/ChatState';
 
 const start = testDate().getTime();
 
@@ -57,7 +50,7 @@ async function setup(providerId?: string, navigate: (id: string, target?: string
   });
   const renderer = new MessageRenderer(
     await createChatFeatureHost({ settings: { mediaFolder: '' } }), new Component(), messagesEl, undefined, undefined,
-    providerId ? () => ProviderRegistry.getCapabilities(providerId) : undefined,
+    providerId ? () => ({ ...ProviderRegistry.getCapabilities(providerId), supportsConversationBranches: true }) : undefined,
     { navigate, isBusy: () => false },
   );
   return { renderer, messagesEl };
@@ -158,66 +151,6 @@ it('lists every prompt without rendering earlier bodies and reveals only through
     sidebar.destroy();
     renderer.dispose();
   }
-});
-
-it('offers branching from the first rendered prompt while earlier prompts are unrendered, never from the transcript start', async () => {
-  const { renderer, messagesEl } = (await setup('pi'));
-  const messages = Array.from({ length: 30 }, (_, index) => turn(index)).flat()
-    .map(message => message.role === 'user' ? { ...message, userMessageId: `native-${message.id}`, treeBranches: [`native-${message.id}`] } : message);
-  const branchFrom = (id: string) => within(messagesEl.querySelector<HTMLElement>(`[data-message-id="${id}"]`)!)
-    .queryByRole('button', { name: 'Branch from this prompt' });
-  renderer.renderMessages(messages, () => 'Hello');
-  expect(renderedPrompts(messagesEl)[0]).toBe('Prompt 10');
-  expect(branchFrom('u10')).not.toBeNull();
-
-  fireEvent.click(within(messagesEl).getByRole('button', { name: 'Show earlier messages' }));
-  expect(branchFrom('u0')).toBeNull();
-  expect(branchFrom('u1')).not.toBeNull();
-  expect(branchFrom('u10')).not.toBeNull();
-});
-
-it('returns to the reading position after cancelling a branch preview of a revealed prompt', async () => {
-  const state = new ChatState();
-  const inputEl = document.body.createEl('textarea');
-  const history = Array.from({ length: 30 }, (_, index) => turn(index)).flat()
-    .map(message => message.role === 'user' ? { ...message, userMessageId: `native-${message.id}`, treeBranches: [`native-${message.id}`] } : message);
-  const plugin = await createChatFeatureHost({ settings: { mediaFolder: '' }, updateConversation: vi.fn(),
-    getConversationById: vi.fn().mockResolvedValue({ id: 'pi-chat', messages: history }),
-    getConversationSummary: vi.fn().mockReturnValue(null) });
-  const { renderer, messagesEl } = (await setup('pi', (id, target) => controller.navigateBranch(id, target)));
-  const { coordinator, registry } = createExecutionHarness();
-  vi.spyOn(coordinator, 'supportsConversationBranches', 'get').mockReturnValue(true);
-  onTestFinished(async () => { await coordinator.dispose(); await registry.dispose(); });
-  let welcomeEl: HTMLElement | null = null;
-  const controller: ConversationController = new ConversationController({ plugin, state, renderer,
-    ...createConversationPorts({ state, getInputEl: () => inputEl, getImageContextManager: () => null }),
-    subagentManager: new SubagentManager(() => undefined),
-    getMessagesEl: () => messagesEl,
-    getWelcomeEl: () => welcomeEl, setWelcomeEl: (el: HTMLElement | null) => { welcomeEl = el; },
-    getLinkedContentController: () => new LinkedContentController({ app: plugin.app, getExcludedTags: () => [], getCachedVaultFiles: () => [], getCachedVaultFolders: () => [] }),
-    getExecutionCoordinator: () => coordinator,
-  });
-  state.currentConversationId = 'pi-chat';
-  await controller.loadActive();
-  fireEvent.click(within(messagesEl).getByRole('button', { name: 'Show earlier messages' }));
-  const prompt = messagesEl.querySelector<HTMLElement>('[data-message-id="u5"]')!;
-  // The reader sees the lower 70px of the prompt at the top of the viewport.
-  messagesEl.scrollTop = Array.from(messagesEl.children).indexOf(prompt) * 100 + 30;
-
-  fireEvent.click(within(prompt).getByRole('button', { name: 'Branch from this prompt' }));
-  await new Promise(resolve => setTimeout(resolve, 0));
-  expect(inputEl.value).toBe('Prompt 5');
-  // A reply arriving during the preview lands below the reading position.
-  state.messages = [...state.messages, ...turn(30)];
-  controller.cancelBranchDraft();
-
-  expect(messagesEl.querySelector('[data-message-id="u30"]')).not.toBeNull();
-  expect(messagesEl.querySelector<HTMLElement>('[data-message-id="u5"]')!.getBoundingClientRect().top).toBe(-30);
-  // The rerendered transcript's next layout pass must not take the reader back to its end.
-  const entry = { contentRect: new DOMRectReadOnly(0, 0, 800, 100), contentBoxSize: [], borderBoxSize: [], devicePixelContentBoxSize: [] };
-  for (const el of [messagesEl, ...Array.from(messagesEl.children)]) triggerResize(el, entry);
-  expect(messagesEl.querySelector<HTMLElement>('[data-message-id="u5"]')!.getBoundingClientRect().top).toBe(-30);
-  renderer.dispose();
 });
 
 it('renders an insertion beside an unrendered earlier message in transcript order', async () => {

@@ -385,17 +385,18 @@ export function deferred<T>(): {
 export async function beginExecution(
   harness: ReturnType<typeof createHarness>,
   submission = createSubmission(),
+  providerId: ProviderId = "claude",
 ) {
   await harness.coordinator.bindConversation({
     conversationId: 'conversation-1',
-    providerId: 'claude',
+    providerId,
     resumeSeed: {
       providerSessionId: 'native-session',
       providerState: { leafId: 'leaf-1' },
     },
   });
   await harness.coordinator.prepare();
-  const session = harness.backends.get('claude')!.sessions.at(-1)!;
+  const session = harness.backends.get(providerId)!.sessions.at(-1)!;
   const started = session.waitForRun(session.runs.length);
   const resultPromise = harness.coordinator.execute(submission);
   const run = await started;

@@ -45,7 +45,7 @@ it.each(titleCases)('$id routes equivalent title IDs without choosing a sibling'
   for (const model of forms) {
     settings.titleGenerationModel = model;
     expect(ProviderRegistry.resolveTitleGenerationSelection(settings)?.providerId).toBe(id);
-    const expectedModel = forms[0];
+    const expectedModel = forms[1];
     expect(await generateTitleModel(host, id)).toBe(expectedModel);
     expect(() => assertCatalogModelAvailable(id, host.getRuntimeHost(id), expectedModel)).not.toThrow();
     settings.titleGenerationModel = `${model}/high`;

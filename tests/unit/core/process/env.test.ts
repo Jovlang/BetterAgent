@@ -212,7 +212,7 @@ describe('getEnhancedPath', () => {
   });
 
   describe('extra binary paths', () => {
-    it('includes the default OpenCode install bin path from HOME', () => {
+    it('does not add the retired OpenCode install directory', () => {
       process.env.HOME = '/mock/home';
       const result = getEnhancedPath();
       const segments = result.split(SEP);

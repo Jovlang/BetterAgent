@@ -556,37 +556,7 @@ describe('permission button', () => {
     expect(ui.getByRole('button', { name: 'Permission mode: YOLO' })).toBe(button);
   });
 
-  it('lists every Claude permission mode with its description and alerts only on YOLO', async () => {
-    const { callbacks, ui } = renderToolbar({
-      settings: { permissionMode: 'auto' },
-      permissionModes: codexChatUIConfig.getPermissionModeOptions?.() ?? undefined,
-    });
-    const button = ui.getByRole('button', { name: 'Permission mode: Auto' });
-    expect(button.classList.contains('claudian-toolbar-chip--alert')).toBe(false);
-    fireEvent.click(button);
-    const items = within(ui.getByRole('menu', { name: 'Permission mode' })).getAllByRole('menuitemradio');
-    expect(items.map(item => [item.textContent, item.getAttribute('aria-checked')])).toEqual([
-      ['AutoClaude handles permission decisions', 'true'],
-      ['ManualAlways ask before making changes', 'false'],
-      ['Accept editsAutomatically accept all file edits', 'false'],
-      ['YOLOAccept all permissions without asking', 'false'],
-    ]);
-    fireEvent.click(button);
-
-    for (const [name, value, alert] of [
-      ['Manual', 'manual', false], ['Accept edits', 'acceptEdits', false], ['YOLO', 'yolo', true],
-    ] as const) {
-      fireEvent.click(button);
-      fireEvent.click(ui.getByRole('menuitemradio', { name: new RegExp(`^${name}`) }));
-      await flush();
-      expect(callbacks.onPermissionModeChange).toHaveBeenLastCalledWith(value);
-      expect(ui.getByRole('button', { name: `Permission mode: ${name}` })).toBe(button);
-      expect(button.classList.contains('claudian-toolbar-chip--alert')).toBe(alert);
-    }
-  });
-
   it.each([
-    ['Claude', codexChatUIConfig, 'auto'],
     ['Codex', codexChatUIConfig, 'auto-review'],
   ] as const)('names the %s permission modes in English under another locale', (_provider, config, mode) => {
     const english = config.getPermissionModeOptions!({})!;
@@ -608,10 +578,10 @@ describe('permission button', () => {
 
   it('shows no mode rather than guessing one when the setting matches no option', () => {
     const { settings, toolbar, ui } = renderToolbar({
-      settings: { permissionMode: 'manual' },
+      settings: { permissionMode: 'normal' },
       permissionModes: codexChatUIConfig.getPermissionModeOptions?.() ?? undefined,
     });
-    expect(ui.getByRole('button', { name: 'Permission mode: Manual' })).toBeDefined();
+    expect(ui.getByRole('button', { name: 'Permission mode: Ask for approval' })).toBeDefined();
     settings.permissionMode = 'retired-mode';
     toolbar.permissionToggle.updateDisplay();
     expect(ui.queryByRole('button', { name: /^Permission mode/ })).toBeNull();

@@ -97,7 +97,7 @@ export function registerFakeInlineEditProvider(
 export async function createInlineEditHarness() {
   const owner = new InlineEditSessionOwner();
   ProviderWorkspaceRegistry.clear();
-  const backend = registerFakeInlineEditProvider('claude');
+  const backend = registerFakeInlineEditProvider('codex');
   const app = new App();
   const fixture = await createFeatureHostFixture({
     app, settings: { model: 'sonnet', effortLevel: 'high', inlineEditModel: null, providerConfigs: {} },
@@ -121,7 +121,7 @@ export async function createInlineEditHarness() {
   const settled = vi.fn();
   const notePath = 'note.md';
   const createSession = () => new InlineEditSession(
-    app, plugin, component, editorView, editor, context, notePath, settled, { providerId: 'claude' },
+    app, plugin, component, editorView, editor, context, notePath, settled, { providerId: 'codex' },
   );
   /** Mirrors Obsidian's editorCallback: a callback editor plus the view that owns the current editor. */
   const createModal = (callbackEditor: Editor = editor, viewEditor: Editor = editor) => {

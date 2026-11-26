@@ -1,13 +1,12 @@
 import '@/providers';
 
 // @vitest-environment jsdom
-import { FakeBranchSession } from '@test/helpers/ChatExecutionHarness';
 import { createFixture, deferred, waitForCall } from '@test/helpers/ChatInputHarness';
 import { conversationRecord } from '@test/helpers/features/chat/ConversationFixture';
 import { testDate } from '@test/helpers/testClock';
 import { Notice } from 'obsidian';
 
-import type { ConversationBranchResult, ProviderExecutionErrorEvent, ProviderExecutionEvent } from '@/core/execution';
+import type { ProviderExecutionErrorEvent, ProviderExecutionEvent } from '@/core/execution';
 import { buildSystemPrompt } from '@/core/prompt/mainAgent';
 import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
 import type { ChatMessage, Conversation } from '@/core/types';
@@ -19,7 +18,6 @@ beforeEach(() => {
   vi.spyOn(ProviderRegistry, 'getCapabilities').mockReturnValue({ ...nativeCapabilities, supportsTurnSteer: true });
 });
 afterEach(() => vi.restoreAllMocks());
-
 
 describe('MainTurnExecution', () => {
   beforeEach(() => {
@@ -56,8 +54,8 @@ describe('MainTurnExecution', () => {
       run.emit({ type: 'turn_started', accepted: true });
       const text = request.input.filter(part => part.type === 'text').map(part => part.text).join('');
       if (text === 'first') {
-        run.emit({ type: 'tool_started', toolCallId: 'agent-1', toolScope: { kind: 'main' }, name: 'Agent',
-          input: { run_in_background: false, prompt: 'Inspect', subagent_type: 'Explore' } });
+        run.emit({ type: 'tool_started', toolCallId: 'agent-1', toolScope: { kind: 'main' }, name: 'Read',
+          input: { file_path: 'README.md' } });
         run.emit({ type: 'tool_completed', toolCallId: 'agent-1', toolScope: { kind: 'main' }, content: 'Done' });
       } else {
         run.emit({ type: 'usage_updated', usage });
@@ -74,7 +72,7 @@ describe('MainTurnExecution', () => {
       { role: 'user', content: 'first' }, { role: 'assistant', content: 'reply:first' },
     ]);
 
-    expect(fixture.state.messages[1].contentBlocks).toEqual(expect.arrayContaining([expect.objectContaining({ type: 'subagent' })]));
+    expect(fixture.state.messages[1].contentBlocks).toEqual(expect.arrayContaining([{ type: 'tool_use', toolId: 'agent-1' }]));
     await fixture.controller.sendMessage({ content: 'second' });
     expect(fixture.state.usage).toMatchObject(usage);
 
@@ -633,59 +631,3 @@ it.each(['before', 'after'] as const)(
     expect(fixture.state.messages.at(-1)?.isInterrupt).not.toBe(true);
   },
 );
-
-it('cancels a turn while it commits a branch draft before provider handoff', async () => {
-  const native = new FakeBranchSession('codex', 'branch-session');
-  const fixture = await createFixture({ nativeSession: native });
-  const commit = deferred<ConversationBranchResult>();
-  const entered = deferred<void>();
-  native.navigateConversationBranch.mockImplementationOnce(() => { entered.resolve(); return commit.promise; });
-  const conversation = fixture.deps.conversationController;
-  fixture.state.messages = [
-    { id: 'first', role: 'user', content: 'First', timestamp: testDate().getTime(), userMessageId: 'native-first' },
-    { id: 'edit', role: 'user', content: 'Original', timestamp: testDate().getTime(), userMessageId: 'native-edit' },
-  ];
-  await conversation.navigateBranch('edit');
-  fixture.input.value = 'branch prompt';
-  const sending = fixture.controller.sendMessage();
-  await entered.promise;
-  expect(fixture.state.isStreaming).toBe(true);
-
-  fixture.controller.cancelStreaming();
-  expect(native.navigateConversationBranch.mock.calls[0][0].signal?.aborted).toBe(true);
-  commit.resolve({ status: 'committed', messages: [] });
-  await sending;
-
-  expect(fixture.native.requests).toHaveLength(0);
-  expect(fixture.input.value).toBe('branch prompt');
-  expect(fixture.state.isStreaming).toBe(false);
-});
-
-describe('branch draft submission', () => {
-  it.each([false, true])('waits for native branch navigation before sending and preserves cancelled drafts (%s)', async cancelled => {
-    const native = new FakeBranchSession('codex', 'branch-session');
-    const fixture = await createFixture({ nativeSession: native });
-    const first = { id: 'first', role: 'user' as const, content: 'First', timestamp: Date.now(), userMessageId: 'native-first' };
-    const prompt = { id: 'second', role: 'user' as const, content: 'Original', timestamp: Date.now(), userMessageId: 'native-second' };
-    fixture.state.messages = [first, prompt];
-    const navigation = deferred<ConversationBranchResult>();
-    const entered = deferred<void>();
-    native.navigateConversationBranch.mockImplementationOnce(() => { entered.resolve(); return navigation.promise; });
-    // The harness conversation owner is real; turn admission is wired to it at construction.
-    const conversation = fixture.deps.conversationController;
-    await conversation.navigateBranch('second');
-    fixture.input.value = 'Edited';
-    const sending = fixture.controller.sendMessage();
-    await entered.promise;
-    expect(fixture.native.requests).toHaveLength(0);
-    conversation.cancelBranchDraft(); // Focus changes during admitted submission must not undo it.
-    expect(fixture.input.value).toBe('');
-    navigation.resolve(cancelled ? { status: 'cancelled' } : { status: 'committed', messages: [first] });
-    await sending;
-    expect(fixture.native.requests.map(request => request.input)).toEqual(cancelled ? [] : [[{ type: 'text', text: 'Edited' }]]);
-    expect(fixture.input.value).toBe(cancelled ? 'Edited' : '');
-    expect(fixture.state.messages.some(message => message.id === 'second')).toBe(cancelled);
-    conversation.cancelBranchDraft();
-    expect(fixture.state.messages.some(message => message.content === 'Edited')).toBe(!cancelled);
-  });
-});

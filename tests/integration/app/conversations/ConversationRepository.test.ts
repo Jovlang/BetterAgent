@@ -118,14 +118,14 @@ test('a metadata scan paused during source resolution cannot publish writes afte
 
 test.each(['rename', 'archive', 'model'] as const)('failed %s writes leave the committed projection intact', async operation => {
   const { repository, persistence, conversation } = fixture();
-  conversation.selectedModel = 'opus';
+  conversation.selectedModel = 'gpt-5.4-mini';
   repository.replaceAll([conversation]);
   const before = { ...conversation };
   const mutate = () => operation === 'rename'
     ? repository.rename(conversation.id, 'New title')
     : operation === 'archive'
       ? repository.setArchived(conversation.id, true)
-      : repository.update(conversation.id, { selectedModel: 'sonnet' });
+      : repository.update(conversation.id, { selectedModel: 'gpt-5.5' });
   persistence.saveMetadata.mockRejectedValueOnce(new Error('disk unavailable'));
   await expect(mutate()).rejects.toThrow('disk unavailable');
   expect(repository.getCachedConversation(conversation.id)).toEqual(before);
@@ -193,16 +193,16 @@ test('historical recovery cannot overwrite a model selection whose write is pend
   persistence.saveMetadata.mockImplementationOnce(() => new Promise<void>(resolve => { finishWrite = resolve; }));
   try {
     const recovery = repository.recoverMissingSelectedModels();
-    const update = repository.update(conversation.id, { selectedModel: 'sonnet' });
+    const update = repository.update(conversation.id, { selectedModel: 'gpt-5.5' });
     await waitFor(() => Boolean(finishWrite));
-    finishRecovery('opus');
+    finishRecovery('gpt-5.4-mini');
     // Let the native read finish while the explicit write is still pending.
     await recoveryResult;
     await Promise.resolve();
     finishWrite();
     await Promise.all([recovery, update]);
-    expect(persistence.saveMetadata.mock.calls.map(([metadata]) => metadata.selectedModel)).toEqual(['sonnet']);
-    expect(repository.getSync(conversation.id)?.selectedModel).toBe('sonnet');
+    expect(persistence.saveMetadata.mock.calls.map(([metadata]) => metadata.selectedModel)).toEqual(['gpt-5.5']);
+    expect(repository.getSync(conversation.id)?.selectedModel).toBe('gpt-5.5');
   } finally {
     recoverySpy.mockRestore();
   }
@@ -228,10 +228,6 @@ test('a native history read waits for an already-admitted binding write', async 
   persistence.saveMetadata.mockImplementationOnce(() => new Promise<void>(resolve => { finishWrite = resolve; }));
   const history = ProviderRegistry.getConversationHistoryService('codex');
   const readSessionIds: Array<string | null> = [];
-  const availabilitySpy = vi.spyOn(history, 'getConversationSessionAvailability').mockImplementation(async input => {
-    readSessionIds.push(input.sessionId);
-    return 'available';
-  });
   const hydrateSpy = vi.spyOn(history, 'hydrateConversationHistory').mockImplementation(async input => {
     readSessionIds.push(input.sessionId);
     return {};
@@ -251,7 +247,6 @@ test('a native history read waits for an already-admitted binding write', async 
     expect(readSessionIds).not.toContain('native-shared');
     expect(repository.getCachedConversation(conversation.id)?.sessionId).toBe('replacement');
   } finally {
-    availabilitySpy.mockRestore();
     hydrateSpy.mockRestore();
   }
 });
@@ -280,7 +275,7 @@ test('failed deletion restores a recovered model committed while deletion was pe
   persistence.saveMetadata.mockImplementationOnce(() => new Promise<void>(resolve => { finishWrite = resolve; }));
   persistence.deleteCurrentMetadata.mockRejectedValueOnce(new Error('deletion failed'));
   const history = ProviderRegistry.getConversationHistoryService('codex');
-  const recoverySpy = vi.spyOn(history, 'recoverConversationModelSelection').mockResolvedValue('sonnet');
+  const recoverySpy = vi.spyOn(history, 'recoverConversationModelSelection').mockResolvedValue('gpt-5.5');
   try {
     const recovery = repository.recoverMissingSelectedModels();
     await waitFor(() => Boolean(finishWrite));
@@ -288,8 +283,8 @@ test('failed deletion restores a recovered model committed while deletion was pe
     finishWrite();
     await expect(deletion).rejects.toThrow('deletion failed');
     await recovery;
-    expect(repository.getCachedConversation(conversation.id)?.selectedModel).toBe('sonnet');
-    expect(persistence.saveMetadata.mock.calls.at(-1)?.[0].selectedModel).toBe('sonnet');
+    expect(repository.getCachedConversation(conversation.id)?.selectedModel).toBe('gpt-5.5');
+    expect(persistence.saveMetadata.mock.calls.at(-1)?.[0].selectedModel).toBe('gpt-5.5');
   } finally {
     recoverySpy.mockRestore();
   }

@@ -76,32 +76,6 @@ function deferred<T = void>(): {
   return { promise, resolve, reject };
 }
 
-describe('ConversationRepository provider state', () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it('drops malformed OpenCode-owned state without clobbering opaque fields', async () => {
-    const conversation = createConversation();
-    conversation.providerId = 'opencode';
-    conversation.providerState = {
-      databasePath: { malformed: true },
-      futureResumeCursor: { token: 'opencode-cursor' },
-    };
-    const { repository, persistence } = createRepository(conversation);
-
-    await repository.rename(conversation.id, 'Renamed');
-
-    expect(persistence.saveMetadata).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        providerState: {
-          futureResumeCursor: { token: 'opencode-cursor' },
-        },
-      }),
-    );
-  });
-});
-
 describe('ConversationRepository persistence queue and binding fences', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -210,19 +184,13 @@ describe('ConversationRepository persistence queue and binding fences', () => {
     clone.mockRestore();
 
     expect(historyCopies).toHaveLength(1);
-    const saved = persistence.saveMetadata.mock.calls.at(-1)![0];
-    expect(saved.providerState).toEqual({
-      subagentData: { agent: expect.objectContaining({ status: 'completed', result: 'Done' }) },
-    });
     messages[1].toolCalls![0].subagent!.result = 'Changed after commit';
-    expect(saved.providerState).toMatchObject({ subagentData: { agent: { result: 'Done' } } });
     const committed = repository.getSync(conversation.id)!;
     expect(committed.messages.map(message => message.id)).toEqual(['user', 'assistant']);
     expect(committed.messages[1].toolCalls![0].subagent!.result).toBe('Done');
 
     // A later save replaces committed history without reaching the earlier persisted projection.
     await repository.update(conversation.id, { messages: [committed.messages[0]] });
-    expect(saved.providerState).toMatchObject({ subagentData: { agent: { result: 'Done' } } });
     expect(persistence.saveMetadata.mock.calls.at(-1)![0].providerState).toBeUndefined();
   });
 

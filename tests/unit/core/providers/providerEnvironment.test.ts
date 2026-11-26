@@ -18,7 +18,7 @@ import {
 
 describe('providerEnvironment', () => {
   describe('classifyEnvironmentVariablesByOwnership', () => {
-    it('splits shared, Claude, and Codex vars by ownership', () => {
+    it('assigns Codex keys to Codex and leaves former provider keys for review', () => {
       const result = classifyEnvironmentVariablesByOwnership([
         'PATH=/usr/local/bin',
         'ANTHROPIC_API_KEY=claude-key',
@@ -27,32 +27,32 @@ describe('providerEnvironment', () => {
         'CUSTOM_FLAG=1',
       ].join('\n'));
 
-      expect(result.shared).toBe(['PATH=/usr/local/bin', 'CUSTOM_FLAG=1'].join('\n'));
-      expect(result.providers.claude).toBe('ANTHROPIC_API_KEY=claude-key');
+      expect(result.shared).toBe(['PATH=/usr/local/bin', 'ANTHROPIC_API_KEY=claude-key', 'CUSTOM_FLAG=1'].join('\n'));
+      expect(result.providers.claude).toBeUndefined();
       expect(result.providers.codex).toBe([
         'OPENAI_API_KEY=codex-key',
         'CODEX_SANDBOX=workspace-write',
       ].join('\n'));
-      expect(result.reviewKeys).toEqual(['CUSTOM_FLAG']);
+      expect(result.reviewKeys).toEqual(['ANTHROPIC_API_KEY', 'CUSTOM_FLAG']);
     });
 
     it('keeps comments attached to the next owned variable when migrating', () => {
       const result = classifyEnvironmentVariablesByOwnership([
-        '# first Claude comment',
-        'ANTHROPIC_MODEL=first',
+        '# first Codex comment',
+        'OPENAI_MODEL=first',
         '# shared comment',
         'PATH=/usr/local/bin',
         '',
-        '# claude comment',
-        'ANTHROPIC_DEFAULT_SONNET_MODEL=claude-custom',
-        '# trailing Claude comment',
+        '# Codex second comment',
+        'CODEX_HOME=custom',
+        '# trailing Codex comment',
         '',
       ].join('\n'));
 
       expect(result.shared).toBe(['# shared comment', 'PATH=/usr/local/bin'].join('\n'));
-      expect(result.providers.claude).toBe([
-        '# first Claude comment', 'ANTHROPIC_MODEL=first', '', '# claude comment',
-        'ANTHROPIC_DEFAULT_SONNET_MODEL=claude-custom', '# trailing Claude comment', '',
+      expect(result.providers.codex).toBe([
+        '# first Codex comment', 'OPENAI_MODEL=first', '', '# Codex second comment',
+        'CODEX_HOME=custom', '# trailing Codex comment', '',
       ].join('\n'));
     });
   });
@@ -150,7 +150,7 @@ describe('providerEnvironment', () => {
     it('keeps mixed-ownership legacy snippets unscoped', () => {
       expect(inferEnvironmentSnippetScope([
         'PATH=/usr/local/bin',
-        'ANTHROPIC_MODEL=claude-custom',
+        'OPENAI_MODEL=gpt-custom',
       ].join('\n'))).toBeUndefined();
     });
   });
@@ -159,7 +159,7 @@ describe('providerEnvironment', () => {
     it('normalizes mixed snippets back to unscoped even if a stale scope was saved', () => {
       expect(resolveEnvironmentSnippetScope([
         'PATH=/usr/local/bin',
-        'ANTHROPIC_MODEL=claude-custom',
+        'OPENAI_MODEL=gpt-custom',
       ].join('\n'), 'shared')).toBeUndefined();
     });
 
@@ -172,10 +172,10 @@ describe('providerEnvironment', () => {
     it('reclassifies mixed snippets into separate scope updates', () => {
       expect(getEnvironmentScopeUpdates([
         'PATH=/usr/local/bin',
-        'ANTHROPIC_MODEL=claude-custom',
+        'OPENAI_MODEL=gpt-custom',
       ].join('\n'), 'shared')).toEqual([
         { scope: 'shared', envText: 'PATH=/usr/local/bin' },
-        { scope: 'provider:claude', envText: 'ANTHROPIC_MODEL=claude-custom' },
+        { scope: 'provider:codex', envText: 'OPENAI_MODEL=gpt-custom' },
       ]);
     });
 

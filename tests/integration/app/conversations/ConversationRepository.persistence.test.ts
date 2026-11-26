@@ -59,7 +59,7 @@ afterEach(async () => {
 
 test('creates normalized Linked content that survives storage and repository reload', async () => {
   const conversation = await repository.create({
-    sessionId: 'linked-content-session', selectedModel: 'sonnet',
+    sessionId: 'linked-content-session', selectedModel: 'gpt-5.5',
     linkedContentPath: 'Projects\\Research//Plan.md',
   });
   expect(await readMetadata(conversation.id)).toMatchObject({ id: conversation.id, linkedContentPath: 'Projects/Research/Plan.md' });
@@ -67,7 +67,7 @@ test('creates normalized Linked content that survives storage and repository rel
   const reloaded = createRepository();
   await adoptStored(reloaded);
   expect(reloaded.getSync(conversation.id)!.linkedContentPath).toBe('Projects/Research/Plan.md');
-  expect(reloaded.list()[0]).toMatchObject({ linkedContentPath: 'Projects/Research/Plan.md', selectedModel: 'sonnet' });
+  expect(reloaded.list()[0]).toMatchObject({ linkedContentPath: 'Projects/Research/Plan.md', selectedModel: 'gpt-5.5' });
 });
 
 test('rejects invalid creation before writing and removes a failed creation before retry', async () => {
@@ -89,7 +89,7 @@ test('rejects invalid creation before writing and removes a failed creation befo
 
 test('persists pin and archive changes without treating metadata or snapshots as activity', async () => {
   const now = vi.spyOn(Date, 'now').mockReturnValue(testDate({ minutes: -10 }).getTime());
-  const conversation = await repository.create({ selectedModel: 'sonnet' });
+  const conversation = await repository.create({ selectedModel: 'gpt-5.5' });
   now.mockRestore();
   const { id, lastActivityAt } = conversation;
   await repository.setPlacement(id, { isPinned: true });
@@ -140,11 +140,11 @@ test('persists exact and descendant renames, including late metadata, without re
   const folder = await repository.create({ linkedContentPath: 'Projects/Old/Plan.md' });
   const unrelated = await repository.create({ linkedContentPath: 'Notes/Other.md' });
   await store.saveMetadata({
-    id: 'late', providerId: 'codex', title: 'Late', selectedModel: 'sonnet',
+    id: 'late', providerId: 'codex', title: 'Late', selectedModel: 'gpt-5.5',
     linkedContentPath: 'Notes/Old.md', createdAt: testDate().getTime(), lastActivityAt: testDate().getTime(),
   });
   await store.saveMetadata({
-    id: 'late-direct', providerId: 'codex', title: 'Direct adoption', selectedModel: 'sonnet',
+    id: 'late-direct', providerId: 'codex', title: 'Direct adoption', selectedModel: 'gpt-5.5',
     linkedContentPath: 'Notes/Old.md', createdAt: testDate().getTime(), lastActivityAt: testDate().getTime(),
   });
   await repository.rewriteLinkedContentPaths('Notes/Old.md', 'Notes/New.md');
@@ -174,7 +174,7 @@ test('persists exact and descendant renames, including late metadata, without re
 
 test('retains unscoped write authority after a failed assignment and switches only after a durable move', async () => {
   const id = 'unscoped';
-  await store.saveMetadata({ id, providerId: 'codex', title: 'Original', selectedModel: 'sonnet',
+  await store.saveMetadata({ id, providerId: 'codex', title: 'Original', selectedModel: 'gpt-5.5',
     createdAt: testDate().getTime(), lastActivityAt: testDate().getTime() }, 'unscoped');
   await adoptStored();
   const rename = vi.spyOn(vault.app.vault.adapter, 'rename').mockRejectedValueOnce(new Error('rename failed'));
@@ -205,7 +205,7 @@ test('migrates timestamps and Linked content without losing unhydrated provider 
   } };
   const lastActivityAt = testDate({ minutes: -1 }).getTime();
   await vault.write(`${devicePath}/legacy.meta.json`, JSON.stringify({
-    id: 'legacy', providerId: 'codex', title: 'Legacy', selectedModel: 'sonnet',
+    id: 'legacy', providerId: 'codex', title: 'Legacy', selectedModel: 'gpt-5.5',
     createdAt: testDate({ minutes: -2 }).getTime(), lastResponseAt: lastActivityAt,
     currentNote: 'Notes\\Architecture.md', providerState,
   }));

@@ -34,7 +34,6 @@ import {
 } from '@/features/chat/tabs/TabLifecycle';
 import { TabManager } from '@/features/chat/tabs/TabManager';
 import { onProviderAvailabilityChanged } from '@/features/chat/tabs/tabProviderLifecycle';
-import { updateTabPermissionMode } from '@/features/chat/tabs/tabProviderUI';
 import {
   createTabRuntime,
   TabRuntimeConstructionError,
@@ -1866,42 +1865,6 @@ describe('Tab provider execution ownership', () => {
     expect(plugin.updateConversation).not.toHaveBeenCalled();
   });
 
-  it('routes async subagent completion to the session owner and persists its outcome', async () => {
-    const plugin = await createPlugin();
-    const tab = await createTestTab({ plugin, containerEl: document.createElement('div') });
-    tab.state.currentConversationId = 'conversation';
-    tab.services.subagentManager.handleTaskToolUse('task-1', { description: 'Background', prompt: 'Read', run_in_background: true }, tab.dom.messagesEl);
-    tab.services.subagentManager.handleTaskToolResult('task-1', 'agent_id: subagent-1');
-    const apply = vi.spyOn(tab.controllers.streamController.subagents, 'handleAsyncSubagentCompletion');
-    const session = await nativeSession();
-    session.snapshot = { ...session.snapshot, providerSessionId: 'native-session' };
-    await emitSessionEvent({ type: 'session_state_changed', snapshot: session.snapshot, scope: { kind: 'session', sessionInstanceId: session.sessionInstanceId, sequence: 0 } });
-    await emitSessionEvent({ originatingTurnId: 'turn-1', result: 'done',
-      scope: { kind: 'session', sequence: 1, sessionInstanceId: 'session-instance-1' },
-      status: 'completed', subagentId: 'subagent-1', type: 'async_subagent_completed' });
-    expect(apply).toHaveBeenCalledWith({ providerSessionId: 'native-session', result: 'done', status: 'completed', taskId: 'subagent-1', type: 'async_subagent_completion' });
-    expect(tab.services.subagentManager.getByTaskId('task-1')).toMatchObject({ status: 'completed', result: 'done' });
-    expect(plugin.updateConversation).toHaveBeenCalledWith('conversation', expect.objectContaining({ lastActivityAt: expect.any(Number) }));
-    expect(tab.state.attention).toMatchObject({ kind: 'review', outcome: 'completed' });
-  });
-
-  it('ends the spawn a completion names when several spawns share one subagent', async () => {
-    const tab = await createTestTab({ plugin: await createPlugin(), containerEl: document.createElement('div') });
-    tab.state.currentConversationId = 'conversation';
-    for (const id of ['task-1', 'task-2']) {
-      tab.services.subagentManager.handleTaskToolUse(id, { description: id, prompt: 'Read', run_in_background: true }, tab.dom.messagesEl);
-      tab.services.subagentManager.handleTaskToolResult(id, 'agent_id: subagent-1');
-    }
-    const session = await nativeSession();
-    session.snapshot = { ...session.snapshot, providerSessionId: 'native-session' };
-    await emitSessionEvent({ type: 'session_state_changed', snapshot: session.snapshot, scope: { kind: 'session', sessionInstanceId: session.sessionInstanceId, sequence: 0 } });
-    await emitSessionEvent({ originatingTurnId: 'turn-1', result: 'follow-up done', toolCallId: 'task-2',
-      scope: { kind: 'session', sequence: 1, sessionInstanceId: 'session-instance-1' },
-      status: 'completed', subagentId: 'subagent-1', type: 'async_subagent_completed' });
-    expect(tab.services.subagentManager.getByTaskId('task-2')).toMatchObject({ status: 'completed', result: 'follow-up done' });
-    expect(tab.services.subagentManager.getByTaskId('task-1')).toMatchObject({ status: 'running', asyncStatus: 'running' });
-  });
-
   it('applies subagent progress without waiting behind queued background work', async () => {
     const tab = await createTestTab({ plugin: await createPlugin(), containerEl: document.createElement('div') });
     const session = await nativeSession();
@@ -2254,52 +2217,5 @@ describe('Tab provider execution ownership', () => {
     await fork;
 
     expect(forkRequest).not.toHaveBeenCalled();
-  });
-
-  it.each(['normal', 'yolo'] as const)('applies normalized %s permission events to tab settings', async (permissionMode) => {
-    const plugin = await createPlugin();
-    await createTestTab({ plugin, containerEl: document.createElement('div') });
-    plugin.settings.permissionMode = permissionMode === 'normal' ? 'yolo' : 'normal';
-
-    await emitSessionEvent({
-      type: 'permission_mode_changed',
-      permissionMode,
-      scope: { kind: 'session', sessionInstanceId: 'session-instance-1', sequence: 1 },
-      snapshot: { providerId: 'claude', revision: 1, status: 'idle' },
-    });
-
-    // The retired Safe value fails closed.
-    expect(plugin.settings.permissionMode).toBe(permissionMode === 'normal' ? 'manual' : 'yolo');
-  });
-
-  it('keeps the saved default when a native event repeats a tab\'s own mode', async () => {
-    const plugin = await createPlugin();
-    const yoloTab = await createTestTab({ plugin, containerEl: document.createElement('div') });
-    const manualTab = await createTestTab({ plugin, containerEl: document.createElement('div') });
-    await updateTabPermissionMode(yoloTab, plugin, 'yolo');
-    await updateTabPermissionMode(manualTab, plugin, 'manual');
-    expect(plugin.settings.permissionMode).toBe('manual');
-
-    await emitSessionEvent({
-      type: 'permission_mode_changed',
-      permissionMode: 'yolo',
-      scope: { kind: 'session', sessionInstanceId: 'session-instance-1', sequence: 1 },
-      snapshot: { providerId: 'claude', revision: 1, status: 'idle' },
-    });
-
-    expect(plugin.settings.permissionMode).toBe('manual');
-    expect(yoloTab.session.runtime.providerSelections.get('claude')?.permissionMode).toBe('yolo');
-  });
-
-  it('updates permission settings for an unbound tab', async () => {
-    const plugin = await createPlugin();
-    const tab = await createTestTab({ plugin, containerEl: document.createElement('div') });
-
-    plugin.settings.permissionMode = 'yolo';
-    expect(plugin.settings.permissionMode).toBe('yolo');
-
-    await updateTabPermissionMode(tab, plugin, 'normal');
-
-    expect(plugin.settings.permissionMode).toBe('manual');
   });
 });

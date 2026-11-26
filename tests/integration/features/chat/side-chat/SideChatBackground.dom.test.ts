@@ -1,16 +1,11 @@
 /** @vitest-environment jsdom */
 import '@/providers';
 
-import { axe } from '@test/helpers/accessibility';
 import { createHarness, releaseSideChatHarnesses, startSideChat } from '@test/helpers/features/chat/SideChatDOMHarness';
 import { screen, waitFor } from '@testing-library/dom';
 import { MarkdownRenderer } from 'obsidian';
 
-import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
 import { cancelSelectedDestinationTurn } from '@/features/chat/tabs/TabInputEvents';
-
-const subagentAdapter = ProviderRegistry.getSubagentAdapter('codex')!;
-const taskResultInterpreter = ProviderRegistry.getTaskResultInterpreter('codex');
 
 beforeEach(() => {
   vi.spyOn(MarkdownRenderer, 'render').mockImplementation(async (_app, markdown, el) => {
@@ -88,117 +83,6 @@ it('does not render late events after side disposal', async () => {
   await harness.controller.discard();
   expect(screen.queryByText('Discarded background answer')).toBeNull();
   expect(harness.controller.runtime).toBeNull();
-});
-
-it('settles an async subagent from a session notification after the requested turn', async () => {
-  const harness = await createHarness({ subagentAdapter, taskResultInterpreter });
-  const { started } = await startSideChat(harness);
-  const native = harness.backend.latest;
-  native.establishChild('side-session');
-  native.emitOutput({
-    type: 'tool_started', toolCallId: 'task-1', toolScope: { kind: 'main' }, name: 'Agent',
-    input: { description: 'Background research', prompt: 'Find details', run_in_background: true },
-  });
-  native.emitOutput({
-    type: 'tool_completed', toolCallId: 'task-1', toolScope: { kind: 'main' }, content: 'Launched',
-    providerPayload: { rawOutput: { isAsync: true, status: 'async_launched', agentId: 'agent-1' } },
-  });
-  native.complete();
-  await started;
-  expect(screen.getByRole('button', { name: /Background research.*Running/i })).toBeDefined();
-  native.emitSessionEvent({
-    type: 'async_subagent_completed', originatingTurnId: 'task-1', subagentId: 'agent-1',
-    providerSessionId: 'side-session', status: 'completed', result: 'Background finding',
-  });
-  await waitFor(() => expect(screen.getByRole('button', { name: /Background research.*Completed/i })).toBeDefined());
-  expect(screen.getByText('Background finding')).toBeDefined();
-});
-
-it('settles only the spawn a notification names when several spawns share one subagent', async () => {
-  const harness = await createHarness({ subagentAdapter, taskResultInterpreter });
-  const { started } = await startSideChat(harness);
-  const native = harness.backend.latest;
-  native.establishChild('side-session');
-  for (const [id, description] of [['task-1', 'Background research'], ['task-2', 'Follow-up research']]) {
-    native.emitOutput({
-      type: 'tool_started', toolCallId: id, toolScope: { kind: 'main' }, name: 'Agent',
-      input: { description, prompt: 'Find details', run_in_background: true },
-    });
-    native.emitOutput({
-      type: 'tool_completed', toolCallId: id, toolScope: { kind: 'main' }, content: 'Launched',
-      providerPayload: { rawOutput: { isAsync: true, status: 'async_launched', agentId: 'agent-1' } },
-    });
-  }
-  native.complete();
-  await started;
-  native.emitSessionEvent({
-    type: 'async_subagent_completed', originatingTurnId: 'task-1', subagentId: 'agent-1', toolCallId: 'task-2',
-    providerSessionId: 'side-session', status: 'completed', result: 'Follow-up finding',
-  });
-  await waitFor(() => expect(screen.getByRole('button', { name: /Follow-up research.*Completed/i })).toBeDefined());
-  expect(screen.getByRole('button', { name: /Background research.*Running/i })).toBeDefined();
-});
-
-it('shows live progress on a foreground subagent card until its result arrives', async () => {
-  const harness = await createHarness({ subagentAdapter, taskResultInterpreter });
-  const { started } = await startSideChat(harness);
-  const native = harness.backend.latest;
-  native.establishChild('side-session');
-  native.emitOutput({
-    type: 'tool_started', toolCallId: 'task-1', toolScope: { kind: 'main' }, name: 'Agent',
-    input: { description: 'Audit auth', prompt: 'Review auth', run_in_background: false },
-  });
-  await waitFor(() => expect(screen.getByRole('button', { name: /Subagent task: Audit auth/ })).toBeDefined());
-  native.emitSessionEvent({ type: 'subagent_progress', progress: { toolCallId: 'task-1', lastToolName: 'Grep', toolUses: 1 } });
-  await waitFor(() => expect(screen.getByText('Last tool: Grep')).toBeDefined());
-  expect(screen.getByText('1 tool use')).toBeDefined();
-  native.emitSessionEvent({
-    type: 'subagent_progress',
-    progress: { toolCallId: 'task-1', summary: 'Reading the auth module', toolUses: 3, totalTokens: 12_300, durationMs: 64_000 },
-  });
-  await waitFor(() => expect(screen.getByText('Reading the auth module')).toBeDefined());
-  expect(screen.queryByText('Last tool: Grep')).toBeNull();
-  expect(screen.getByText('3 tool uses · 12.3k tokens · 1m 4s')).toBeDefined();
-  const card = screen.getByRole('button', { name: /Subagent task: Audit auth/ }).closest('.claudian-subagent-list')!;
-  expect(await axe(card)).toHaveNoViolations();
-  native.emitSessionEvent({ type: 'subagent_progress', progress: { toolCallId: 'task-1', lastToolName: 'Read', toolUses: 4 } });
-  await waitFor(() => expect(screen.getByText('4 tool uses · 12.3k tokens · 1m 4s')).toBeDefined());
-  expect(screen.getByText('Reading the auth module')).toBeDefined();
-
-  native.emitOutput({ type: 'tool_completed', toolCallId: 'task-1', toolScope: { kind: 'main' }, content: 'Auth looks fine' });
-  native.complete();
-  await started;
-  expect(screen.queryByText('Reading the auth module')).toBeNull();
-  native.emitSessionEvent({ type: 'subagent_progress', progress: { toolCallId: 'task-1', summary: 'Late summary' } });
-  await Promise.resolve();
-  expect(screen.queryByText('Late summary')).toBeNull();
-});
-
-it('shows live progress on a background subagent card after the requested turn', async () => {
-  const harness = await createHarness({ subagentAdapter, taskResultInterpreter });
-  const { started } = await startSideChat(harness);
-  const native = harness.backend.latest;
-  native.establishChild('side-session');
-  native.emitOutput({
-    type: 'tool_started', toolCallId: 'task-1', toolScope: { kind: 'main' }, name: 'Agent',
-    input: { description: 'Background research', prompt: 'Find details', run_in_background: true },
-  });
-  native.emitOutput({
-    type: 'tool_completed', toolCallId: 'task-1', toolScope: { kind: 'main' }, content: 'Launched',
-    providerPayload: { rawOutput: { isAsync: true, status: 'async_launched', agentId: 'agent-1' } },
-  });
-  native.complete();
-  await started;
-  native.emitSessionEvent({
-    type: 'subagent_progress', progress: { toolCallId: 'task-1', summary: 'Searching release notes' },
-  });
-  await waitFor(() => expect(screen.getByText('Searching release notes')).toBeDefined());
-  native.emitSessionEvent({
-    type: 'async_subagent_completed', originatingTurnId: 'task-1', subagentId: 'agent-1',
-    providerSessionId: 'side-session', status: 'completed', result: 'Background finding',
-  });
-  await waitFor(() => expect(screen.getByRole('button', { name: /Background research.*Completed/i })).toBeDefined());
-  expect(screen.queryByText('Searching release notes')).toBeNull();
 });
 
 it('leaves the working state and drops queued input when background execution fails', async () => {
@@ -327,7 +211,7 @@ it('preserves all requested text positions across two notifications in one batch
 });
 
 it('preserves a notification between automatic work and its subsequent answer', async () => {
-  const harness = await createHarness({ taskResultInterpreter });
+  const harness = await createHarness();
   const { started } = await startSideChat(harness);
   const native = harness.backend.latest;
   native.establishChild('side-session');
@@ -346,7 +230,6 @@ it('preserves a notification between automatic work and its subsequent answer', 
   const answer = await screen.findByText(/After notification\./);
   expect(notification.compareDocumentPosition(answer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });
-
 
 it('preserves automatic text across multiple notifications in one native batch', async () => {
   const harness = await finishedSide();
@@ -380,32 +263,4 @@ it('keeps completed automatic turns before a later notification while their rend
   const notification = screen.getByRole('button', { name: 'Task notification' });
   expect(screen.getByText('First completed response').compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(second.compareDocumentPosition(notification) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-});
-
-
-it('accepts usage in the next side response after a subagent response', async () => {
-  const harness = await createHarness({ subagentAdapter, taskResultInterpreter });
-  const { started } = await startSideChat(harness);
-  const native = harness.backend.latest;
-  native.establishChild('side-session');
-  native.emitOutput({
-    type: 'tool_started', toolCallId: 'usage-task', toolScope: { kind: 'main' }, name: 'Agent',
-    input: { description: 'Research', prompt: 'Find details', run_in_background: false },
-  });
-  native.emitOutput({ type: 'tool_completed', toolCallId: 'usage-task', toolScope: { kind: 'main' }, content: 'Done' });
-  native.emitOutput({ type: 'usage_updated', usage: {
-    inputTokens: 900, contextTokens: 900, contextWindow: 200000, percentage: 0,
-  } });
-  native.complete();
-  await started;
-  expect(harness.controller.runtime?.state.usage).toBeNull();
-
-  const next = harness.controller.submitToSide('Follow up without a subagent', []);
-  await waitFor(() => expect(native.requests).toHaveLength(2));
-  native.emitOutput({ type: 'usage_updated', usage: {
-    inputTokens: 100, contextTokens: 100, contextWindow: 200000, percentage: 0,
-  } });
-  native.complete();
-  await next;
-  expect(harness.controller.runtime?.state.usage?.contextTokens).toBe(100);
 });

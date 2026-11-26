@@ -1442,7 +1442,7 @@ it('copies the parent session selections into a new side chat after another sess
     { id: 'parent-answer', role: 'assistant', content: 'Parent answer', assistantMessageId: 'checkpoint', timestamp: testDate().getTime() },
   ];
   await updateSessionProviderSettings(runtime, h.plugin, settings => {
-    settings.permissionMode = 'manual'; settings.serviceTier = 'fast';
+    settings.permissionMode = 'normal'; settings.serviceTier = 'fast';
   });
   await updateSessionReasoning(runtime, h.plugin, 'low');
   const other = h.pool.ensure({ conversationId: 'other-conversation', providerId: 'codex', draftModel: null });
@@ -1451,7 +1451,7 @@ it('copies the parent session selections into a new side chat after another sess
   });
   await updateSessionReasoning(other, h.plugin, 'high');
   expect(getSessionSettingsSnapshot(runtime, h.plugin)).toMatchObject({
-    permissionMode: 'manual', reasoning: 'low', serviceTier: 'fast',
+    permissionMode: 'normal', reasoning: 'low', serviceTier: 'fast',
   });
   vi.spyOn(ProviderRegistry.getConversationHistoryService('codex'), 'buildForkProviderState').mockResolvedValue({});
   const sending = tab.controllers.sideChatController.handleCommandSubmission('Explore independently', []);
@@ -1459,7 +1459,7 @@ it('copies the parent session selections into a new side chat after another sess
   const configuration = h.backend.latest.requests[0].configuration;
   h.backend.latest.complete();
   await sending;
-  expect(configuration).toMatchObject({ permissionMode: 'manual', reasoning: 'low', serviceTier: 'fast' });
+  expect(configuration).toMatchObject({ permissionMode: 'normal', reasoning: 'low', serviceTier: 'fast' });
   expect(getChatSettingsSnapshot(h.plugin.settings, 'codex', 'claude-sonnet-4-5')).toMatchObject({
     permissionMode: 'yolo', reasoning: 'high', serviceTier: 'default',
   });
@@ -1472,7 +1472,7 @@ it('copies the parent session selections into a new side chat after another sess
   h.backend.latest.complete();
   await followUp;
   expect(h.backend.latest.requests[1].configuration).toMatchObject({
-    permissionMode: 'manual', reasoning: 'low', serviceTier: 'fast',
+    permissionMode: 'normal', reasoning: 'low', serviceTier: 'fast',
   });
   expect(getSessionSettingsSnapshot(other, h.plugin)).toMatchObject({
     permissionMode: 'yolo', reasoning: 'high', serviceTier: 'default',
@@ -1515,7 +1515,7 @@ it('does not open an empty resume picker when only archived sessions exist', asy
 
 it.each(['main', 'side'] as const)('keeps native requested permission changes for the %s destination', async destination => {
   const h = (await setup());
-  await h.plugin.mutateSettings(settings => { settings.permissionMode = 'manual'; });
+  await h.plugin.mutateSettings(settings => { settings.permissionMode = 'normal'; });
   const tab = await h.attach();
   let sending: Promise<unknown>;
   if (destination === 'side') {
@@ -1532,7 +1532,7 @@ it.each(['main', 'side'] as const)('keeps native requested permission changes fo
   await waitFor(() => expect(h.backend.sessions[0]?.requests).toHaveLength(1));
   h.backend.latest.emitOutput({ type: 'permission_mode_changed', permissionMode: 'yolo',
     snapshot: { providerId: 'codex', revision: 1, status: 'executing' } });
-  await waitFor(() => expect(within(tab.dom.inputComposerEl).getByRole('button', { name: 'Permission mode: YOLO' })).toBeDefined());
+  await waitFor(() => expect(within(tab.dom.inputComposerEl).getByRole('button', { name: 'Permission mode: Full access' })).toBeDefined());
   h.backend.latest.complete();
   await sending;
   tab.dom.inputEl.value = 'Continue with the native permission';
@@ -1543,7 +1543,7 @@ it.each(['main', 'side'] as const)('keeps native requested permission changes fo
   await followUp;
   tab.controllers.sideChatController.collapse();
   const parentMode = within(tab.dom.inputComposerEl).getByRole('button', {
-    name: destination === 'side' ? 'Permission mode: Manual' : 'Permission mode: YOLO',
+    name: destination === 'side' ? 'Permission mode: Ask for approval' : 'Permission mode: Full access',
   });
   expect(parentMode).toBeDefined();
   expect(await axe(parentMode)).toHaveNoViolations();

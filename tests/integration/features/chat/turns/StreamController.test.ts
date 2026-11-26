@@ -11,18 +11,10 @@ import { fireEvent, within } from '@testing-library/dom';
 import { App, Component } from 'obsidian';
 import type { Mock } from 'vitest';
 
-import {
-  TOOL_AGENT_OUTPUT,
-  TOOL_APPLY_PATCH,
-  TOOL_SPAWN_AGENT,
-  TOOL_SUBAGENT,
-  TOOL_TODO_WRITE,
-  TOOL_WAIT_AGENT,
-} from '@/core/tools/toolNames';
-import type { ChatMessage, StreamChunk,ToolCallInfo, UsageInfo } from '@/core/types';
+import { TOOL_APPLY_PATCH, TOOL_SPAWN_AGENT, TOOL_TODO_WRITE, TOOL_WAIT_AGENT } from '@/core/tools/toolNames';
+import type { ChatMessage, ToolCallInfo, UsageInfo } from '@/core/types';
 import * as displayOnlyCodeFences from '@/features/chat/rendering/markdown/DisplayOnlyCodeFences';
 import { MessageRenderer } from '@/features/chat/rendering/MessageRenderer';
-import { providerOutputEventToStreamChunk } from '@/features/chat/rendering/providerOutputChunks';
 import {
   AsyncSubagentHistoryRecovery,
   type AsyncSubagentHistoryRecoveryDeps,
@@ -32,7 +24,6 @@ import { ChatState } from '@/features/chat/state/ChatState';
 import { StreamController, type StreamControllerDeps } from '@/features/chat/turns/StreamController';
 import { TurnCoordinator } from '@/features/chat/turns/TurnCoordinator';
 import * as markdownMath from '@/utils/markdownMath';
-
 
 const realRenderers: MessageRenderer[] = [];
 const components: Component[] = [];
@@ -95,12 +86,12 @@ async function createMockDeps(): Promise<MockStreamControllerDeps> {
     subagentManager,
     getMessagesEl: () => messagesEl,
     updateQueueIndicator: vi.fn(),
-    getProviderId: () => 'claude',
+    getProviderId: () => 'codex',
     getProviderSessionId: () => 'session-1',
     turns,
     historyRecovery: {
       subagentManager,
-        getProviderId: () => deps.getProviderId?.() ?? 'claude',
+        getProviderId: () => deps.getProviderId?.() ?? 'codex',
       getProviderSessionId: () => deps.getProviderSessionId?.() ?? null,
       loadSubagentFinalResult: vi.fn().mockResolvedValue(null),
       loadSubagentToolCalls: vi.fn().mockResolvedValue([]),
@@ -467,111 +458,6 @@ describe('StreamController - Text Content', () => {
   });
 
   describe('Tool handling', () => {
-    it('should add subagent entry to contentBlocks for Task tool', async () => {
-      const msg = createTestMessage();
-      deps.state.currentContentEl = document.body.createDiv();
-
-      // Configure mock to return created_sync when run_in_background is known
-
-
-      await controller.handleStreamChunk(
-        {
-          type: 'tool_use',
-          id: 'task-1',
-          name: TOOL_SUBAGENT,
-          input: { prompt: 'Do something', subagent_type: 'general-purpose', run_in_background: false },
-        },
-        msg
-      );
-
-      expect(msg.contentBlocks).toHaveLength(1);
-      expect(msg.contentBlocks![0]).toEqual({ type: 'subagent', subagentId: 'task-1' });
-      expect(msg.toolCalls).toContainEqual(
-        expect.objectContaining({
-          id: 'task-1',
-          name: TOOL_SUBAGENT,
-          subagent: expect.objectContaining({ id: 'task-1' }),
-        })
-      );
-    });
-
-    it('converts an OpenCode generic card to Agent in place without duplicate state or DOM', async () => {
-      const { renderToolCall } = mockedTools;
-      vi.mocked(renderToolCall).mockClear();
-      const parentEl = document.body.createDiv();
-      deps.state.currentContentEl = parentEl;
-      deps.getProviderId = () => 'opencode';
-
-      const msg = createTestMessage();
-
-      await controller.handleStreamChunk({
-        id: 'opencode-agent',
-        input: { description: 'Inspect' },
-        name: 'tool',
-        providerPayload: { rawInput: { description: 'Inspect' }, rawName: 'tool' },
-        type: 'tool_use',
-      }, msg);
-      await controller.handleStreamChunk({ type: 'text', content: 'Intervening content' }, msg);
-      const toolCall = msg.toolCalls![0];
-      Object.assign(toolCall, { isExpanded: true, result: 'partial result' });
-
-      await controller.handleStreamChunk({
-        id: 'opencode-agent',
-        input: { prompt: 'Inspect the vault' },
-        name: 'Agent',
-        providerPayload: {
-          rawInput: { prompt: 'Inspect the vault' },
-          rawName: 'task',
-          rawOutput: { phase: 'started' },
-        },
-        type: 'tool_use',
-      }, msg);
-
-      await controller.handleStreamChunk({ type: 'subagent_tool_use', subagentId: 'opencode-agent', id: 'child-read', name: 'Read', input: {} }, msg);
-      expect(msg.toolCalls).toEqual([toolCall]);
-      expect(toolCall).toMatchObject({
-        input: { description: 'Inspect', prompt: 'Inspect the vault' },
-        isExpanded: true,
-        name: TOOL_SUBAGENT,
-        providerPayload: {
-          rawInput: { prompt: 'Inspect the vault' },
-          rawName: 'task',
-          rawOutput: { phase: 'started' },
-        },
-        result: 'partial result',
-        subagent: expect.objectContaining({ id: 'opencode-agent' }),
-      });
-      expect(msg.contentBlocks).toEqual([
-        { type: 'subagent', subagentId: 'opencode-agent' },
-        { content: 'Intervening content', type: 'text' },
-      ]);
-      expect(deps.subagentManager.handleTaskToolUse).toHaveBeenCalledTimes(1);
-      expect(vi.mocked(renderToolCall).mock.results[0].value.isConnected).toBe(false);
-      expect(deps.state.toolCallElements.has('opencode-agent')).toBe(false);
-      expect(deps.state.writeEditStates.has('opencode-agent')).toBe(false);
-      renderedSubagent(deps.state.currentContentEl!, 'opencode-agent', 'sync', /^Subagent task:/);
-    });
-
-    it('routes the current Claude Agent tool through the managed subagent protocol', async () => {
-      const msg = createTestMessage();
-      deps.state.currentContentEl = document.body.createDiv();
-
-
-      await controller.handleStreamChunk({
-        id: 'claude-agent',
-        input: { prompt: 'Inspect' },
-        name: 'Agent',
-        type: 'tool_use',
-      }, msg);
-
-      expect(deps.subagentManager.handleTaskToolUse).toHaveBeenCalledWith(
-        'claude-agent',
-        { prompt: 'Inspect' },
-        deps.state.currentContentEl,
-      );
-      expect(msg.toolCalls).toHaveLength(1);
-      expect(msg.toolCalls![0].name).toBe(TOOL_SUBAGENT);
-    });
 
     it.each([
       { changes: [{ path: 'notes/new.md', kind: 'add' }] },
@@ -740,35 +626,6 @@ describe('StreamController - Text Content', () => {
       expect(within(card).getByText('line 2')).toBeDefined();
     });
 
-    it('should flush pending tools before Task tool renders', async () => {
-      const { renderToolCall } = mockedTools;
-      const msg = createTestMessage();
-      deps.state.currentContentEl = document.body.createDiv();
-
-      await controller.handleStreamChunk(
-        { type: 'tool_use', id: 'read-1', name: 'Read', input: { file_path: 'test.md' } },
-        msg
-      );
-      expect(deps.state.pendingTools.size).toBe(1);
-      expect(renderToolCall).not.toHaveBeenCalled();
-
-      await controller.handleStreamChunk(
-        { type: 'tool_use', id: 'task-1', name: TOOL_SUBAGENT, input: { prompt: 'Do something', subagent_type: 'general-purpose', run_in_background: false } },
-        msg
-      );
-
-      expect(deps.state.pendingTools.size).toBe(0);
-      expect(renderToolCall).toHaveBeenCalled();
-      expect(deps.subagentManager.handleTaskToolUse).toHaveBeenCalledWith(
-        'task-1',
-        expect.objectContaining({ run_in_background: false }),
-        expect.anything()
-      );
-      const read = renderedTool(deps.state.currentContentEl!, 'read-1', /^Read: test.md/);
-      const task = renderedSubagent(deps.state.currentContentEl!, 'task-1', 'sync', /^Subagent task:/);
-      expect(Array.from(deps.state.currentContentEl!.children)).toEqual([read, task]);
-    });
-
     it('should clear pendingTools on resetStreamingState', async () => {
       const msg = createTestMessage();
       deps.state.currentContentEl = document.body.createDiv();
@@ -862,7 +719,6 @@ describe('StreamController - Text Content', () => {
       expect(deps.state.usage).toMatchObject({ contextWindow: 200_000, contextTokens: 100_000, percentage: 50 });
     });
 
-
   });
 
   describe('Thinking indicator - edge cases', () => {
@@ -921,117 +777,6 @@ describe('StreamController - Text Content', () => {
     });
   });
 
-  describe('Subagent chunk handling', () => {
-    it('routes provider child output and native completion payloads to the child tool', async () => {
-      const msg = createTestMessage();
-      await controller.handleStreamChunk({ type: 'tool_use', id: 'parent', name: TOOL_SUBAGENT, input: { description: 'Read notes', run_in_background: false } }, msg);
-      await controller.handleStreamChunk({ type: 'subagent_tool_use', id: 'read', name: 'Read', input: {}, subagentId: 'parent' }, msg);
-      const scope = { kind: 'requested' as const, sessionInstanceId: 's', executionId: 'e', turnId: 't', sequence: 1 };
-      const toolScope = { kind: 'subagent' as const, subagentId: 'parent' };
-      const output = providerOutputEventToStreamChunk({ type: 'tool_output', toolCallId: 'read', toolScope, scope, content: 'partial' })!;
-      await controller.handleStreamChunk(output, msg);
-      expect(deps.subagentManager.updateSyncToolResult).toHaveBeenLastCalledWith(
-        'parent', 'read', expect.objectContaining({ status: 'running', result: 'partial' }),
-      );
-      const completion = providerOutputEventToStreamChunk({ type: 'tool_completed', toolCallId: 'read', toolScope, scope, content: 'complete', providerPayload: { rawOutput: { native: true } } })!;
-      await controller.handleStreamChunk(completion, msg);
-      expect(deps.subagentManager.updateSyncToolResult).toHaveBeenLastCalledWith(
-        'parent', 'read', expect.objectContaining({ status: 'completed', result: 'complete', providerPayload: { rawOutput: { native: true } } }),
-      );
-      expect(msg.toolCalls?.map(tool => tool.id)).toEqual(['parent']);
-      expect(msg.toolCalls?.[0].subagent?.toolCalls[0]).toMatchObject({ id: 'read', result: 'complete', status: 'completed', providerPayload: { rawOutput: { native: true } } });
-    });
-
-    it('should handle subagent tool_result chunk', async () => {
-      const msg = createTestMessage();
-      deps.state.currentContentEl = document.body.createDiv();
-
-      await controller.handleStreamChunk({ type: 'tool_use', id: 'task-1', name: TOOL_SUBAGENT, input: { description: 'Read notes', run_in_background: false } }, msg);
-      await controller.handleStreamChunk({ type: 'subagent_tool_use', id: 'read-1', name: 'Read', input: {}, subagentId: 'task-1' }, msg);
-      await controller.handleStreamChunk(
-        { type: 'subagent_tool_result', id: 'read-1', subagentId: 'task-1', content: 'file content' },
-        msg
-      );
-
-      expect(deps.subagentManager.updateSyncToolResult).toHaveBeenCalledWith(
-        'task-1',
-        'read-1',
-        expect.objectContaining({ status: 'completed', result: 'file content' })
-      );
-    });
-
-    it('should handle subagent tool_use chunk', async () => {
-      const msg = createTestMessage();
-      deps.state.currentContentEl = document.body.createDiv();
-
-      await controller.handleStreamChunk({ type: 'tool_use', id: 'task-1', name: TOOL_SUBAGENT, input: { description: 'Read notes', run_in_background: false } }, msg);
-      await controller.handleStreamChunk(
-        { type: 'subagent_tool_use', id: 'grep-1', name: 'Grep', input: { pattern: 'test' }, subagentId: 'task-1' },
-        msg
-      );
-
-      expect(deps.subagentManager.addSyncToolCall).toHaveBeenCalledWith(
-        'task-1',
-        expect.objectContaining({ id: 'grep-1', name: 'Grep', status: 'running' })
-      );
-    });
-
-    it('should skip subagent chunk when no sync subagent found', async () => {
-      const msg = createTestMessage();
-      deps.state.currentContentEl = document.body.createDiv();
-
-      await controller.handleStreamChunk(
-        { type: 'subagent_tool_use', id: 'orphan-read', name: 'Read', input: { file_path: 'test.md' }, subagentId: 'unknown-task' },
-        msg
-      );
-
-      // Should not throw
-      expect(msg.content).toBe('');
-    });
-  });
-
-  describe('Async subagent handling', () => {
-    it('should handle created_async action from Task tool use', async () => {
-      const msg = createTestMessage();
-      deps.state.currentContentEl = document.body.createDiv();
-
-      await controller.handleStreamChunk(
-        { type: 'tool_use', id: 'task-1', name: TOOL_SUBAGENT, input: { prompt: 'Do something', run_in_background: true } },
-        msg
-      );
-
-      expect(msg.toolCalls).toContainEqual(
-        expect.objectContaining({
-          id: 'task-1',
-          name: TOOL_SUBAGENT,
-          subagent: expect.objectContaining({
-            id: 'task-1',
-            mode: 'async',
-          }),
-        })
-      );
-      expect(msg.contentBlocks).toContainEqual({ type: 'subagent', subagentId: 'task-1', mode: 'async' });
-    });
-
-    it('should handle label_updated action from Task tool use (no-op for message)', async () => {
-      const msg = createTestMessage();
-      deps.state.currentContentEl = document.body.createDiv();
-
-      await controller.handleStreamChunk(
-        { type: 'tool_use', id: 'task-1', name: TOOL_SUBAGENT, input: { prompt: 'Updated' } },
-        msg
-      );
-
-      expect(msg.toolCalls).toContainEqual(
-        expect.objectContaining({
-          id: 'task-1',
-          name: TOOL_SUBAGENT,
-        })
-      );
-      expect(msg.contentBlocks).toEqual([]);
-    });
-  });
-
   describe('Thinking block finalization', () => {
     it('should not add to contentBlocks when no thinking content', async () => {
       const msg = createTestMessage();
@@ -1053,7 +798,6 @@ describe('StreamController - Text Content', () => {
 
     it('defers Mermaid in thinking and renders it at finalization', async () => {
       const { createThinkingBlock } = mockedThinking;
-
 
       const content = '> ```mermaid\n> graph TD\n> A --> B';
       await controller.appendThinking(content);
@@ -1083,156 +827,6 @@ describe('StreamController - Text Content', () => {
         mathSpy.mockRestore();
         diagramSpy.mockRestore();
       }
-    });
-
-  });
-
-  describe('Pending Task tool handling', () => {
-    it('should render pending Task as sync when child chunk arrives', async () => {
-      const msg = createTestMessage();
-      deps.state.currentContentEl = document.body.createDiv();
-
-      // Task without run_in_background - manager returns buffered
-      await controller.handleStreamChunk(
-        { type: 'tool_use', id: 'task-1', name: TOOL_SUBAGENT, input: { prompt: 'Do something', subagent_type: 'general-purpose' } },
-        msg
-      );
-
-      // Manager's handleTaskToolUse should have been called
-      expect(deps.subagentManager.handleTaskToolUse).toHaveBeenCalledWith(
-        'task-1',
-        expect.objectContaining({ prompt: 'Do something' }),
-        expect.anything()
-      );
-
-      // Configure manager for child chunk: pending task exists, render returns sync
-
-
-      // Also configure getSyncSubagent for the child chunk routing
-
-
-      // Child chunk arrives with parentToolUseId - should trigger render
-      await controller.handleStreamChunk(
-        { type: 'subagent_tool_use', id: 'read-1', name: 'Read', input: { file_path: 'test.md' }, subagentId: 'task-1' },
-        msg
-      );
-
-      // Task toolCall should carry linked subagent
-      expect(msg.toolCalls).toContainEqual(
-        expect.objectContaining({
-          id: 'task-1',
-          name: TOOL_SUBAGENT,
-          subagent: expect.objectContaining({ id: 'task-1' }),
-        })
-      );
-      expect(deps.subagentManager.resolvePendingTask).toHaveBeenCalledWith('task-1', deps.state.currentContentEl);
-    });
-
-    it('should resolve pending Task as async via tool_result and continue async lifecycle', async () => {
-      const msg = createTestMessage();
-      deps.state.currentContentEl = document.body.createDiv();
-
-      await controller.handleStreamChunk(
-        { type: 'tool_use', id: 'task-1', name: TOOL_SUBAGENT, input: { prompt: 'Do something' } },
-        msg
-      );
-
-      await controller.handleStreamChunk(
-        { type: 'tool_result', id: 'task-1', content: '{"agent_id":"agent-1"}' },
-        msg
-      );
-
-      expect(deps.subagentManager.resolvePendingTaskFromTaskResult).toHaveBeenCalledWith(
-        'task-1',
-        '{"agent_id":"agent-1"}',
-        false,
-        deps.state.currentContentEl,
-        undefined
-      );
-      expect(deps.subagentManager.handleTaskToolResult).toHaveBeenCalledWith(
-        'task-1',
-        '{"agent_id":"agent-1"}',
-        undefined,
-        undefined
-      );
-      expect(msg.contentBlocks).toContainEqual({
-        type: 'subagent',
-        subagentId: 'task-1',
-        mode: 'async',
-      });
-      expect(msg.toolCalls).toContainEqual(
-        expect.objectContaining({
-          id: 'task-1',
-          name: TOOL_SUBAGENT,
-          subagent: expect.objectContaining({ mode: 'async' }),
-        })
-      );
-    });
-
-    it('should pass the task provider payload into pending Task resolver', async () => {
-      const msg = createTestMessage();
-      deps.state.currentContentEl = document.body.createDiv();
-
-      await controller.handleStreamChunk(
-        { type: 'tool_use', id: 'task-1', name: TOOL_SUBAGENT, input: { prompt: 'Do something' } },
-        msg
-      );
-
-      const providerPayload = { rawOutput: { isAsync: true, status: 'async_launched', agentId: 'agent-1' } };
-
-      await controller.handleStreamChunk(
-        { type: 'tool_result', id: 'task-1', content: 'Launching...', providerPayload },
-        msg
-      );
-
-      expect(deps.subagentManager.resolvePendingTaskFromTaskResult).toHaveBeenCalledWith(
-        'task-1',
-        'Launching...',
-        false,
-        deps.state.currentContentEl,
-        providerPayload
-      );
-    });
-  });
-
-  describe('Agent output tool use/result', () => {
-    it('TOOL_AGENT_OUTPUT chunk creates tool call and delegates to subagentManager.handleAgentOutputToolUse', async () => {
-      const msg = createTestMessage();
-      deps.state.currentContentEl = document.body.createDiv();
-
-      await controller.handleStreamChunk(
-        { type: 'tool_use', id: 'agent-out-1', name: TOOL_AGENT_OUTPUT, input: { task_id: 'task-1' } },
-        msg
-      );
-
-      expect(deps.subagentManager.handleAgentOutputToolUse).toHaveBeenCalledWith(
-        expect.objectContaining({
-          id: 'agent-out-1',
-          name: TOOL_AGENT_OUTPUT,
-          status: 'running',
-        })
-      );
-      expect(msg.toolCalls).toEqual([]);
-      expect(msg.contentBlocks).toEqual([]);
-    });
-
-    it('Agent output tool result handled via handleAgentOutputToolResult returning true', async () => {
-      const { updateToolCallResult } = mockedTools;
-      const msg = createTestMessage();
-      deps.state.currentContentEl = document.body.createDiv();
-
-      await controller.handleStreamChunk(
-        { type: 'tool_result', id: 'agent-out-1', content: 'agent result', providerPayload: { rawOutput: { foo: 'bar' } } },
-        msg
-      );
-
-      expect(deps.subagentManager.handleAgentOutputToolResult).toHaveBeenCalledWith(
-        'agent-out-1',
-        'agent result',
-        false,
-        { rawOutput: { foo: 'bar' } }
-      );
-      expect(updateToolCallResult).not.toHaveBeenCalled();
     });
 
   });
@@ -1798,38 +1392,6 @@ describe('StreamController - Text Content', () => {
     });
   });
 
-  describe('Sync subagent finalization', () => {
-    it('tool_result for a sync subagent calls finalizeSyncSubagent and updates Task toolCall', async () => {
-
-      const msg = createTestMessage();
-      deps.state.currentContentEl = document.body.createDiv();
-
-      await controller.handleStreamChunk({ type: 'tool_use', id: 'task-1', name: TOOL_SUBAGENT, input: { description: 'Do something', run_in_background: false } }, msg);
-
-      // getSyncSubagent returns a subagent state (indicating this is a sync subagent)
-
-
-      await controller.handleStreamChunk(
-        { type: 'tool_result', id: 'task-1', content: 'Task completed successfully' },
-        msg
-      );
-
-      expect(deps.subagentManager.finalizeSyncSubagent).toHaveBeenCalledWith(
-        'task-1',
-        'Task completed successfully',
-        false,
-        undefined,
-        expect.objectContaining({ id: 'task-1' }),
-      );
-
-      expect(msg.toolCalls![0].status).toBe('completed');
-      expect(msg.toolCalls![0].result).toBe('Task completed successfully');
-      expect(msg.toolCalls![0].subagent?.status).toBe('completed');
-      expect(msg.toolCalls![0].subagent?.result).toBe('Task completed successfully');
-      renderedSubagent(deps.state.currentContentEl!, 'task-1', 'sync', /^Subagent task: Do something - Status: completed/, 'Task completed successfully');
-    });
-  });
-
   describe('Codex subagent lifecycle', () => {
     it('renders prompt immediately and final result after wait_agent resolves', async () => {
       const { createSubagentBlock, updateSubagentBlock } = mockedSubagents;
@@ -1968,78 +1530,6 @@ describe('StreamController - Text Content', () => {
       }, msg);
 
       expect(msg.toolCalls[0].status).toBe('completed');
-    });
-  });
-
-  describe('Async task tool result', () => {
-    it('tool_result for a pending async task returns true from handleAsyncTaskToolResult', async () => {
-      const { updateToolCallResult } = mockedTools;
-      const msg = createTestMessage();
-      deps.state.currentContentEl = document.body.createDiv();
-
-      await controller.handleStreamChunk({ type: 'tool_use', id: 'task-1', name: TOOL_SUBAGENT, input: { description: 'Background work', run_in_background: true } }, msg);
-      await controller.handleStreamChunk(
-        { type: 'tool_result', id: 'task-1', content: 'Task started in background' },
-        msg
-      );
-
-      expect(deps.subagentManager.handleTaskToolResult).toHaveBeenCalledWith(
-        'task-1',
-        'Task started in background',
-        undefined,
-        undefined
-      );
-
-      expect(updateToolCallResult).not.toHaveBeenCalled();
-      expect(msg.toolCalls?.[0].subagent).toMatchObject({ id: 'task-1', mode: 'async' });
-    });
-
-    it('passes the provider payload through to async Task result handler', async () => {
-      const msg = createTestMessage();
-      deps.state.currentContentEl = document.body.createDiv();
-
-
-      const structured = { rawOutput: { data: { agent_id: 'agent-from-structured' } } };
-      await controller.handleStreamChunk({ type: 'tool_use', id: 'task-1', name: TOOL_SUBAGENT, input: { description: 'Background work', run_in_background: true } }, msg);
-      await controller.handleStreamChunk(
-        { type: 'tool_result', id: 'task-1', content: 'Task started', providerPayload: structured },
-        msg
-      );
-
-      expect(msg.toolCalls?.[0].subagent?.agentId).toBe('agent-from-structured');
-      expect(deps.subagentManager.handleTaskToolResult).toHaveBeenCalledWith(
-        'task-1',
-        'Task started',
-        undefined,
-        structured
-      );
-    });
-
-    it('normalizes structured tool_result content before storing it on tool calls', async () => {
-      const { updateToolCallResult } = mockedTools;
-      const msg = createTestMessage();
-      msg.toolCalls = [
-        {
-          id: 'mcp-1',
-          name: 'mcp__stitch__create_project',
-          input: {},
-          status: 'running',
-          isExpanded: false,
-        },
-      ];
-
-      await controller.handleStreamChunk(
-        {
-          type: 'tool_result',
-          id: 'mcp-1',
-          content: [{ type: 'text', text: 'Created project successfully' }],
-        } as unknown as StreamChunk, // Deliberately exercises legacy structured content at the normalization boundary.
-        msg,
-      );
-
-      expect(msg.toolCalls[0].status).toBe('completed');
-      expect(msg.toolCalls[0].result).toBe('Created project successfully');
-      expect(updateToolCallResult).toHaveBeenCalled();
     });
   });
 

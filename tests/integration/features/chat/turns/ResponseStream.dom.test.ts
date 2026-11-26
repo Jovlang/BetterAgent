@@ -45,7 +45,7 @@ async function createSession(providerId?: ProviderId, promptText = 'Read the not
   const state = new ChatState({}, undefined, turns);
   const subagents = new SubagentManager(() => undefined);
   const stream = new StreamController({ plugin, state, renderer, subagentManager: subagents,
-    getMessagesEl: () => messagesEl, updateQueueIndicator: () => undefined, getProviderId: () => providerId ?? 'claude' });
+    getMessagesEl: () => messagesEl, updateQueueIndicator: () => undefined, getProviderId: () => providerId ?? 'codex' });
   let nextId = 0;
   const host = { state, renderer, stream, turns, createMessageId: () => `message-${++nextId}` };
   const response = new ResponseStream(host);

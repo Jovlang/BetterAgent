@@ -2,28 +2,21 @@
 import '@/providers';
 
 import { axe } from '@test/helpers/accessibility';
-import { createHarness as createExecutionHarness, FakeBranchSession } from '@test/helpers/ChatExecutionHarness';
-import { createConversationPorts } from '@test/helpers/ConversationPorts';
 import { createChatFeatureHost } from '@test/helpers/features/chat/ChatFeatureHostFixture';
-import { conversationRecord } from '@test/helpers/features/chat/ConversationFixture';
 import { testDate } from '@test/helpers/testClock';
-import { fireEvent, waitFor, within } from '@testing-library/dom';
+import { fireEvent, within } from '@testing-library/dom';
 import { Component, MarkdownRenderer } from 'obsidian';
 
 import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
 import type { ChatMessage, ToolCallInfo } from '@/core/types';
-import { ConversationController } from '@/features/chat/conversation/ConversationController';
-import { LinkedContentController } from '@/features/chat/linked-content';
 import { MessageRenderer } from '@/features/chat/rendering/MessageRenderer';
 import { createResponseTextBlock } from '@/features/chat/rendering/ResponseLayout';
-import { SubagentManager } from '@/features/chat/rendering/subagents/SubagentManager';
 import { createThinkingBlock, finalizeThinkingBlock } from '@/features/chat/rendering/ThinkingBlockRenderer';
-import { ChatState } from '@/features/chat/state/ChatState';
 import { setLocale, t } from '@/i18n/i18n';
 
 let defaultHost: Awaited<ReturnType<typeof createChatFeatureHost>>;
 
-function setup(providerId = 'claude') {
+function setup(providerId = 'codex') {
   const messagesEl = document.body.createDiv();
   const fork = vi.fn().mockResolvedValue(undefined);
   const renderer = new MessageRenderer(
@@ -234,7 +227,7 @@ it.each([true, false])('keeps the final answer visible with fallback tools (cont
 });
 
 it.each(['claude', 'codex'])('folds a replayed %s interruption under one disclosure headed by its marker', async provider => {
-  const { renderer, messagesEl } = setup(provider);
+  const { renderer, messagesEl } = setup();
   const read: ToolCallInfo = { id: 'read', name: 'Read', input: { file_path: 'note.md' }, status: 'completed', result: 'Note' };
   const interrupted: ChatMessage = { id: 'interrupted', role: 'assistant', content: 'Partial answer', timestamp: 3,
     assistantMessageId: 'native-interrupted', toolCalls: [read], contentBlocks: [
@@ -317,26 +310,6 @@ it('offers fork on the final live response of a multi-message turn', async () =>
   fireEvent.click(within(response).getByRole('button', { name: 'Fork conversation' }));
   await Promise.resolve();
   expect(fork).toHaveBeenCalledWith('a2');
-  renderer.dispose();
-});
-
-it('offers OpenCode fork on every checkpointed reply and keeps it when another turn starts', async () => {
-  const { renderer, messagesEl, fork } = setup('opencode');
-  const latest: ChatMessage = { id: 'a3', role: 'assistant', content: 'Latest answer', timestamp: 7,
-    assistantMessageId: 'native-a3' };
-  renderer.renderMessages([...messages, { id: 'u2', role: 'user', content: 'Next', timestamp: 6 }, latest], () => 'Hello');
-  const forkTargets = () => within(messagesEl).getAllByRole('button', { name: 'Fork conversation' })
-    .map(button => button.closest('[data-message-id]')?.getAttribute('data-message-id'));
-  expect(forkTargets()).toEqual(['a2', 'a3']);
-  const earlier = within(messagesEl.querySelector<HTMLElement>('[data-message-id="a2"]')!)
-    .getByRole('button', { name: 'Fork conversation' });
-  expect(earlier.getAttribute('type')).toBe('button');
-  fireEvent.click(earlier);
-  await Promise.resolve();
-  expect(fork).toHaveBeenCalledWith('a2');
-  expect((await axe(messagesEl)).violations).toEqual([]);
-  renderer.addMessage({ id: 'u3', role: 'user', content: 'Continue', timestamp: 8 });
-  expect(forkTargets()).toEqual(['a2', 'a3']);
   renderer.dispose();
 });
 
@@ -470,7 +443,7 @@ it('keeps requested work on both sides of a mid-response notification in its own
   renderer.dispose();
 });
 
-it.each(['claude', 'pi', 'opencode', 'codex'])('shows native throughput for %s on replay', async (provider) => {
+it.each(['codex'])('shows native throughput for %s on replay', async (provider) => {
   const { renderer, messagesEl } = setup(provider);
   const response = { ...messages[2], turnStats: { outputTokens: 125, durationMs: 2500 } };
   renderer.renderMessages([messages[0], response], () => 'Hello');
@@ -484,7 +457,7 @@ it.each(['claude', 'pi', 'opencode', 'codex'])('shows native throughput for %s o
 });
 
 it.each([
-  ['claude', undefined],
+  ['codex', undefined],
 ])('omits unavailable or unsupported throughput (%s, %j)', (provider, turnStats) => {
   const { renderer, messagesEl } = setup(provider as string);
   renderer.renderMessages([messages[0], { ...messages[2], turnStats } as ChatMessage], () => 'Hello');
@@ -512,194 +485,6 @@ it('keeps time after throughput', () => {
   const fork = within(toolbar).getByRole('button', { name: 'Fork conversation' });
   expect(Array.from(toolbar.children)).toEqual([copy, fork, stat, toolbar.querySelector('.claudian-message-timestamp')]);
   renderer.dispose();
-});
-
-it('renders accessible Pi branch controls at the prompt and disables them while busy', async () => {
-  const messagesEl = document.body.createDiv();
-  const navigate = vi.fn().mockResolvedValue(undefined);
-  let busy = false;
-  const renderer = new MessageRenderer(
-    defaultHost,
-    new Component(),
-    messagesEl, undefined, undefined, () => ProviderRegistry.getCapabilities('pi'),
-    { navigate, isBusy: () => busy },
-  );
-  const prompt: ChatMessage = { id: 'user', role: 'user', content: 'Try B', timestamp: 1,
-    userMessageId: 'b', treeBranches: ['a', 'b'] };
-  const previousSessionPrompt: ChatMessage = { id: 'previous-session', role: 'user', content: 'Earlier session',
-    timestamp: 1, userMessageId: 'old-native-id' };
-  renderer.renderMessages([messages[0], previousSessionPrompt, prompt], () => 'Hello');
-  expect(within(messagesEl.querySelector('[data-message-id="previous-session"]') as HTMLElement)
-    .queryByRole('button', { name: 'Branch from this prompt' })).toBeNull();
-  expect(within(messagesEl.querySelector('[data-message-id="u1"]') as HTMLElement)
-    .queryByRole('button', { name: 'Branch from this prompt' })).toBeNull();
-  const edit = within(messagesEl).getByRole('button', { name: 'Branch from this prompt' }) as HTMLButtonElement;
-  const previous = within(messagesEl).getByRole('button', { name: 'Previous branch' }) as HTMLButtonElement;
-  const next = within(messagesEl).getByRole('button', { name: 'Next branch' }) as HTMLButtonElement;
-  const assertNativeTooltipsOnly = () => {
-    for (const button of [edit, previous, next]) expect(button.hasAttribute('title')).toBe(false);
-  };
-  assertNativeTooltipsOnly();
-  expect(edit.type).toBe('button');
-  expect(next.disabled).toBe(true);
-  expect(within(messagesEl).getByText('2/2')).toBeDefined();
-  previous.focus();
-  expect(document.activeElement).toBe(previous);
-  fireEvent.click(previous);
-  expect(navigate).toHaveBeenCalledWith('user', 'a');
-  fireEvent.click(edit);
-  expect(navigate).toHaveBeenCalledWith('user', undefined);
-  busy = true;
-  renderer.refreshBranchButtonState();
-  expect(edit.disabled).toBe(true);
-  expect(previous.disabled).toBe(true);
-  assertNativeTooltipsOnly();
-  fireEvent.click(previous);
-  expect(navigate).toHaveBeenCalledTimes(2);
-  busy = false;
-  renderer.refreshBranchButtonState();
-  expect(previous.disabled).toBe(false);
-  expect(next.disabled).toBe(true);
-  assertNativeTooltipsOnly();
-  expect(await axe(messagesEl)).toHaveNoViolations();
-  renderer.dispose();
-});
-
-it('shows the tree action from the second live prompt before native IDs arrive and enables it without reloading', async () => {
-  const messagesEl = document.body.createDiv();
-  const navigate = vi.fn().mockResolvedValue(undefined);
-  let busy = true;
-  const renderer = new MessageRenderer(
-    defaultHost,
-    new Component(),
-    messagesEl, undefined, undefined, () => ProviderRegistry.getCapabilities('pi'),
-    { navigate, isBusy: () => busy },
-  );
-  const first: ChatMessage = { ...messages[0], treeBranches: ['native-u1'] };
-  renderer.addMessage(first);
-  renderer.refreshBranchButtons([first]);
-  expect(within(messagesEl).queryByRole('button', { name: 'Branch from this prompt' })).toBeNull();
-  const second: ChatMessage = { id: 'u2', role: 'user', content: 'Second prompt', timestamp: 2 };
-  renderer.addMessage(second);
-  let edit = within(messagesEl).getByRole('button', { name: 'Branch from this prompt' }) as HTMLButtonElement;
-  expect(edit.disabled).toBe(true);
-  expect(edit.getAttribute('aria-description')).toContain('response');
-  expect(edit.hasAttribute('title')).toBe(false);
-  busy = false;
-  second.userMessageId = 'native-u2';
-  renderer.refreshActionButtons(second, [first, second], 1);
-  edit = within(messagesEl).getByRole('button', { name: 'Branch from this prompt' }) as HTMLButtonElement;
-  expect(edit.disabled).toBe(false);
-  fireEvent.click(edit);
-  expect(navigate).toHaveBeenCalledWith('u2', undefined);
-  second.treeBranches = ['native-u2'];
-  renderer.renderMessages([first, second], () => 'Hello');
-  expect(within(messagesEl).getAllByRole('button', { name: 'Branch from this prompt' })).toHaveLength(1);
-  expect(await axe(messagesEl)).toHaveNoViolations();
-  renderer.dispose();
-});
-
-it.each([true, false])('enables branches after switching and native history correlation (initial ID: %s)', async hasNativeId => {
-  const messagesEl = document.body.createDiv();
-  const inputEl = document.body.createEl('textarea');
-  const state = new ChatState();
-  const first: ChatMessage = { ...messages[0], treeBranches: ['native-u1'] };
-  const second: ChatMessage = { id: 'u2', role: 'user', content: 'Second prompt', timestamp: 2,
-    treeBranches: ['native-u2'], ...(hasNativeId ? { userMessageId: 'native-u2' } : {}) };
-  const plugin = await createChatFeatureHost({ settings: { mediaFolder: '' }, updateConversation: vi.fn(),
-    getConversationById: vi.fn().mockResolvedValue(conversationRecord('pi-chat', { providerId: 'pi', messages: [first, second] })),
-    getConversationSummary: () => conversationRecord('pi-chat', { providerId: 'pi' }) });
-  const native = new FakeBranchSession('pi', 'pi-session-1');
-  native.branchState = { branches: { 'native-u1': ['native-u1'], 'native-u2': ['native-u2'] }, userMessageIds: { u1: 'native-u1', u2: 'native-u2' } };
-  native.navigateConversationBranch.mockResolvedValue({ status: 'committed', messages: [first] });
-  const { coordinator, registry } = createExecutionHarness({
-    resolveBackend: () => ({ providerId: 'pi', createSession: () => native }),
-  });
-  await coordinator.bindConversation({ conversationId: 'pi-chat', providerId: 'pi' });
-  await coordinator.prepare();
-  onTestFinished(async () => { await coordinator.dispose(); await registry.dispose(); });
-  const renderer: MessageRenderer = new MessageRenderer(plugin,
-    new Component(),
-    messagesEl, undefined, undefined, () => ProviderRegistry.getCapabilities('pi'), {
-      navigate: (id, target) => controller.navigateBranch(id, target),
-      isBusy: () => state.isRewinding,
-    });
-  let welcomeEl: HTMLElement | null = null;
-  const controller = new ConversationController({ plugin, state, renderer,
-    ...createConversationPorts({ state, getInputEl: () => inputEl, getImageContextManager: () => null }),
-    subagentManager: new SubagentManager(() => undefined),
-    getMessagesEl: () => messagesEl,
-    getWelcomeEl: () => welcomeEl, setWelcomeEl: (el: HTMLElement | null) => { welcomeEl = el; },
-    getLinkedContentController: () => new LinkedContentController({ app: plugin.app, getExcludedTags: () => [], getCachedVaultFiles: () => [], getCachedVaultFolders: () => [] }),
-    getExecutionCoordinator: () => coordinator,
-  });
-  state.currentConversationId = 'pi-chat';
-  await controller.loadActive();
-  expect((within(messagesEl).getByRole('button', { name: 'Branch from this prompt' }) as HTMLButtonElement).disabled).toBe(!hasNativeId);
-  await controller.save();
-  const edit = within(messagesEl).getByRole('button', { name: 'Branch from this prompt' }) as HTMLButtonElement;
-  expect(edit.disabled).toBe(false);
-  edit.click();
-  await waitFor(() => expect(inputEl.value).toBe('Second prompt'));
-  expect(native.navigateConversationBranch).not.toHaveBeenCalled();
-  expect(await controller.commitBranchDraft()).toMatchObject({ status: 'committed' });
-  expect(native.navigateConversationBranch).toHaveBeenCalledWith(expect.objectContaining({ userMessageId: 'native-u2' }));
-  expect(state.messages).toEqual([first]);
-  renderer.dispose();
-});
-
-it('orders the Pi prompt toolbar as branches, tree, copy, time through live and replay refreshes', async () => {
-  const messagesEl = document.body.createDiv();
-  const fork = vi.fn().mockResolvedValue(undefined);
-  let busy = true;
-  const renderer = new MessageRenderer(defaultHost,
-    new Component(),
-    messagesEl, undefined, fork, () => ProviderRegistry.getCapabilities('pi'),
-    { navigate: vi.fn(), isBusy: () => busy });
-  onTestFinished(() => renderer.dispose());
-  const first: ChatMessage = { ...messages[0], treeBranches: ['native-u1'] };
-  const prompt: ChatMessage = { id: 'second', role: 'user', content: 'Try B', timestamp: 2 };
-  const reply: ChatMessage = { id: 'reply-b', role: 'assistant', content: 'Answer B', timestamp: 3,
-    assistantMessageId: 'native-reply-b' };
-  renderer.addMessage(first);
-  renderer.addMessage(prompt);
-  let promptEl = messagesEl.querySelector<HTMLElement>('[data-message-id="second"]')!;
-  expect(within(promptEl).queryByRole('button', { name: 'Fork conversation' })).toBeNull();
-  prompt.userMessageId = 'native-b';
-  prompt.treeBranches = ['native-a', 'native-b'];
-  const history = [first, prompt, reply];
-  renderer.addMessage(reply);
-  busy = false;
-  renderer.refreshActionButtons(prompt, history, 1);
-  const assertOrder = () => {
-    const toolbar = promptEl.querySelector('.claudian-message-actions')!;
-    const labels = Array.from(toolbar.children).map(child => child.classList.contains('claudian-message-timestamp')
-      ? 'time' : child.getAttribute('aria-label'));
-    expect(labels).toEqual(['Previous branch', 'Branch 2 of 2', 'Next branch', 'Branch from this prompt', 'Copy message', 'time']);
-    expect(within(toolbar as HTMLElement).queryByRole('button', { name: 'Fork conversation' })).toBeNull();
-    const markers = promptEl.querySelectorAll('.claudian-branch-marker');
-    expect(markers).toHaveLength(1);
-    expect(markers[0].parentElement).toBe(promptEl.querySelector('.claudian-message-content'));
-    expect(markers[0].getAttribute('aria-hidden')).toBe('true');
-    expect(messagesEl.querySelector('[data-message-id="u1"] .claudian-branch-marker')).toBeNull();
-  };
-  assertOrder();
-  for (const name of ['Previous branch', 'Branch from this prompt', 'Copy message']) {
-    const action = within(promptEl).getByRole('button', { name });
-    action.focus();
-    expect(document.activeElement).toBe(action);
-    renderer.refreshBranchButtons(history);
-    expect(document.activeElement).toBe(within(promptEl).getByRole('button', { name }));
-    assertOrder();
-  }
-  renderer.renderMessages(history, () => 'Hello');
-  promptEl = messagesEl.querySelector<HTMLElement>('[data-message-id="second"]')!;
-  assertOrder();
-  expect(await axe(promptEl)).toHaveNoViolations();
-  prompt.treeBranches = ['native-b'];
-  renderer.refreshBranchButtons(history);
-  expect(promptEl.querySelector('.claudian-branch-marker')).toBeNull();
-  expect(within(promptEl).getByRole('button', { name: 'Branch from this prompt' })).toBeTruthy();
 });
 
 it('defers Markdown for collapsed thinking and notifications until their own disclosure opens', async () => {

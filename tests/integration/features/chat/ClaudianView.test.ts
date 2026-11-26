@@ -4,6 +4,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
+import { axe } from '@test/helpers/accessibility';
 import { createHarness as createExecutionHarness, deferred } from '@test/helpers/ChatExecutionHarness';
 import { holdResponse } from '@test/helpers/ConversationPorts';
 import { useNextTaskAnimationFrames } from '@test/helpers/dom/animationFrames';
@@ -24,6 +25,7 @@ import { TabManager } from '@/features/chat/tabs/TabManager';
 import type { TabLayoutPolicy } from '@/features/chat/tabs/types';
 import { ViewerSlot } from '@/features/chat/tabs/ViewerSlot';
 import { createChatTabCommands } from '@/features/chat/workspace/ChatTabCommands';
+import { ChatViewPublisher } from '@/features/chat/workspace/ChatViewPublisher';
 import { setLocale, t } from '@/i18n/i18n';
 
 beforeEach(() => {
@@ -298,7 +300,7 @@ describe('ClaudianView provider and presentation wiring', () => {
     const { view, manager, plugin, contentEl, resize } = await openView({
       width: 400,
       singleViewer: true,
-      host: { settings: { enableDualPane: false, dualPaneSide: 'left', sessionManagerOrganization: 'linked-content' } },
+      host: { settings: { enableDualPane: false, dualPaneSide: 'left', sessionManagerOrganization: 'list' } },
       records: [
         conversationRecord('one', { linkedContentPath: 'notes/brief.pdf' }),
         conversationRecord('two', { linkedContentPath: 'notes/brief.pdf' }),
@@ -394,6 +396,59 @@ describe('ClaudianView provider and presentation wiring', () => {
     fireEvent.click(within(history).getByRole('button', { name: 'Back to conversation' }));
     fireEvent.click(nextFooter.getByRole('button', { name: 'New chat' }));
     await waitFor(() => expect(view.getActiveTab()?.conversationId).toBeNull());
+  });
+
+  it('toggles linked-content groups without clearing the history search', async () => {
+    const publisher = new ChatViewPublisher({
+      views: { getAllViews: () => openedViews },
+      fontScale: { reconcile: vi.fn() },
+      inactiveSessions: { request: vi.fn() },
+      hasLoadedAllSessionMetadata: () => false,
+    });
+    const fixture = await createFeatureHostFixture({
+      settings: { sessionManagerOrganization: 'list' },
+      afterPublish: (settings, previous) => publisher.publishSettings(settings, previous),
+    });
+    const { contentEl, plugin, resize } = await openView({
+      width: 400,
+      singleViewer: true,
+      fixture,
+      records: [
+        conversationRecord('review one', { linkedContentPath: 'brief.pdf' }),
+        conversationRecord('review two', { linkedContentPath: 'brief.pdf' }),
+        conversationRecord('unrelated', { linkedContentPath: 'brief.pdf' }),
+      ],
+    });
+    const brief = Object.assign(new TFile(), { path: 'brief.pdf', extension: 'pdf', name: 'brief.pdf' });
+    const lookup = plugin.app.vault.getAbstractFileByPath.bind(plugin.app.vault);
+    vi.spyOn(plugin.app.vault, 'getAbstractFileByPath').mockImplementation(path => (
+      path === brief.path ? brief : lookup(path)
+    ));
+    const ui = within(contentEl);
+    fireEvent.click(ui.getByRole('button', { name: 'Conversation history' }));
+    const search = ui.getByRole('searchbox', { name: 'Search sessions' }) as HTMLInputElement;
+    fireEvent.input(search, { target: { value: 'review' } });
+    const toggle = ui.getByRole('button', { name: 'Group by linked content', pressed: false });
+    expect(ui.queryByRole('button', { name: /^brief\.pdf/, expanded: true })).toBeNull();
+
+    fireEvent.click(toggle);
+    const group = await waitFor(() => ui.getByRole('button', { name: /^brief\.pdf/, expanded: true }));
+    expect(ui.getByRole('button', { name: 'Group by linked content', pressed: true })).toBe(toggle);
+    expect((await axe(toggle, { runOnly: ['button-name', 'aria-valid-attr-value'] })).violations).toEqual([]);
+    expect(search.value).toBe('review');
+    expect(ui.queryByText('unrelated')).toBeNull();
+    fireEvent.click(group);
+    expect(ui.queryByRole('button', { name: /^review one/ })).toBeNull();
+    expect(ui.queryByRole('button', { name: /^review two/ })).toBeNull();
+
+    resize(800);
+    expect(ui.getByRole('button', { name: 'Group by linked content', pressed: true })).toBe(toggle);
+    fireEvent.click(toggle);
+    await waitFor(() => expect(ui.getByRole('button', { name: 'Group by linked content', pressed: false })).toBe(toggle));
+    expect(ui.getByRole('button', { name: 'review one brief.pdf' })).toBeTruthy();
+    expect(ui.getByRole('button', { name: 'review two brief.pdf' })).toBeTruthy();
+    expect(ui.queryByRole('button', { name: /^brief\.pdf/, expanded: false })).toBeNull();
+    expect(search.value).toBe('review');
   });
 
   it.each([400, 800])('closes history from the mouse Back button at %i px without navigating away', async width => {

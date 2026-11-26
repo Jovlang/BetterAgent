@@ -177,6 +177,8 @@
       "search": "Sitzungen durchsuchen",
       "searchArchived": "Archivierte Sitzungen durchsuchen",
       "clearSearch": "Suche zurücksetzen",
+      "groupByLinkedContent": "Nach verknüpftem Inhalt gruppieren",
+      "organizationUpdateFailed": "Die Gruppierung des Verlaufs konnte nicht geändert werden.",
       "showArchive": "Archivierte Sitzungen anzeigen",
       "showSessions": "Aktive Sitzungen anzeigen"
     },

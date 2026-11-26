@@ -670,7 +670,8 @@ export class SessionBrowser {
       titleEl.prepend(lineageEl);
     }
     const linkedPath = conversation.linkedContentPath;
-    if (options.flatHistory && linkedPath && !isLegacyProvisionalLinkedContent(linkedPath, { ...options, language: options.language ?? 'en' })) {
+    if (options.flatHistory && options.organization !== 'linked-content' && linkedPath
+      && !isLegacyProvisionalLinkedContent(linkedPath, { ...options, language: options.language ?? 'en' })) {
       content.createDiv({
         cls: 'claudian-history-item-filename',
         text: getLinkedContentTitle(linkedPath),

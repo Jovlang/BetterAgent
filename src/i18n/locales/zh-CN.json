@@ -177,6 +177,8 @@
       "search": "搜索会话",
       "searchArchived": "搜索已归档会话",
       "clearSearch": "清除搜索",
+      "groupByLinkedContent": "按关联内容分组",
+      "organizationUpdateFailed": "无法更改历史记录的分组方式。",
       "showArchive": "显示已归档会话",
       "showSessions": "显示活跃会话"
     },

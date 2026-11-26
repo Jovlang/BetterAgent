@@ -332,6 +332,10 @@
   unicode-bidi: plaintext; /* Proper BiDi text handling for mixed RTL/LTR */
 }
 
+.claudian-message-content :is(p, li) {
+  line-height: 1.6;
+}
+
 .claudian-interrupted {
   color: #d45d5d;
 }

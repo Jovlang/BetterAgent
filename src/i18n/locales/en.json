@@ -177,6 +177,8 @@
       "search": "Search sessions",
       "searchArchived": "Search archived sessions",
       "clearSearch": "Clear search",
+      "groupByLinkedContent": "Group by linked content",
+      "organizationUpdateFailed": "Could not update history grouping.",
       "showArchive": "Show archived sessions",
       "showSessions": "Show active sessions"
     },

@@ -59,6 +59,7 @@ export class SessionSidebar {
   private sidebarEl: HTMLElement | null = null;
   private surfaceEl: HTMLElement | null = null;
   private archiveLabelEl?: HTMLElement;
+  private organizationButtonEl?: HTMLElement;
   private newButtonEl: HTMLElement | null = null;
   private groupToggleButtonEl: HTMLElement | null = null;
   private themeEvent: EventRef | null = null;
@@ -90,6 +91,11 @@ export class SessionSidebar {
       this.archiveLabelEl = header.createSpan({ cls: 'claudian-history-panel-archive-label' });
       this.#search = this.createSearchSession();
       this.buildSearchField(header, this.#search);
+      const label = t('chat.sessions.groupByLinkedContent');
+      this.organizationButtonEl = createSessionHeaderAction(header, 'group', label, () => {
+        this.setOrganization(this.getOrganization() === 'list' ? 'linked-content' : 'list');
+      });
+      this.organizationButtonEl.title = label;
     }
     const trackEl = sidebarEl.createDiv({ cls: 'claudian-sidebar-surface-track' });
     this.surfaceEl = trackEl.createDiv({ cls: 'claudian-session-surface' });
@@ -129,6 +135,7 @@ export class SessionSidebar {
       if (this.deps.flatHistory && this.#search?.inputEl) {
         this.labelSearchInput(this.#search.inputEl);
       }
+      this.organizationButtonEl?.setAttribute('aria-pressed', String(this.getOrganization() === 'linked-content'));
       this.groupToggleButtonEl = null;
       this.renderList(surfaceEl, abortController.signal);
       if (!this.deps.flatHistory) this.buildHeaderActions(surfaceEl);
@@ -200,7 +207,7 @@ export class SessionSidebar {
     const { navigation, plugin, shared } = this.deps;
     const isArchiveView = shared.isArchiveView();
     const flat = this.deps.flatHistory;
-    const organization = flat ? 'list' : this.getOrganization();
+    const organization = this.getOrganization();
     shared.browser.renderHistoryDropdown(container, {
       onSelectConversation: (id) => navigation.openSessionConversation(id),
       getConversationStatus: (id) => navigation.getConversationStatus(id),
@@ -663,7 +670,7 @@ export class SessionSidebar {
     void this.deps.plugin.mutateSettings((settings) => {
       settings.sessionManagerOrganization = organization;
     })
-      .catch(() => new Notice('Failed to update session organization'));
+      .catch(() => new Notice(t('chat.sessions.organizationUpdateFailed')));
   }
 
   private setSort(sort: SessionManagerSort): void {

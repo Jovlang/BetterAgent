@@ -177,6 +177,8 @@
       "search": "セッションを検索",
       "searchArchived": "アーカイブ済みセッションを検索",
       "clearSearch": "検索をクリア",
+      "groupByLinkedContent": "リンクされたコンテンツでグループ化",
+      "organizationUpdateFailed": "履歴のグループ化を変更できませんでした。",
       "showArchive": "アーカイブ済みセッションを表示",
       "showSessions": "アクティブなセッションを表示"
     },

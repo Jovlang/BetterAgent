@@ -96,11 +96,13 @@
 
 .claudian-chat-body .claudian-session-sidebar {
   --claudian-session-inline-inset: var(--size-4-2, 8px);
+  --claudian-session-end-inset: var(--size-4-1, 4px);
+  --claudian-session-icon-stroke: 2;
 }
 
 .claudian-chat-body .claudian-session-sidebar .claudian-history-list {
   overflow-y: auto;
-  padding-inline: var(--size-4-2, 8px);
+  padding-inline: var(--claudian-session-inline-inset) var(--claudian-session-end-inset);
   scrollbar-gutter: stable;
 }
 
@@ -160,31 +162,81 @@
 }
 
 .claudian-chat-body .claudian-session-sidebar .claudian-history-list > .claudian-history-item {
-  padding: 5px var(--claudian-session-inline-inset);
+  padding-block: 5px;
+}
+
+.claudian-chat-body .claudian-session-sidebar :is(.claudian-history-item, .claudian-session-group-header) {
+  padding-inline-end: var(--claudian-session-end-inset);
+}
+
+.claudian-chat-body .claudian-session-sidebar .claudian-session-group-header {
+  padding-block: 4px;
+  color: var(--text-muted);
+  font-size: calc(12 * var(--claudian-font-px));
+  font-weight: var(--font-medium, 500);
+  line-height: calc(16 * var(--claudian-font-px));
+}
+
+.claudian-chat-body .claudian-session-sidebar .claudian-session-group-header .claudian-session-group-label {
+  line-height: inherit;
+}
+
+.claudian-chat-body .claudian-session-sidebar .claudian-session-group-body + .claudian-session-group-header {
+  margin-block-start: var(--size-4-3, 12px);
+}
+
+.claudian-chat-body .claudian-session-sidebar .claudian-session-group-body > .claudian-history-item {
+  padding-block: 3px;
 }
 
 .claudian-chat-body .claudian-session-sidebar .claudian-history-item-title {
   color: var(--text-normal);
+  font-size: calc(14 * var(--claudian-font-px));
+  font-weight: var(--font-normal, 400);
+  line-height: calc(19 * var(--claudian-font-px));
 }
 
 .claudian-chat-body .claudian-history-item-filename {
   overflow: hidden;
   color: var(--text-muted);
   font-size: calc(11 * var(--claudian-font-px));
-  line-height: calc(15 * var(--claudian-font-px));
+  line-height: calc(16 * var(--claudian-font-px));
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .claudian-chat-body .claudian-session-sidebar .claudian-history-item-actions {
+  /* Keep the menu in the tab order without reserving title width until it is shown. */
+  position: absolute;
+  inset-inline-end: var(--claudian-session-end-inset);
   display: flex;
   margin: 0;
   opacity: 0;
+  pointer-events: none;
+}
+
+/* Center the same stroke and glyph box in the leading and trailing history slots. */
+.claudian-chat-body .claudian-session-sidebar :is(
+  .claudian-history-panel-header > button,
+  .claudian-session-nav-icon,
+  .claudian-session-group-icon,
+  .claudian-session-group-new-action,
+  .claudian-history-item-actions,
+  .claudian-session-running-indicator,
+  .claudian-session-group-running-indicator,
+  .claudian-session-status-indicator
+) svg {
+  display: block;
+  width: var(--claudian-session-icon-size);
+  height: var(--claudian-session-icon-size);
+  stroke-width: var(--claudian-session-icon-stroke);
 }
 
 .claudian-chat-body .claudian-session-sidebar .claudian-history-item:is(:hover, :focus-within) .claudian-history-item-actions,
 body.is-mobile .claudian-chat-body .claudian-session-sidebar .claudian-history-item-actions {
+  position: static;
   opacity: 1;
+  pointer-events: auto;
 }
 
 .claudian-wide-session-layout .claudian-view-input-nav-row {
@@ -401,6 +453,14 @@ body.is-mobile .claudian-chat-body .claudian-session-sidebar .claudian-history-i
 .claudian-session-header-btn:hover .claudian-session-header-icon,
 .claudian-session-header-btn:focus-visible .claudian-session-header-icon {
   color: var(--text-normal);
+}
+
+.claudian-session-sidebar .claudian-history-panel-header .claudian-session-header-btn[aria-pressed='true'] {
+  background: var(--background-modifier-hover);
+}
+
+.claudian-history-panel-header .claudian-session-header-btn[aria-pressed='true'] .claudian-session-header-icon {
+  color: var(--text-accent);
 }
 
 .claudian-session-header-icon svg {
@@ -705,7 +765,7 @@ body.is-mobile .claudian-chat-body .claudian-session-sidebar .claudian-history-i
 
 .claudian-session-sidebar .claudian-history-item.active,
 .claudian-session-sidebar .claudian-history-item.open {
-  padding-inline-start: 12px;
+  padding-inline-start: var(--claudian-session-inline-inset);
   background: transparent;
   border-inline-start: none;
 }

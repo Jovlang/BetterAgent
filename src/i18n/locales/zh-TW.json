@@ -177,6 +177,8 @@
       "search": "搜尋工作階段",
       "searchArchived": "搜尋已封存的工作階段",
       "clearSearch": "清除搜尋",
+      "groupByLinkedContent": "依連結內容分組",
+      "organizationUpdateFailed": "無法變更歷史記錄的分組方式。",
       "showArchive": "顯示已封存的工作階段",
       "showSessions": "顯示使用中的工作階段"
     },

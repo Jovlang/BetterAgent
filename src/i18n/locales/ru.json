@@ -177,6 +177,8 @@
       "search": "Поиск сессий",
       "searchArchived": "Поиск в архивных сессиях",
       "clearSearch": "Очистить поиск",
+      "groupByLinkedContent": "Группировать по связанному содержимому",
+      "organizationUpdateFailed": "Не удалось изменить группировку истории.",
       "showArchive": "Показать архивные сессии",
       "showSessions": "Показать активные сессии"
     },

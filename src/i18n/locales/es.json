@@ -177,6 +177,8 @@
       "search": "Buscar sesiones",
       "searchArchived": "Buscar sesiones archivadas",
       "clearSearch": "Borrar búsqueda",
+      "groupByLinkedContent": "Agrupar por contenido vinculado",
+      "organizationUpdateFailed": "No se pudo cambiar la agrupación del historial.",
       "showArchive": "Mostrar sesiones archivadas",
       "showSessions": "Mostrar sesiones activas"
     },

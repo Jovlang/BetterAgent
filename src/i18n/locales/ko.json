@@ -177,6 +177,8 @@
       "search": "세션 검색",
       "searchArchived": "보관된 세션 검색",
       "clearSearch": "검색 지우기",
+      "groupByLinkedContent": "연결된 콘텐츠별로 그룹화",
+      "organizationUpdateFailed": "기록 그룹화를 변경할 수 없습니다.",
       "showArchive": "보관된 세션 보기",
       "showSessions": "활성 세션 보기"
     },

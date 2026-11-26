@@ -177,6 +177,8 @@
       "search": "Pesquisar sessões",
       "searchArchived": "Pesquisar sessões arquivadas",
       "clearSearch": "Limpar pesquisa",
+      "groupByLinkedContent": "Agrupar por conteúdo vinculado",
+      "organizationUpdateFailed": "Não foi possível alterar o agrupamento do histórico.",
       "showArchive": "Mostrar sessões arquivadas",
       "showSessions": "Mostrar sessões ativas"
     },

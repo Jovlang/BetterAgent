@@ -63,6 +63,8 @@ describe('getInlineEditSystemPrompt', () => {
   it('uses provider-neutral read-only tool guidance with one path-resolution rule', () => {
     const prompt = getInlineEditSystemPrompt('/vault');
 
+    expect(prompt).toContain('You are BetterAgent, an editor operating inside an Obsidian Vault.');
+    expect(prompt).not.toContain('Claudian');
     expect(prompt).toContain('available read-only tools');
     expect(prompt).toContain(
       'Resolve Vault-relative context paths against the Vault absolute path before using read-only tools; use already-absolute paths directly.',

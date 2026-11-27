@@ -281,6 +281,35 @@ describe('ClaudianView provider and presentation wiring', () => {
     expect(search.value).toBe('review');
   });
 
+  it.each([400, 800])('reveals a new chat linked to a history group at %i px', async width => {
+    const { contentEl, manager, plugin, resize } = await openView({
+      host: { settings: { sessionManagerOrganization: 'linked-content' } },
+      records: [conversationRecord('bear discussion', { linkedContentPath: 'Bear.md' })],
+    });
+    const bear = Object.assign(new TFile(), { path: 'Bear.md', extension: 'md', name: 'Bear.md', basename: 'Bear' });
+    const lookup = plugin.app.vault.getAbstractFileByPath.bind(plugin.app.vault);
+    vi.spyOn(plugin.app.vault, 'getAbstractFileByPath').mockImplementation(path => (
+      path === bear.path ? bear : lookup(path)
+    ));
+    resize(width);
+    const history = contentEl.querySelector<HTMLElement>('.claudian-session-sidebar')!;
+    if (history.hidden) {
+      fireEvent.click(within(contentEl).getByRole('button', { name: 'Conversation history' }));
+    }
+    const previous = manager.getActiveTab();
+    fireEvent.click(await within(history).findByRole('button', { name: 'New chat for Bear' }));
+
+    await waitFor(() => {
+      const draft = manager.getActiveTab()!;
+      expect(draft).not.toBe(previous);
+      expect(draft.conversationId).toBeNull();
+      const chat = contentEl.querySelector<HTMLElement>('.claudian-chat-panel')!;
+      expect(within(chat).getByRole('button', { name: 'Bear' })).toBeTruthy();
+      expect(history.hidden).toBe(width === 400);
+      expect(document.activeElement).toBe(within(draft.dom.inputEl).getByRole('textbox', { name: 'Message' }));
+    });
+  });
+
   it.each([400, 800])('toggles history from the mouse Back button at %i px without navigating away', async width => {
     const { view, manager, contentEl } = await openView({ width });
     await manager.viewerSlot.show('one');

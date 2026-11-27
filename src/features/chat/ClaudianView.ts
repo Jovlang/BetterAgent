@@ -78,6 +78,7 @@ export class ClaudianView extends ItemView {
         startLinkedContentConversation: async (contentPath) => {
           if (!this.tabManager) throw new Error('Chat tabs are unavailable');
           await this.tabManager.viewerSlot.startDraft({ linkedContentPath: contentPath });
+          if (this.layout.closeHistory(true)) this.getActiveTab()?.composer.focus();
         },
         contentExists: contentPath => this.sessionNavigation.contentExists(contentPath),
       },

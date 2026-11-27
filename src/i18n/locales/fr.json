@@ -786,10 +786,6 @@
       "name": "Activer l’extension Chrome",
       "desc": "Permettre à Claude Code d’interagir avec Chrome via l’extension claude-in-chrome. L’extension doit être installée. Nécessite un redémarrage de session."
     },
-    "enableDualPane": {
-      "name": "Activer le mode double volet",
-      "desc": "Afficher automatiquement le gestionnaire de sessions à côté du chat lorsque la vue mesure au moins 600 px de large."
-    },
     "restoreTabsOnStartup": {
       "name": "Rouvrir la dernière conversation au démarrage",
       "desc": "Rouvre la dernière conversation active au démarrage de BetterAgent."
@@ -802,12 +798,6 @@
       "days7": "Après 7 jours",
       "days14": "Après 14 jours",
       "days30": "Après 30 jours"
-    },
-    "dualPaneSide": {
-      "name": "Côté du double volet",
-      "desc": "Choisir de quel côté du chat le gestionnaire de sessions apparaît.",
-      "left": "Gauche",
-      "right": "Droite"
     },
     "enableAutoScroll": {
       "name": "Défilement automatique pendant le streaming",

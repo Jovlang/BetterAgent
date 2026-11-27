@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import '@/providers';
+import '@test/helpers/registeredCodex';
 
 import { approvalDecisionOptions } from '@test/helpers/features/chat/approvalDecisionOptions';
 import {

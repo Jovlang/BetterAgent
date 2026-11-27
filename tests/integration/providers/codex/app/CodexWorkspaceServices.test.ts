@@ -1,13 +1,12 @@
 import { TEST_CODEX_CATALOG, TEST_CODEX_MODEL } from '@test/helpers/codexModels';
 import { CodexRuntimeHarness } from '@test/helpers/providers/codex/CodexRuntimeHarness';
 import { createCodexWorkspaceHarness } from '@test/helpers/providers/codex/CodexWorkspaceHarness';
+import { registerCodexForTests } from '@test/helpers/registerCodexForTests';
 import { testClock } from '@test/helpers/testClock';
 
-import { registerProviderModules } from '@/core/providers/registerProviderModules';
-import { codexProviderRegistration } from '@/providers/codex/registration';
 import { getCodexProviderSettings } from '@/providers/codex/settings';
 
-registerProviderModules([codexProviderRegistration]);
+registerCodexForTests();
 
 const mockNative = new CodexRuntimeHarness();
 vi.mock('cross-spawn', () => ({ default: vi.fn(() => mockNative.createProcess()) }));

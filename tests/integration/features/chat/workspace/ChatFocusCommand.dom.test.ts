@@ -4,12 +4,11 @@ import {
   installChatWorkspaceHooks,
   waitFor,
 } from '@test/helpers/features/chat/ChatWorkspaceFixture';
+import { registerCodexForTests } from '@test/helpers/registerCodexForTests';
 import { within } from '@testing-library/dom';
 
-import { registerProviderModules } from '@/core/providers/registerProviderModules';
-import { codexProviderRegistration } from '@/providers/codex/registration';
 
-registerProviderModules([codexProviderRegistration]);
+registerCodexForTests();
 installChatWorkspaceHooks();
 
 it('toggles the normal sidebar composer', async () => {

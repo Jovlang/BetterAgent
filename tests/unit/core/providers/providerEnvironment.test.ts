@@ -1,4 +1,4 @@
-import '@/providers';
+import '@test/helpers/registeredCodex';
 
 import { runInNewContext } from 'vm';
 

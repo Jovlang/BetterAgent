@@ -263,10 +263,9 @@ describe('Codex shared runtime', () => {
     });
   }
 
-  it.each([true, false])('does not expose retired session tools even if a port was supplied (%s)', async ported => {
+  it('does not advertise or execute retired session tools on new threads', async () => {
     mockNative.autoReconcile = true;
-    const port = { list: vi.fn(async () => ({ sessions: [] })), send: vi.fn(), read: vi.fn() };
-    const session = createBackend(plugin, createRuntime()).createSession({ ...config, ...(ported ? { sessionTools: port } : {}) });
+    const session = createBackend(plugin, createRuntime()).createSession(config);
     const output = collect(session.execute(request).events);
     const process = await waitForRequest('turn/start');
     const specs = process.requests.find(call => call.method === 'thread/start')!.params.dynamicTools ?? [];
@@ -274,7 +273,6 @@ describe('Codex shared runtime', () => {
       .toEqual([]);
     expect(specs.every((spec) => !('type' in spec))).toBe(true);
     expect(await sessionToolCall(process, 'thread-1')).toMatchObject({ result: { success: false } });
-    expect(port.list).not.toHaveBeenCalled();
     complete(process, 'thread-1');
     await output;
     expect(session.getSnapshot().providerState?.sessionToolVersion).toBeUndefined();
@@ -284,7 +282,6 @@ describe('Codex shared runtime', () => {
   it.each([undefined, 1])('resumes a version %s thread without attempting to replace its fixed specs', async sessionToolVersion => {
     mockNative.autoReconcile = true;
     const session = createBackend(plugin, createRuntime()).createSession({ ...config,
-      sessionTools: { list: async () => ({ sessions: [] }), send: vi.fn(), read: vi.fn() },
       resumeSeed: { providerSessionId: 'existing', providerState: { threadId: 'existing', sessionToolVersion } },
     });
     const output = collect(session.execute(request).events);
@@ -302,10 +299,9 @@ describe('Codex shared runtime', () => {
     { kind: 'read-only' }, { kind: 'passive' },
   ])('denies session calls under $kind on fresh and resumed tool-bearing threads', async toolPolicy => {
     mockNative.autoReconcile = true;
-    const port = { list: vi.fn(async () => ({ sessions: [] })), send: vi.fn(), read: vi.fn() };
     const backend = createBackend(plugin, createRuntime());
     for (const resume of [false, true]) {
-      const session = backend.createSession({ ...config, sessionTools: port, ...(resume ? {
+      const session = backend.createSession({ ...config, ...(resume ? {
         resumeSeed: { providerSessionId: 'persisted', providerState: { threadId: 'persisted', sessionToolVersion: 1 } },
       } : {}) });
       const output = collect(session.execute({ ...request, toolPolicy }).events);
@@ -315,14 +311,13 @@ describe('Codex shared runtime', () => {
       expect(process.requests.find(call => call.method === 'thread/start')!.params.dynamicTools ?? [])
         .not.toEqual(expect.arrayContaining([expect.objectContaining({ namespace: 'claudian_sessions' })]));
       expect(await sessionToolCall(process, threadId)).toMatchObject({ result: { success: false } });
-      expect(port.list).not.toHaveBeenCalled();
       complete(process, threadId);
       await output;
       await session.dispose();
     }
   });
 
-  it('returns an error result for inherited session specs on an unported fork', async () => {
+  it('returns an error result for inherited session specs on a fork', async () => {
     mockNative.autoReconcile = true;
     mockNative.requestOverride = (process, call) => {
       if (call.method !== 'thread/fork') return false;
@@ -344,8 +339,7 @@ describe('Codex shared runtime', () => {
   it.each(['recovered completion', 'terminal error', 'exhausted recovery'])('rejects old calls after %s while the next start is unacknowledged', async terminal => {
     vi.useFakeTimers();
     mockNative.autoReconcile = true;
-    const port = { list: vi.fn(async () => ({ sessions: [] })), send: vi.fn(), read: vi.fn() };
-    const session = createBackend(plugin, createRuntime()).createSession({ ...config, sessionTools: port });
+    const session = createBackend(plugin, createRuntime()).createSession({ ...config });
     try {
       const output = collect(session.execute(request).events);
       const process = await waitForRequest('turn/start');
@@ -376,7 +370,6 @@ describe('Codex shared runtime', () => {
       nextRun.cancel();
       await nextOutput;
       expect(response).toMatchObject({ error: expect.anything() });
-      expect(port.list).not.toHaveBeenCalled();
     } finally {
       await session.dispose();
       vi.useRealTimers();
@@ -385,9 +378,8 @@ describe('Codex shared runtime', () => {
 
   it('rejects an old native call after the thread is reattached to a new session', async () => {
     mockNative.autoReconcile = true;
-    const port = { list: vi.fn(async () => ({ sessions: [] })), send: vi.fn(), read: vi.fn() };
     const backend = createBackend(plugin, createRuntime());
-    const first = backend.createSession({ ...config, sessionTools: port });
+    const first = backend.createSession({ ...config });
     const output = collect(first.execute(request).events);
     const process = await waitForRequest('turn/start');
     const oldTurnId = process.turns.get('thread-1')!.id;
@@ -400,7 +392,7 @@ describe('Codex shared runtime', () => {
       heldStart = call.id;
       return true;
     };
-    const reopened = backend.createSession({ ...config, sessionTools: port,
+    const reopened = backend.createSession({ ...config,
       resumeSeed: { providerSessionId: 'thread-1', providerState: { threadId: 'thread-1', sessionToolVersion: 1 } },
     });
     const nextRun = reopened.execute(request);
@@ -413,7 +405,6 @@ describe('Codex shared runtime', () => {
     await nextOutput;
     await reopened.dispose();
     expect(response).toMatchObject({ error: expect.anything() });
-    expect(port.list).not.toHaveBeenCalled();
   });
 
   it.each([false, true])('retains native cleanup after retiring a requested turn (start acknowledged: %s)', async acknowledged => {

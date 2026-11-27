@@ -1,4 +1,4 @@
-import '@/providers';
+import '@test/helpers/registeredCodex';
 
 import { modelCatalogCases as cases } from '@test/helpers/providerModelCatalogs';
 import { createProviderHostFixture } from '@test/helpers/providerRuntimeHost';

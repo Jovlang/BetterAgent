@@ -1,4 +1,4 @@
-import '@/providers';
+import '@test/helpers/registeredCodex';
 
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';

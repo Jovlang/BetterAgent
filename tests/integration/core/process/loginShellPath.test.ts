@@ -70,7 +70,6 @@ describeUnix('login shell PATH for GUI-launched processes', () => {
       storage: { installationKey: 'device-key' as never },
       settings: new SettingsCoordinator({} as ClaudianSettings, async () => undefined),
       environment: {} as ClaudianProviderHostDeps['environment'],
-      sessionToolEndpoint: { registerMCPRoute: vi.fn(), registerCallRoute: vi.fn() },
       notifyProviderChatOptionsChanged: async () => undefined,
     });
   }

@@ -1,4 +1,5 @@
-import { BUILT_IN_PROVIDER_MODULES } from '@/providers';
+import { BUILT_IN_PROVIDER_MODULES } from '@test/helpers/registeredCodex';
+
 import { getCodexProviderSettings } from '@/providers/codex/settings';
 import { getBuiltInProviderDefaultConfigs } from '@/providers/defaultProviderConfigs';
 

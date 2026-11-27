@@ -23,10 +23,8 @@ import { BUILT_IN_COMMANDS } from '@/core/commands/builtInCommands';
 import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
 import { TabManager } from '@/features/chat/tabs/TabManager';
 import type { TabLayoutPolicy } from '@/features/chat/tabs/types';
-import { ViewerSlot } from '@/features/chat/tabs/ViewerSlot';
-import { createChatTabCommands } from '@/features/chat/workspace/ChatTabCommands';
 import { ChatViewPublisher } from '@/features/chat/workspace/ChatViewPublisher';
-import { setLocale, t } from '@/i18n/i18n';
+import { setLocale } from '@/i18n/i18n';
 
 beforeEach(() => {
   useNextTaskAnimationFrames();
@@ -39,7 +37,6 @@ const openedViews: Awaited<ReturnType<typeof createClaudianView>>[] = [];
 
 async function createView(options: {
   width?: number;
-  singleViewer?: boolean;
   records?: ReturnType<typeof conversationRecord>[];
   fixture?: Awaited<ReturnType<typeof createFeatureHostFixture>>;
   host?: Omit<NonNullable<NonNullable<Parameters<typeof createSessionBrowserHost>[0]>['host']>, 'fixture' | 'app'>;
@@ -66,7 +63,7 @@ async function createView(options: {
     triggerResize(contentEl, { contentRect, borderBoxSize: [], contentBoxSize: [], devicePixelContentBoxSize: [] });
   };
   contentEl.getBoundingClientRect = () => new DOMRect(0, 0, options.width ?? 400, 0);
-  const view = await createClaudianView({ host: plugin, contentEl, singleViewer: options.singleViewer });
+  const view = await createClaudianView({ host: plugin, contentEl });
   view.load();
   openedViews.push(view);
   const saved: unknown[] = [];
@@ -99,17 +96,17 @@ afterEach(async () => {
 });
 
 describe('ClaudianView real tab lifecycle', () => {
-  it('waits for Obsidian state delivery, then restores all identities before publishing the active composer', async () => {
+  it('waits for Obsidian state delivery, then restores only the selected legacy identity and publishes one composer', async () => {
     const { view, manager, contentEl } = await createView();
     expect(manager.getTabCount()).toBe(0);
     await view.setState(workspaceState(), { history: false });
-    expect(manager.getTabIdentities().map(tab => tab.id)).toEqual(['restored-1', 'restored-2']);
+    expect(manager.getTabIdentities().map(tab => tab.id)).toEqual(['restored-2']);
     expect(manager.getActiveTab()?.id).toBe('restored-2');
-    expect(view.getState()).toMatchObject(workspaceState());
+    expect(view.getState()).toMatchObject(workspaceState(['restored-2']));
     expect(contentEl.contains(manager.getActiveTab()!.dom.inputEl)).toBe(true);
     // Later host deliveries cannot replace already-admitted membership.
     await view.setState(workspaceState(['stale']), { history: false });
-    expect(manager.getTabCount()).toBe(2);
+    expect(manager.getTabCount()).toBe(1);
   });
 
   it('abandons deferred metadata restoration when the view closes', async () => {
@@ -173,7 +170,7 @@ describe('ClaudianView real tab lifecycle', () => {
       expect(closed).toBe(false);
       expect(view.getState()).toEqual(final);
       expect(manager.canCreateTab()).toBe(false);
-      expect(manager.getTabCount()).toBe(2);
+      expect(manager.getTabCount()).toBe(1);
     } finally {
       save.resolve();
       await Promise.all([preparing, closing]);
@@ -200,13 +197,13 @@ describe('ClaudianView real tab lifecycle', () => {
     await Promise.all([closing, opening]);
     const reopened = view.getTabManager() as TabManager;
     expect(reopened).not.toBe(manager);
-    expect(reopened.getTabIdentities().map(tab => tab.id)).toEqual(expect.arrayContaining(['restored-1', 'restored-2']));
-    expect(reopened.getTabCount()).toBe(3);
+    expect(reopened.getTabIdentities().map(tab => tab.id)).toEqual(['restored-2']);
+    expect(reopened.getTabCount()).toBe(1);
     expect(reopened.getActiveTab()!.conversationId).toBeNull();
     expect(view['tabWorkspace'].currentPersistence).toBe(persistence);
     expect(view.scope).toBeInstanceOf(Scope);
     expect(view['releaseMentionCacheEvents']).toEqual(expect.any(Function));
-    expect(view.getState()).toMatchObject({ tabWorkspace: { openTabs: expect.arrayContaining(workspaceState().tabWorkspace.openTabs) } });
+    expect(view.getState()).toMatchObject(workspaceState(['restored-2']));
     // Reused persistence must remain writable after the old close finalizer runs.
     await reopened.createTab();
     await view.prepareForPluginUnload();
@@ -214,14 +211,18 @@ describe('ClaudianView real tab lifecycle', () => {
   });
 
   it('waits for admitted identity settlement before reopening, even with startup restoration disabled', async () => {
-    const { view, manager } = await openView({ host: { settings: { restoreTabsOnStartup: false } } });
+    registerChatTestProvider('codex');
+    const { view, manager } = await openView({
+      records: [conversationRecord('one', { providerId: 'codex' })],
+      host: { settings: { restoreTabsOnStartup: false } },
+    });
     const tab = manager.getActiveTab()!;
     const started = deferred<void>();
     const release = deferred<void>();
     const turning = tab.session.runtime.turns.run(async () => {
       started.resolve();
       await release.promise;
-      tab.session.setConversationId('one');
+      tab.session.runtime.bindConversation('one', 'codex');
     });
     await started.promise;
     const closing = view.onClose();
@@ -268,30 +269,6 @@ describe('ClaudianView provider and presentation wiring', () => {
     expect(refreshOpenCode).toHaveBeenCalledTimes(1);
   });
 
-  it('moves the composer and chip placement with the real compact/wide transition and keeps the sidebar after the chat panel', async () => {
-    const { view, manager, contentEl, resize } = await openView();
-    const tab = manager.getActiveTab()!;
-    const chip = vi.spyOn(tab.controllers.sideChatController, 'setCollapsedHost');
-    view['presentation'].update();
-    const slot = contentEl.querySelector('.claudian-side-chat-chip-slot');
-    expect(chip).toHaveBeenLastCalledWith(slot);
-    expect(contentEl.querySelector('.claudian-active-input-slot')?.contains(tab.dom.inputComposerEl)).toBe(true);
-    const panels = [...contentEl.children];
-    expect(panels.map(element => element.className)).toEqual(['claudian-chat-panel', 'claudian-session-resizer', 'claudian-session-sidebar']);
-    expect(panels[1].getAttribute('role')).toBe('separator');
-    expect(panels[2].querySelectorAll('.claudian-session-surface')).toHaveLength(1);
-    const enter = vi.spyOn(manager.viewerSlot, 'enter');
-    resize(640);
-    await enter.mock.results[0].value;
-    expect(chip).toHaveBeenLastCalledWith(null);
-    const release = vi.spyOn(manager.viewerSlot, 'release');
-    resize(400);
-    await release.mock.results[0].value;
-    await Promise.resolve();
-    const active = manager.getActiveTab()!;
-    expect(contentEl.querySelector('.claudian-active-input-slot')?.contains(active.dom.inputComposerEl)).toBe(true);
-  });
-
   it('hides and restores history without replacing the active composer when a pane resizes', async () => {
     const style = document.head.createEl('style', {
       text: readFileSync(path.resolve('src/style/components/history.css'), 'utf8'),
@@ -299,8 +276,7 @@ describe('ClaudianView provider and presentation wiring', () => {
     onTestFinished(() => style.remove());
     const { view, manager, plugin, contentEl, resize } = await openView({
       width: 400,
-      singleViewer: true,
-      host: { settings: { enableDualPane: false, dualPaneSide: 'left', sessionManagerOrganization: 'list' } },
+      host: { settings: { sessionManagerOrganization: 'list' } },
       records: [
         conversationRecord('one', { linkedContentPath: 'notes/brief.pdf' }),
         conversationRecord('two', { linkedContentPath: 'notes/brief.pdf' }),
@@ -317,7 +293,6 @@ describe('ClaudianView provider and presentation wiring', () => {
     const history = contentEl.querySelector<HTMLElement>('.claudian-session-sidebar')!;
     expect(history?.querySelector('.claudian-session-surface')).not.toBeNull();
     expect(contentEl.classList.contains('claudian-session-sidebar-left')).toBe(false);
-    expect(view.getCompactTabManager()).toBeNull();
     expect(contentEl.querySelector('.claudian-active-input-slot')?.contains(composer)).toBe(true);
 
     tab.dom.inputEl.value = 'Unsent draft';
@@ -354,6 +329,9 @@ describe('ClaudianView provider and presentation wiring', () => {
     expect(getComputedStyle(rowActions.parentElement!).opacity).toBe('0');
     expect(within(history).queryByRole('button', { name: 'Archive' })).toBeNull();
 
+    resize(0);
+    expect(history.hidden).toBe(false);
+    expect(view.getActiveTab()).toBe(tab);
     resize(800);
     expect(history.hidden).toBe(false);
     expect(chat.hasAttribute('inert')).toBe(false);
@@ -379,7 +357,6 @@ describe('ClaudianView provider and presentation wiring', () => {
     fireEvent.click(within(history).getByRole('button', { name: 'two brief.pdf' }));
     await waitFor(() => expect(history.hidden).toBe(true));
     expect(view.getActiveTab()?.conversationId).toBe('two');
-    expect(view.getCompactTabManager()).toBeNull();
 
     const nextFooter = within(manager.getActiveTab()!.dom.infoRowEl);
     expect(nextFooter.getByRole('button', { name: 'Conversation history' })).toBe(historyToggle);
@@ -411,7 +388,6 @@ describe('ClaudianView provider and presentation wiring', () => {
     });
     const { contentEl, plugin, resize } = await openView({
       width: 400,
-      singleViewer: true,
       fixture,
       records: [
         conversationRecord('review one', { linkedContentPath: 'brief.pdf' }),
@@ -452,7 +428,7 @@ describe('ClaudianView provider and presentation wiring', () => {
   });
 
   it.each([400, 800])('toggles history from the mouse Back button at %i px without navigating away', async width => {
-    const { view, manager, contentEl } = await openView({ width, singleViewer: true });
+    const { view, manager, contentEl } = await openView({ width });
     await manager.viewerSlot.show('one');
     const tab = manager.getActiveTab()!;
     tab.dom.inputEl.value = 'Keep this draft';
@@ -496,7 +472,7 @@ describe('ClaudianView provider and presentation wiring', () => {
   });
 
   it('automatically shows history alongside chat above 600 px without taking composer focus', async () => {
-    const { view, manager, contentEl, resize } = await openView({ width: 601, singleViewer: true });
+    const { view, manager, contentEl, resize } = await openView({ width: 601 });
     await manager.viewerSlot.show('one');
     const tab = manager.getActiveTab()!;
     const chat = tab.dom.messagesEl.closest('.claudian-chat-panel')!;
@@ -532,11 +508,8 @@ describe('ClaudianView provider and presentation wiring', () => {
     expect(history.hidden).toBe(false);
   });
 
-  it('routes picked sessions and /new through the real viewer only while wide', async () => {
-    const enter = vi.spyOn(ViewerSlot.prototype, 'enter');
-    const { manager, resize, contentEl } = await openView({ width: 640 });
-    // Cold restoration enters the real viewer once; the view must not enter it a second time.
-    expect(enter).toHaveBeenCalledTimes(1);
+  it('routes picked sessions and /new through the same viewer at every width', async () => {
+    const { manager, resize } = await openView({ width: 640 });
     const policy = (manager as unknown as { layoutPolicy: TabLayoutPolicy }).layoutPolicy;
     expect(policy.forkTarget()).toBe('viewer');
     const source = manager.getActiveTab()!;
@@ -544,19 +517,14 @@ describe('ClaudianView provider and presentation wiring', () => {
     expect(manager.getActiveTab()!.conversationId).toBe('two');
     expect(await policy.startNew(manager.getActiveTab()!, {})).toBe(true);
     expect(manager.getActiveTab()!.conversationId).toBeNull();
-    const release = vi.spyOn(manager.viewerSlot, 'release');
-    resize(400);
-    await release.mock.results[0].value;
-    await Promise.resolve();
-    expect(contentEl.classList.contains('claudian-wide-session-layout')).toBe(false);
-    expect(policy.forkTarget()).toBe('ask');
     const current = manager.getActiveTab();
-    expect(await policy.openPicked('one', current!)).toBe(false);
-    expect(await policy.startNew(current!, {})).toBe(false);
+    resize(400);
     expect(manager.getActiveTab()).toBe(current);
+    expect(await policy.openPicked('one', current!)).toBe(true);
+    expect(manager.getActiveTab()!.conversationId).toBe('one');
+    expect(await policy.startNew(manager.getActiveTab()!, {})).toBe(true);
+    expect(manager.getActiveTab()!.conversationId).toBeNull();
     resize(640);
-    expect(enter).toHaveBeenCalledTimes(2);
-    await enter.mock.results[1].value;
   });
 
   it('notifies other open views when the real session publishes work or attention changes', async () => {
@@ -576,170 +544,7 @@ describe('ClaudianView provider and presentation wiring', () => {
   });
 });
 
-describe('ClaudianView tab controls and layout', () => {
-  it.each(['en', 'zh-CN'] as const)('uses native %s navigation buttons, creates and focuses a real tab, and opens history', async locale => {
-    setLocale('en');
-    const englishNewTab = t('chat.tabNavigation.newTab');
-    setLocale(locale);
-    const newTabName = t('chat.tabNavigation.newTab');
-    const newConversationName = t('chat.tabNavigation.newConversation');
-    expect(newTabName !== englishNewTab).toBe(locale !== 'en');
-    const { view, manager, contentEl } = await openView({ host: { settings: { locale } } });
-    await manager.openConversation('one');
-    const first = manager.getActiveTab()!;
-    expect(first.conversationId).toBe('one');
-    const controls = within(contentEl);
-    const newTab = controls.getByRole('button', { name: newTabName });
-    const newConversation = controls.getByRole('button', { name: newConversationName });
-    const history = controls.getByRole('button', { name: 'Chat history' });
-    for (const button of [newTab, newConversation, history]) expect(button.getAttribute('type')).toBe('button');
-    const created = vi.spyOn(manager, 'createTab');
-    fireEvent.click(newTab);
-    const tab = await created.mock.results[0].value;
-    expect(manager.getTabCount()).toBe(2);
-    expect(manager.getActiveTab()).toBe(tab);
-    expect(tab.dom.inputEl.contains(document.activeElement) || document.activeElement === tab.dom.inputEl).toBe(true);
-    expect(manager.getTab(first.id)?.conversationId).toBe('one');
-    await manager.openConversation('two');
-    expect(manager.getActiveTab()).toMatchObject({ id: tab.id, conversationId: 'two' });
-    const replacement = vi.spyOn(manager, 'createNewConversation');
-    fireEvent.click(newConversation);
-    await replacement.mock.results[0].value;
-    expect(manager.getActiveTab()).toMatchObject({ id: tab.id, conversationId: null });
-    expect(manager.getTab(first.id)?.conversationId).toBe('one');
-    fireEvent.click(history);
-    expect(contentEl.querySelector('.claudian-history-menu')?.classList.contains('visible')).toBe(true);
-    const navRow = contentEl.querySelector('.claudian-view-input-nav-row');
-    expect(navRow?.contains(newTab)).toBe(true);
-    expect(view.getSharedSelectionFocusScopeEls!()).toEqual([navRow]);
-  });
-
-  it.each(['en', 'zh-CN'] as const)('runs the %s palette commands through the real compact navigation', async locale => {
-    setLocale('en');
-    const englishCommandNames = [
-      t('chat.tabNavigation.commandNew'),
-      t('chat.tabNavigation.commandReplace'),
-      t('chat.tabNavigation.commandClose'),
-    ];
-    setLocale(locale);
-    const commandNames = [
-      t('chat.tabNavigation.commandNew'),
-      t('chat.tabNavigation.commandReplace'),
-      t('chat.tabNavigation.commandClose'),
-    ];
-    expect(commandNames.some((commandName, index) => commandName !== englishCommandNames[index])).toBe(locale !== 'en');
-    const { view, manager, records } = await openView({ host: { settings: { locale } } }, workspaceState());
-    records[0].title = 'Archive';
-    await manager.openConversation('one');
-    expect(manager.getTabCount()).toBe(2);
-    const active = manager.getActiveTab()!;
-    expect(active).toMatchObject({ id: 'restored-2', conversationId: 'one' });
-    const commands = () => createChatTabCommands({
-      workspace: { getLeavesOfType: () => [] },
-      views: { getView: () => view, activateView: vi.fn() },
-    });
-    const [create, replace, close] = commands();
-    expect([create.id, replace.id, close.id]).toEqual([
-      'new-tab', 'new-session', 'close-current-tab',
-    ]);
-    expect([create.name, replace.name, close.name]).toEqual(commandNames);
-    const before = structuredClone(view.getState());
-    const start = vi.spyOn(view, 'startNewConversation');
-    const replacement = vi.spyOn(manager, 'createNewConversation');
-    const closed = vi.spyOn(manager, 'closeTab');
-    for (const command of [create, replace, close]) expect(command.checkCallback!(true)).toBe(true);
-    expect(view.getState()).toEqual(before);
-    expect(start).not.toHaveBeenCalled();
-    expect(replacement).not.toHaveBeenCalled();
-    expect(closed).not.toHaveBeenCalled();
-
-    expect(replace.checkCallback!(false)).toBe(true);
-    await replacement.mock.results[0].value;
-    expect(manager.getActiveTab()).toMatchObject({ id: active.id, conversationId: null });
-    expect(manager.getTabIdentities().map(tab => tab.id)).toEqual(['restored-1', active.id]);
-
-    await manager.openConversation('two');
-    expect(manager.getActiveTab()).toMatchObject({ id: active.id, conversationId: 'two' });
-    expect(create.checkCallback!(false)).toBe(true);
-    await start.mock.results[0].value;
-    const created = manager.getActiveTab()!;
-    expect(created.id).not.toBe(active.id);
-    expect(created.conversationId).toBeNull();
-    expect(manager.getTabCount()).toBe(3);
-    expect(manager.getTab(active.id)?.conversationId).toBe('two');
-    expect(created.dom.inputEl.contains(document.activeElement) || document.activeElement === created.dom.inputEl).toBe(true);
-    expect(close.checkCallback!(false)).toBe(true);
-    await closed.mock.results[0].value;
-    expect(manager.getTabIdentities().map(tab => tab.id)).toEqual(['restored-1', active.id]);
-    expect(manager.getActiveTabId()).toBe(active.id);
-
-    await manager.closeTab('restored-1');
-    view.refreshTabControls();
-    setLocale('en');
-    expect(commands().map(command => command.name)).toEqual(englishCommandNames);
-  });
-
-  it.each([
-    [400, 'en'],
-    [640, 'en'],
-    [640, 'zh-CN'],
-  ] as const)('starts %s px %s New through the correct owner', async (width, locale) => {
-    setLocale('en');
-    const englishName = t('chat.tabNavigation.commandNew');
-    setLocale(locale);
-    const name = t('chat.tabNavigation.commandNew');
-    expect(name !== englishName).toBe(locale !== 'en');
-    const { view, manager, contentEl } = await openView({ width, host: { settings: { locale } } });
-    if (width === 640) await manager.viewerSlot.show('two');
-    else await manager.openConversation('two');
-    expect(manager.getActiveTab()?.conversationId).toBe('two');
-    const compactIds = () => manager.getTabIdentities().filter(tab => tab.lifecycleState === 'open').map(tab => tab.id);
-    const before = compactIds();
-    const draft = vi.spyOn(manager.viewerSlot, 'startDraft');
-    const createTab = vi.spyOn(manager, 'createTab');
-    const start = vi.spyOn(view, 'startNewConversation');
-    const [create, ...otherCommands] = createChatTabCommands({
-      workspace: { getLeavesOfType: () => [] },
-      views: { getView: () => view, activateView: vi.fn() },
-    });
-    expect(create.name).toBe(name);
-    expect(create.checkCallback!(true)).toBe(true);
-    expect(otherCommands.map(command => command.checkCallback!(true))).toEqual(width === 640 ? [false, false] : [true, true]);
-    expect(start).not.toHaveBeenCalled();
-    expect(create.checkCallback!(false)).toBe(true);
-    await start.mock.results[0].value;
-    expect(draft).toHaveBeenCalledTimes(width === 640 ? 1 : 0);
-    expect(createTab).toHaveBeenCalledTimes(width === 640 ? 0 : 1);
-    const active = manager.getActiveTab()!;
-    expect(active.conversationId).toBeNull();
-    expect(contentEl.contains(active.dom.inputEl)).toBe(true);
-    expect(view.getCompactTabManager()).toBe(width === 640 ? null : manager);
-    expect(compactIds()).toEqual(width === 640 ? before : [...before, active.id]);
-  });
-
-  it('keeps compact controls hidden until real viewer cleanup completes, and closes search immediately', async () => {
-    const { view, manager, contentEl, resize } = await openView();
-    fireEvent.click(within(contentEl).getByRole('button', { name: 'Chat history' }));
-    const historyMenu = contentEl.querySelector('.claudian-history-menu')!;
-    expect(historyMenu.classList.contains('visible')).toBe(true);
-    const enter = vi.spyOn(manager.viewerSlot, 'enter');
-    resize(640);
-    await enter.mock.results[0].value;
-    expect(contentEl.classList.contains('claudian-wide-session-layout')).toBe(true);
-    expect(historyMenu.classList.contains('visible')).toBe(false);
-    fireEvent.click(contentEl.querySelector<HTMLElement>('.claudian-session-search-control')!);
-    expect(contentEl.querySelector('.claudian-session-sidebar .claudian-session-search-input')).not.toBeNull();
-    const released = vi.spyOn(manager.viewerSlot, 'release');
-    resize(400);
-    expect(contentEl.querySelector('.claudian-session-sidebar .claudian-session-search-input')).toBeNull();
-    expect(contentEl.classList.contains('claudian-wide-session-layout')).toBe(true);
-    await released.mock.results[0].value;
-    // The layout's continuation follows the owner's fulfilled release promise.
-    await Promise.resolve();
-    expect(contentEl.classList.contains('claudian-wide-session-layout')).toBe(false);
-    expect(view.getCompactTabManager()).toBe(manager);
-  });
-
+describe('ClaudianView workspace events', () => {
   it('routes active-file and metadata changes only to the active real Linked content owner', async () => {
     const { manager, plugin } = await openView();
     const inactive = manager.getActiveTab()!;
@@ -832,7 +637,7 @@ describe('ClaudianView composer and scoped keys', () => {
   });
 
   it.each([400, 800])('cancels an active turn once without closing history at %i px', async width => {
-    const { view, manager, contentEl } = await openView({ width, singleViewer: true });
+    const { view, manager, contentEl } = await openView({ width });
     const tab = manager.getActiveTab()!;
     if (width === 400) {
       fireEvent.click(within(tab.dom.infoRowEl).getByRole('button', { name: 'Conversation history' }));
@@ -865,15 +670,15 @@ describe('ClaudianView composer and scoped keys', () => {
     const { view, manager, contentEl } = await openView({ width: 640 });
     const tab = manager.getActiveTab()!;
     const release = holdResponse(tab.session.runtime.turns);
-    fireEvent.click(contentEl.querySelector<HTMLElement>('.claudian-session-search-control')!);
     const search = contentEl.querySelector<HTMLInputElement>('.claudian-session-sidebar .claudian-session-search-input')!;
+    fireEvent.input(search, { target: { value: 'two' } });
     fireEvent.compositionStart(search);
     expect(scoped(view, 'Escape')).toBeUndefined();
     expect(tab.state.isStreaming).toBe(true);
     expect(tab.session.turns.cancelRequested).toBe(false);
     fireEvent.compositionEnd(search);
     expect(scoped(view, 'Escape')).toBe(false);
-    expect(contentEl.querySelector('.claudian-session-sidebar .claudian-session-search-input')).toBeNull();
+    expect(search.value).toBe('');
     expect(tab.state.isStreaming).toBe(true);
     expect(tab.session.turns.cancelRequested).toBe(false);
     scoped(view, 'Escape');
@@ -945,8 +750,8 @@ describe('ClaudianView composer and scoped keys', () => {
     const { view, manager, contentEl } = await openView();
     const tab = manager.getActiveTab()!;
     const release = holdResponse(tab.session.runtime.turns);
-    fireEvent.click(within(contentEl).getByRole('button', { name: 'Chat history' }));
-    const item = contentEl.querySelector<HTMLElement>('.claudian-history-menu .claudian-history-item')!;
+    fireEvent.click(within(contentEl).getByRole('button', { name: 'Conversation history' }));
+    const item = contentEl.querySelector<HTMLElement>('.claudian-session-sidebar .claudian-history-item')!;
     fireEvent.contextMenu(item);
     const menu = (Menu as typeof Menu & { instances: Array<{ items: Array<{ title: string; clickHandler?: () => void }> }> }).instances.at(-1)!;
     menu.items.find(action => action.title === 'Rename')!.clickHandler!();

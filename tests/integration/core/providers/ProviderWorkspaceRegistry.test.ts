@@ -1,4 +1,4 @@
-import '@/providers';
+import '@test/helpers/registeredCodex';
 
 import { createProviderHostFixture } from '@test/helpers/providerRuntimeHost';
 import type { Mock } from 'vitest';

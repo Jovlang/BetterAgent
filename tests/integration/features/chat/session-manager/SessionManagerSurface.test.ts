@@ -1,4 +1,3 @@
-import { createPopoutDocument } from '@test/helpers/dom/popoutDocument';
 import { createFeatureHostFixture } from '@test/helpers/FeatureHostFixture';
 /** @vitest-environment jsdom */
 import { registerChatTestProvider } from '@test/helpers/features/chat/ChatProviderFixture';
@@ -14,10 +13,6 @@ import { SessionBrowser } from '@/features/chat/session-manager/SessionBrowser';
 import { SessionManagerSurface } from '@/features/chat/session-manager/SessionManagerSurface';
 import type { SessionSurfaceNavigation } from '@/features/chat/session-manager/SessionSurfaceShared';
 import { ChatViewPublisher } from '@/features/chat/workspace/ChatViewPublisher';
-import { t } from '@/i18n/i18n';
-
-/** A document click whose dispatch path never entered the history control. */
-const outsideClick = () => ({ composedPath: () => [] }) as unknown as Event;
 
 type MockMenuItem = { title: string; checked: boolean | null; clickHandler: (() => void) | null };
 type MockMenu = { items: MockMenuItem[] };
@@ -93,13 +88,9 @@ async function createHarness(options: HarnessOptions = {}) {
   });
   const sidebarEl = (options.doc ?? document).body.createDiv();
   surface.mountSidebar(sidebarEl);
-  const navEl = (options.doc ?? document).body.createDiv();
-  surface.mountHistoryControl(navEl);
 
   return {
     conversations,
-    historyButton: navEl.querySelector<HTMLInputElement>('.claudian-input-nav-btn')!,
-    historyMenu: navEl.querySelector<HTMLElement>('.claudian-history-menu')!,
     navigation,
     notifyOtherViews,
     plugin,
@@ -124,10 +115,6 @@ function findItem(container: HTMLElement, conversationId: string) {
 
 function navLabel(control: HTMLElement | null): string | null | undefined {
   return control?.querySelector<HTMLElement>('.claudian-session-nav-label')?.textContent;
-}
-
-function archiveToggle(menu: HTMLElement, label: 'showArchive' | 'showSessions'): HTMLElement {
-  return within(menu).getByRole('button', { name: t(`chat.sessions.${label}`) });
 }
 
 function sessionsHeaderLabel(container: HTMLElement): string | null | undefined {
@@ -708,218 +695,12 @@ describe('SessionManagerSurface New availability', () => {
   });
 });
 
-describe('SessionManagerSurface history dropdown', () => {
-  it('keeps tab-aware navigation on the single-mode history surface', async () => {
-    const popout = createPopoutDocument();
-    const h = await createHarness({ doc: popout, conversations: [conversation('conversation-1')], wide: false });
-    const render = vi.spyOn(SessionBrowser.prototype, 'renderHistoryDropdown');
-    const ownerRequestAnimationFrame = vi.fn((callback: FrameRequestCallback) => {
-      callback(0);
-      return 1;
-    });
-    h.historyMenu.ownerDocument.defaultView!.requestAnimationFrame = ownerRequestAnimationFrame;
-    const globalRequestAnimationFrame = vi.spyOn(window, 'requestAnimationFrame');
-
-    h.historyButton.click();
-
-    const options = render.mock.calls[0]?.[1];
-    expect(options.showOpenStateLabels).toBe(true);
-    expect(options.showOpenStateActions).toBe(true);
-    expect(options.showInlinePinAction).toBe(false);
-    expect(options.onRequestInlineRename).toEqual(expect.any(Function));
-    expect(options.onOpenConversationInNewTab).toEqual(expect.any(Function));
-    expect(options).not.toHaveProperty('organization');
-    expect(options).not.toHaveProperty('showMetadataPopover');
-    const item = findItem(h.historyMenu, 'conversation-1');
-    expect(item.querySelector<HTMLElement>('.claudian-open-new-tab-btn')!).not.toBeNull();
-    expect(item.querySelector<HTMLElement>('.claudian-pin-btn')!).toBeNull();
-
-    // An outside click hides the menu without abandoning the rendered list.
-    h.surface.dismissDropdownFor(outsideClick());
-    expect(h.historyMenu.hasClass('visible')).toBe(false);
-    const beginRename = vi.fn();
-    globalRequestAnimationFrame.mockClear();
-    options.onRequestInlineRename!({ beginRename, conversationId: 'conversation-1' });
-
-    expect(h.historyMenu.hasClass('visible')).toBe(true);
-    expect(beginRename).toHaveBeenCalledWith(item);
-    expect(ownerRequestAnimationFrame).toHaveBeenCalledTimes(1);
-    expect(globalRequestAnimationFrame).not.toHaveBeenCalled();
-  });
-
-  it('opens history entries through navigation and closes the dropdown', async () => {
-    const h = await createHarness({ conversations: [conversation('conversation-1')], wide: false });
-    h.historyButton.click();
-    expect(h.historyMenu.hasClass('visible')).toBe(true);
-    const content = findItem(h.historyMenu, 'conversation-1')
-      .querySelector<HTMLElement>('.claudian-history-item-content')!;
-
-    fireEvent.click(content, {stopPropagation: vi.fn()});
-    await new Promise(resolve => setImmediate(resolve));
-
-    expect(h.navigation.openConversation).toHaveBeenCalledWith('conversation-1', undefined);
-    expect(h.historyMenu.hasClass('visible')).toBe(false);
-  });
-
-  it.each([
-    { composer: 'short', anchorTop: 600, cap: '420px' },
-    { composer: 'tall', anchorTop: 250, cap: '232px' },
-  ])('fits the history drop-up inside the view above a $composer composer', async ({ anchorTop, cap }) => {
-    const h = await createHarness({ wide: false });
-    // Layout jsdom cannot compute: a 700px view whose input footer anchors the drop-up at `anchorTop`. Obsidian
-    // pads the view's top by 12px, so the chat panel, which clips the drop-up, starts below it.
-    const viewEl = document.body.createDiv({ cls: 'claudian-container' });
-    const chatPanelEl = viewEl.createDiv({ cls: 'claudian-chat-panel' });
-    const footerEl = chatPanelEl.createDiv({ cls: 'claudian-input-footer' });
-    const historyContainer = h.historyButton.parentElement!;
-    footerEl.appendChild(historyContainer.parentElement!);
-    Object.defineProperty(viewEl, 'clientHeight', { configurable: true, value: 700 });
-    viewEl.getBoundingClientRect = () => new DOMRect(0, 0, 400, 700);
-    chatPanelEl.getBoundingClientRect = () => new DOMRect(0, 12, 400, 688);
-    footerEl.getBoundingClientRect = () => new DOMRect(0, anchorTop, 400, 700 - anchorTop);
-    Object.defineProperty(historyContainer, 'offsetParent', { configurable: true, value: footerEl });
-    // The stylesheet's gap above the anchor and 1px border.
-    h.historyMenu.style.marginBottom = '4px';
-    h.historyMenu.style.border = '1px solid';
-
-    h.historyButton.click();
-
-    expect(h.historyMenu.style.getPropertyValue('--claudian-history-menu-max-height')).toBe(cap);
-  });
-
-  it('switches the single-mode history menu between Sessions and Archived', async () => {
-    const h = await createHarness({
-      conversations: [conversation('active'), conversation('archived', { isArchived: true })],
-      wide: false,
-    });
-    const render = vi.spyOn(SessionBrowser.prototype, 'renderHistoryDropdown');
-
-    h.historyButton.click();
-
-    const listHost = h.historyMenu.querySelector<HTMLElement>('.claudian-history-menu-list')!;
-    expect(render).toHaveBeenLastCalledWith(
-      listHost,
-      expect.objectContaining({
-        preserveListState: true,
-        sessionScope: 'active',
-        sessionActionMode: 'active',
-        allowConversationSelection: true,
-        onOpenConversationInNewTab: expect.any(Function),
-      }),
-    );
-    expect(renderedIds(h.historyMenu)).toEqual(['active']);
-    archiveToggle(h.historyMenu, 'showArchive').click();
-
-    expect(render).toHaveBeenLastCalledWith(
-      listHost,
-      expect.objectContaining({
-        preserveListState: true,
-        sessionScope: 'archived',
-        sessionActionMode: 'archived',
-        allowConversationSelection: false,
-      }),
-    );
-    expect(render.mock.calls.at(-1)?.[1]).not.toHaveProperty('onOpenConversationInNewTab');
-    expect(archiveToggle(h.historyMenu, 'showSessions')).toBeTruthy();
-    expect(renderedIds(h.historyMenu)).toEqual(['archived']);
-    expect(findItem(h.historyMenu, 'archived').hasClass('claudian-history-item--noninteractive'))
-      .toBe(true);
-  });
-
-  it('defers hidden history rendering and coalesces invalidations until the dropdown opens', async () => {
-    const h = await createHarness({ wide: false });
-    const render = vi.spyOn(SessionBrowser.prototype, 'renderHistoryDropdown');
-    const signalOf = (call: number) => (render.mock.calls[call][1] as { signal: AbortSignal }).signal;
-
-    h.surface.invalidate();
-    h.surface.invalidate();
-
-    expect(render).not.toHaveBeenCalled();
-
-    h.historyButton.click();
-
-    expect(h.historyMenu.hasClass('visible')).toBe(true);
-    expect(render).toHaveBeenCalledTimes(1);
-    expect(signalOf(0).aborted).toBe(false);
-
-    h.surface.invalidate();
-
-    expect(render).toHaveBeenCalledTimes(2);
-
-    h.historyButton.click();
-    expect(h.historyMenu.hasClass('visible')).toBe(false);
-    expect(signalOf(0).aborted).toBe(true);
-    expect(signalOf(1).aborted).toBe(true);
-    h.surface.invalidate();
-
-    expect(render).toHaveBeenCalledTimes(2);
-
-    h.historyButton.click();
-
-    expect(render).toHaveBeenCalledTimes(3);
-    expect(signalOf(2).aborted).toBe(false);
-
-    // Dismissing keeps the current render, so reopening does not rebuild the list.
-    h.surface.dismissDropdownFor(outsideClick());
-    h.historyButton.click();
-    expect(h.historyMenu.hasClass('visible')).toBe(true);
-    expect(render).toHaveBeenCalledTimes(3);
-    expect(signalOf(2).aborted).toBe(false);
-  });
-
-});
-
-describe('SessionManagerSurface wide layout transitions', () => {
+describe('SessionManagerSurface visibility', () => {
   const signalOf = (render: MockInstance, call: number) => (
     (render.mock.calls[call][1] as { signal: AbortSignal }).signal
   );
 
-  it('hides the history dropdown and abandons its render when entering wide', async () => {
-    const h = await createHarness({ conversations: [conversation('first')], wide: false });
-    const render = vi.spyOn(SessionBrowser.prototype, 'renderHistoryDropdown');
-    h.historyButton.click();
-    expect(h.historyMenu.hasClass('visible')).toBe(true);
-    expect(signalOf(render, 0).aborted).toBe(false);
-
-    h.state.wide = true;
-    h.surface.enterWide();
-
-    expect(h.historyMenu.hasClass('visible')).toBe(false);
-    expect(signalOf(render, 0).aborted).toBe(true);
-    // The cancelled render left the list stale, so the next open renders it again.
-    h.state.wide = false;
-    h.historyButton.click();
-    expect(render).toHaveBeenCalledTimes(2);
-  });
-
-  it('carries the archive view between the sidebar and the history dropdown', async () => {
-    const h = await createHarness({
-      conversations: [conversation('active'), conversation('archived', { isArchived: true })],
-    });
-    h.surface.renderSidebar();
-    h.sessionSurfaceEl.querySelector<HTMLElement>('.claudian-session-archive-control')!.click();
-    expect(renderedIds(h.sessionSurfaceEl)).toEqual(['archived']);
-
-    h.state.wide = false;
-    h.surface.leaveWide();
-    h.historyButton.click();
-
-    expect(renderedIds(h.historyMenu)).toEqual(['archived']);
-    expect(archiveToggle(h.historyMenu, 'showSessions')).toBeTruthy();
-
-    archiveToggle(h.historyMenu, 'showSessions').click();
-    expect(renderedIds(h.historyMenu)).toEqual(['active']);
-
-    h.state.wide = true;
-    h.surface.enterWide();
-    h.surface.renderSidebar();
-
-    expect(renderedIds(h.sessionSurfaceEl)).toEqual(['active']);
-    expect(navLabel(h.sessionSurfaceEl.querySelector<HTMLElement>('.claudian-session-archive-control')!))
-      .toBe('Archive');
-  });
-
-  it('closes search and abandons the sidebar render when leaving wide', async () => {
+  it('closes search and abandons the sidebar render when history closes', async () => {
     const h = await createHarness({
       conversations: [
         conversation('roadmap', { title: 'Roadmap' }),
@@ -933,7 +714,7 @@ describe('SessionManagerSurface wide layout transitions', () => {
     expect(renderedIds(container)).toEqual(['roadmap']);
     const render = vi.spyOn(SessionBrowser.prototype, 'renderHistoryDropdown');
 
-    h.surface.leaveWide();
+    h.surface.hideHistory();
 
     expect(searchInput(container)).toBeNull();
     expect(container.querySelector<HTMLInputElement>('.claudian-session-search-control')!).not.toBeNull();

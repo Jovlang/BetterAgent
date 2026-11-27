@@ -1,6 +1,7 @@
+import { BUILT_IN_PROVIDER_MODULES } from '@test/helpers/registeredCodex';
+
 import { AgentSkillResources } from '@/composition/AgentSkillResources';
 import { ProviderWorkspaceRegistry } from '@/core/providers/ProviderWorkspaceRegistry';
-import { BUILT_IN_PROVIDER_MODULES } from '@/providers';
 
 describe('AgentSkillResources', () => {
   beforeEach(() => {

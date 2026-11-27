@@ -786,10 +786,6 @@
       "name": "啟用 Chrome 擴充功能",
       "desc": "允許 Claude Code 透過 claude-in-chrome 擴充功能與 Chrome 互動。需要安裝該擴充功能。需要重新啟動工作階段。"
     },
-    "enableDualPane": {
-      "name": "啟用雙欄模式",
-      "desc": "當檢視寬度至少為 600 像素時，自動在聊天旁顯示工作階段管理員。"
-    },
     "restoreTabsOnStartup": {
       "name": "啟動時還原上次對話",
       "desc": "啟動 BetterAgent 時重新開啟上次使用的對話。"
@@ -802,12 +798,6 @@
       "days7": "7 天後",
       "days14": "14 天後",
       "days30": "30 天後"
-    },
-    "dualPaneSide": {
-      "name": "雙欄位置",
-      "desc": "選擇工作階段管理員顯示在聊天的哪一側。",
-      "left": "左側",
-      "right": "右側"
     },
     "enableAutoScroll": {
       "name": "串流回應時自動捲動",

@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import '@/providers';
+import '@test/helpers/registeredCodex';
 
 import { TOOL_SUBAGENT } from '@/core/tools/toolNames';
 import type { SubagentInfo } from '@/core/types';

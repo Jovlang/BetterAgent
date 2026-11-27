@@ -786,10 +786,6 @@
       "name": "Chrome-Erweiterung aktivieren",
       "desc": "Erlaubt Claude Code die Interaktion mit Chrome über die claude-in-chrome-Erweiterung. Die Erweiterung muss installiert sein. Erfordert Neustart der Sitzung."
     },
-    "enableDualPane": {
-      "name": "Zwei-Spalten-Modus aktivieren",
-      "desc": "Die Sitzungsverwaltung automatisch neben dem Chat anzeigen, wenn die Ansicht mindestens 600 px breit ist."
-    },
     "restoreTabsOnStartup": {
       "name": "Letzte Unterhaltung beim Start wiederherstellen",
       "desc": "Beim Start von BetterAgent die zuletzt aktive Unterhaltung wieder öffnen."
@@ -802,12 +798,6 @@
       "days7": "Nach 7 Tagen",
       "days14": "Nach 14 Tagen",
       "days30": "Nach 30 Tagen"
-    },
-    "dualPaneSide": {
-      "name": "Seite der zweiten Spalte",
-      "desc": "Auswählen, auf welcher Seite des Chats die Sitzungsverwaltung angezeigt wird.",
-      "left": "Links",
-      "right": "Rechts"
     },
     "enableAutoScroll": {
       "name": "Automatisches Scrollen beim Streaming",

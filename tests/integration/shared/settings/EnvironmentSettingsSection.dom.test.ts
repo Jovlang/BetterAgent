@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import '@/providers';
+import '@test/helpers/registeredCodex';
 
 import { deserialize, serialize } from 'node:v8';
 

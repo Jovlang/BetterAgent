@@ -1,4 +1,4 @@
-import '@/providers';
+import '@test/helpers/registeredCodex';
 
 import {
   TEST_CODEX_CATALOG,

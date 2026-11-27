@@ -1,4 +1,4 @@
-import '@/providers';
+import '@test/helpers/registeredCodex';
 
 import { TEST_CODEX_CATALOG } from '@test/helpers/codexModels';
 import { DEFAULT_CLAUDIAN_SETTINGS as DEFAULT_SETTINGS } from '@test/helpers/defaultSettings';
@@ -216,23 +216,25 @@ describe('ClaudianSettingsStorage', () => {
       expect(writtenContent.chatViewPlacement).toBe('right-sidebar');
     });
 
-    it('normalizes dual-pane preferences and removes the legacy file pane setting', async () => {
+    it('drops retired layout preferences while leaving unrelated settings alone', async () => {
       mockAdapter.exists.mockResolvedValue(true);
       mockAdapter.read.mockResolvedValue(JSON.stringify({
         enableDualPane: 'yes',
         enableFilePane: 'yes',
         dualPaneSide: 'top',
+        restoreTabsOnStartup: false,
       }));
 
       const result = await storage.load();
       const writtenContent = JSON.parse(mockAdapter.write.mock.calls[0][1]);
 
-      expect(result.enableDualPane).toBe(true);
-      expect(result.dualPaneSide).toBe('right');
+      expect(result).not.toHaveProperty('enableDualPane');
+      expect(result).not.toHaveProperty('dualPaneSide');
       expect(result).not.toHaveProperty('enableFilePane');
-      expect(writtenContent.enableDualPane).toBe(true);
-      expect(writtenContent.dualPaneSide).toBe('right');
+      expect(writtenContent).not.toHaveProperty('enableDualPane');
+      expect(writtenContent).not.toHaveProperty('dualPaneSide');
       expect(writtenContent).not.toHaveProperty('enableFilePane');
+      expect(writtenContent.restoreTabsOnStartup).toBe(false);
     });
 
     it('normalizes invalid startup tab restore values', async () => {

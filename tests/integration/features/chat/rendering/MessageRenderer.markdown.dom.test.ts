@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import '@/providers';
+import '@test/helpers/registeredCodex';
 
 import { parser } from '@lezer/markdown';
 import { axe } from '@test/helpers/accessibility';

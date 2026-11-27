@@ -33,7 +33,6 @@ export interface TabConversationNavigationHost {
 export class TabConversationNavigation {
   #requestRevision = 0;
   readonly #queue = new SerialQueue();
-  #fence: Promise<void> | null = null;
 
   constructor(private readonly host: TabConversationNavigationHost) {}
 
@@ -65,7 +64,6 @@ export class TabConversationNavigation {
     const { membership } = this.host;
     if (
       membership.isDestroyed()
-      || this.#fence
       || (sourceTab && !membership.isTabAlive(sourceTab))
     ) return;
     const requestRevision = ++this.#requestRevision;
@@ -74,32 +72,6 @@ export class TabConversationNavigation {
       if (!isCurrent()) return;
       await operation(isCurrent);
     });
-  }
-
-  /**
-   * Supersedes and drains queued navigation, then runs `operation` while new navigation is
-   * refused. An overlapping call joins the running fence, propagating its failure.
-   */
-  async fence(operation: () => Promise<void>): Promise<void> {
-    if (this.#fence) {
-      await this.#fence;
-      return;
-    }
-    const run = (async () => {
-      await this.invalidateAndDrain();
-      await operation();
-    })();
-    this.#fence = run;
-    try {
-      await run;
-    } finally {
-      if (this.#fence === run) this.#fence = null;
-    }
-  }
-
-  /** Joins an in-flight fence, propagating its failure. */
-  async awaitFence(): Promise<void> {
-    await this.#fence;
   }
 
   /** Supersedes every queued request and waits for the in-flight one to settle. */

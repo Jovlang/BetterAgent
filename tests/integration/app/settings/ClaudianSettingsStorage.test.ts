@@ -1,4 +1,4 @@
-import '@/providers';
+import '@test/helpers/registeredCodex';
 
 import { DesktopVault } from '@test/helpers/core/DesktopVault';
 import { clearWriteFaults, failWritesUnder } from '@test/helpers/core/fsWriteFaults';
@@ -44,7 +44,7 @@ test('loads and saves canonical settings without reading or deleting retired sto
     permissionMode: DEFAULT_CLAUDIAN_SETTINGS.permissionMode,
     userName: DEFAULT_CLAUDIAN_SETTINGS.userName,
     requireCommandOrControlEnterToSend: false, titleGenerationLocale: '', lastSelectedChatModel: null,
-    enableDualPane: true, dualPaneSide: 'right', restoreTabsOnStartup: true,
+    restoreTabsOnStartup: true,
   });
   expect(read).not.toHaveBeenCalled();
   expect(write).not.toHaveBeenCalled();

@@ -56,14 +56,14 @@ let mockProcessShutdown: MockInstance<CodexAppServerProcess['shutdown']>;
 const native = new CodexRuntimeHarness();
 vi.mock('cross-spawn', () => ({ default: vi.fn(() => native.createProcess()) }));
 
+import { registerCodexForTests } from '@test/helpers/registerCodexForTests';
 import type { MockInstance } from 'vitest';
 
-import { registerProviderModules } from '@/core/providers/registerProviderModules';
 import { CodexExecutionBackend } from '@/providers/codex/execution/CodexExecutionBackend';
 import { CodexAppServerRuntime } from '@/providers/codex/runtime/CodexAppServerRuntime';
 import { CodexRPCTransport } from '@/providers/codex/runtime/CodexRPCTransport';
 
-registerProviderModules([codexProviderRegistration]);
+registerCodexForTests();
 
 
 const runtimes: CodexAppServerRuntime[] = [];

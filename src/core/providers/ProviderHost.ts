@@ -5,7 +5,6 @@ import type {
   ProviderExecutionLifecycleRegistry,
   ProviderExecutionTransitionScope,
 } from '../execution';
-import type { SessionToolEndpoint } from '../session-tools/SessionToolEndpoint';
 import type { ClaudianSettings } from '../types';
 import type { EnvironmentScope } from '../types/settings';
 import type { ProviderRuntimeHost } from './ProviderRuntimeHost';
@@ -27,7 +26,6 @@ export interface ProviderHost {
   /** Absolute local directory provider processes run in; null when the host has no local directory. */
   readonly workingDirectory: string | null;
   /** Loopback endpoint through which shared provider processes reach main-chat session tools. */
-  readonly sessionToolEndpoint?: SessionToolEndpoint;
 
   mutateSettings(
     mutation: (settings: ClaudianSettings) => void | Promise<void>,

@@ -12,11 +12,11 @@ export interface ChatTabCommandsDeps {
   };
 }
 
-/** Palette commands that act on the focused chat view's tabs. */
+/** Starts a new conversation in the focused chat view. The command ID preserves hotkeys. */
 export function createChatTabCommands(deps: ChatTabCommandsDeps): Command[] {
   const { views } = deps;
 
-  const canCreateNewTab = (): boolean => {
+  const canStartNewChat = (): boolean => {
     if (views.getView()?.getTabManager()) return true;
     // A mounted leaf whose view has not initialized its tabs cannot take the command yet.
     return deps.workspace.getLeavesOfType(VIEW_TYPE_CLAUDIAN).length === 0;
@@ -32,39 +32,13 @@ export function createChatTabCommands(deps: ChatTabCommandsDeps): Command[] {
     views.getView()?.focusActiveInput();
   };
 
-  const getCompactTabManager = () => views.getView()?.getCompactTabManager() ?? null;
-
   return [
     {
       id: 'new-tab',
       name: t('chat.tabNavigation.commandNew'),
       checkCallback: (checking: boolean) => {
-        if (!canCreateNewTab()) return false;
+        if (!canStartNewChat()) return false;
         if (!checking) void startNew();
-        return true;
-      },
-    },
-    {
-      id: 'new-session',
-      name: t('chat.tabNavigation.commandReplace'),
-      checkCallback: (checking: boolean) => {
-        const tabManager = getCompactTabManager();
-        const activeTab = tabManager?.getActiveTab();
-        if (!tabManager || !activeTab || activeTab.state.isStreaming) return false;
-        if (!checking) void tabManager.createNewConversation();
-        return true;
-      },
-    },
-    {
-      id: 'close-current-tab',
-      name: t('chat.tabNavigation.commandClose'),
-      checkCallback: (checking: boolean) => {
-        const tabManager = getCompactTabManager();
-        if (!tabManager) return false;
-        if (!checking) {
-          const activeTabId = tabManager.getActiveTabId();
-          if (activeTabId) void tabManager.closeTab(activeTabId);
-        }
         return true;
       },
     },

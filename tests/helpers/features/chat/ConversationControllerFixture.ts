@@ -1,4 +1,4 @@
-import '@/providers';
+import '@test/helpers/registeredCodex';
 
 import { createConversationPorts, createTestSession } from '@test/helpers/ConversationPorts';
 import { createChatFeatureHost } from '@test/helpers/features/chat/ChatFeatureHostFixture';

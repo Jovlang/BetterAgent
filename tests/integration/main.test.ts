@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import '@/providers';
+import '@test/helpers/registeredCodex';
 
 import { deferred } from '@test/helpers/ChatInputHarness';
 import { TEST_CODEX_CATALOG } from '@test/helpers/codexModels';
@@ -270,7 +270,6 @@ describe('ClaudianPlugin', () => {
     });
     try {
       const change = chatHostOf(plugin).mutateSettings(settings => {
-        settings.enableDualPane = !settings.enableDualPane;
         settings.hiddenCommands = ['test-command'];
       });
       await writing;
@@ -286,9 +285,9 @@ describe('ClaudianPlugin', () => {
       }
       persist.mockRejectedValueOnce(new Error('disk unavailable'));
       await expect(chatHostOf(plugin).mutateSettings(settings => {
-        settings.enableDualPane = !settings.enableDualPane;
+        settings.hiddenCommands = ['uncommitted-command'];
       })).rejects.toThrow('disk unavailable');
-      for (const view of views) expect(view.refreshDualPaneLayout).toHaveBeenCalledTimes(1);
+      for (const view of views) expect(view.updateHiddenCommands).toHaveBeenCalledTimes(1);
       persist.mockResolvedValueOnce(undefined);
       views[0].updateHiddenCommands.mockImplementationOnce(() => { throw new Error('view detached'); });
       await expect(chatHostOf(plugin).mutateSettings(settings => { settings.hiddenCommands = ['other-command']; }))
@@ -303,7 +302,6 @@ describe('ClaudianPlugin', () => {
 
   function createPublishedViews() {
     return [0, 1].map(() => ({
-      refreshDualPaneLayout: vi.fn(),
       updateHiddenCommands: vi.fn(),
       notifyConversationListChanged: vi.fn(),
     }));
@@ -1126,7 +1124,6 @@ describe('ClaudianPlugin', () => {
       await plugin.onload();
       const host = chatHostOf();
       expect('bindSessionTools' in host).toBe(false);
-      expect(plugin.providerHost.sessionToolEndpoint).toBeUndefined();
       const text = 'Compare @[Review](claudian-session:review) with [[Review.md]]';
       expect(stripLegacySessionMentions(text)).toBe('Compare @"Review" with [[Review.md]]');
     });
@@ -2056,32 +2053,20 @@ describe('ClaudianPlugin', () => {
   });
 
   describe('new-tab command', () => {
-    it('routes current-tab commands to the focused view when several leaves exist', async () => {
+    it('routes New to the focused view when several leaves exist', async () => {
       await plugin.onload();
-      const makeView = (id: string) => {
-        const manager = {
-          getActiveTab: () => ({ state: { isStreaming: false } }),
-          getActiveTabId: () => id,
-          closeTab: vi.fn().mockResolvedValue(undefined),
-          createNewConversation: vi.fn().mockResolvedValue(undefined),
-        };
-        return {
-          getTabManager: () => manager,
-          getCompactTabManager: () => manager,
-          prepareForPluginUnload: async () => undefined,
-          manager,
-        };
-      };
-      const first = { view: makeView('first-tab') };
-      const focused = { view: makeView('focused-tab') };
+      const makeView = () => ({
+        getTabManager: () => ({}),
+        startNewConversation: vi.fn().mockResolvedValue(undefined),
+        prepareForPluginUnload: async () => undefined,
+      });
+      const first = { view: makeView() };
+      const focused = { view: makeView() };
       mockApp.workspace.getLeavesOfType.mockReturnValue([first, focused]);
       mockApp.workspace.getActiveViewOfType.mockReturnValue(focused.view);
-      expect(getRegisteredCommand('close-current-tab').checkCallback(false)).toBe(true);
-      expect(getRegisteredCommand('new-session').checkCallback(false)).toBe(true);
-      expect(focused.view.manager.closeTab).toHaveBeenCalledWith('focused-tab');
-      expect(focused.view.manager.createNewConversation).toHaveBeenCalledTimes(1);
-      expect(first.view.manager.closeTab).not.toHaveBeenCalled();
-      expect(first.view.manager.createNewConversation).not.toHaveBeenCalled();
+      expect(getRegisteredCommand('new-tab').checkCallback(false)).toBe(true);
+      expect(focused.view.startNewConversation).toHaveBeenCalledOnce();
+      expect(first.view.startNewConversation).not.toHaveBeenCalled();
       mockApp.workspace.getActiveViewOfType.mockReturnValue(null);
       expect(chatHostOf(plugin).getView()).toBe(first.view);
     });
@@ -2101,23 +2086,6 @@ describe('ClaudianPlugin', () => {
       await new Promise<void>((resolve) => setImmediate(resolve));
 
       expect(startNewConversation).toHaveBeenCalledTimes(1);
-    });
-
-    it('keeps replace and close tab commands out of dual mode', async () => {
-      await plugin.onload();
-
-      vi.spyOn(viewsOf(plugin), 'getView').mockReturnValue(createUnopenedView({
-        getCompactTabManager: () => null,
-        getTabManager: vi.fn().mockReturnValue({
-          getActiveTab: vi.fn().mockReturnValue({ state: { isStreaming: false } }),
-        }),
-      }));
-
-      const replaceCommand = getRegisteredCommand('new-session');
-      const closeCommand = getRegisteredCommand('close-current-tab');
-      expect(replaceCommand.name).toBe('Replace current conversation');
-      expect(replaceCommand.checkCallback(true)).toBe(false);
-      expect(closeCommand.checkCallback(true)).toBe(false);
     });
 
     it('opens the view without creating a duplicate tab when no tab layout is persisted', async () => {
@@ -2210,12 +2178,7 @@ describe('ClaudianPlugin', () => {
 
       mockApp.workspace.getLeavesOfType.mockReturnValue([{ view: {} }]);
 
-      for (const commandId of ['new-tab', 'new-session', 'close-current-tab']) {
-        const command = getRegisteredCommand(commandId);
-
-        expect(() => command.checkCallback(true)).not.toThrow();
-        expect(command.checkCallback(true)).toBe(false);
-      }
+      expect(getRegisteredCommand('new-tab').checkCallback(true)).toBe(false);
     });
 
     it('ignores the persisted runtime layout when checking new-tab availability', async () => {

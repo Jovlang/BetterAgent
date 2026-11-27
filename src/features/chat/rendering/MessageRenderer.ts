@@ -33,6 +33,7 @@ import { TranscriptFollow } from '@/features/chat/rendering/TranscriptFollow';
 import { createWelcomeElement } from '@/features/chat/rendering/WelcomeRenderer';
 import { type ConversationDirectoryEntry, formatConversationDirectoryTitle, getRenderedConversationDirectory } from '@/features/chat/utils/conversationDirectoryTitle';
 import { t } from '@/i18n/i18n';
+import { stripCodexFileCitations } from '@/providers/codex/normalization/CodexFileCitation';
 import { imageAttachmentPreview, ImagePreviewModal, type ImagePreviewSource } from '@/shared/modals/ImagePreviewModal';
 import { registerFileLinkHandler } from '@/utils/fileLink';
 
@@ -227,6 +228,11 @@ export class MessageRenderer {
     } catch (error) {
       new Notice(t('chat.sessionTools.openFailed', { message: error instanceof Error ? error.message : String(error) }));
     }
+  }
+
+  private prepareAssistantText(content: string): string {
+    // A cached legacy transcript is not a Codex protocol stream.
+    return this.getCapabilities().providerId === 'codex' ? stripCodexFileCitations(content) : content;
   }
 
   #resolveSubagentAdapter(toolName?: string) {
@@ -589,7 +595,7 @@ export class MessageRenderer {
             continue;
           }
           const textEl = createResponseTextBlock(contentEl);
-          void this.renderContent(textEl, ProviderRegistry.prepareAssistantMarkdown(this.getCapabilities().providerId, block.content));
+          void this.renderContent(textEl, this.prepareAssistantText(block.content));
           this.addTextCopyButton(textEl, block.content);
         } else if (block.type === 'citations') {
           renderCitationGroup(contentEl, block.citations);
@@ -632,7 +638,7 @@ export class MessageRenderer {
       // Fallback for old conversations without contentBlocks
       if (msg.content.trim() && !live?.options.isResponseOpen(msg.id)) {
         const textEl = createResponseTextBlock(contentEl);
-        void this.renderContent(textEl, ProviderRegistry.prepareAssistantMarkdown(this.getCapabilities().providerId, msg.content));
+        void this.renderContent(textEl, this.prepareAssistantText(msg.content));
         this.addTextCopyButton(textEl, msg.content);
       }
       if (msg.toolCalls) {

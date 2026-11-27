@@ -8,12 +8,12 @@
 ## Provider policy
 
 - Explicit execution model/reasoning choices are authoritative: adapters may translate or validate them, but cannot silently substitute saved/default effort. Null reasoning means no explicit override; omitted reasoning permits auxiliary defaults. High is the default effort; never silently choose another effort as a default.
-- Check the owning capabilities, registration, and UI config through `ProviderRegistry` and `ProviderWorkspaceRegistry` before sharing behavior across providers.
+- Codex is the only runtime. Do not add provider routing for Codex-specific behavior. Keep permission, storage, and native-history validation at their owning boundaries.
 - App/features may store opaque provider state but may not interpret native session/checkpoint fields. Providers normalize native payloads at the core boundary.
 - Conversation metadata and opaque provider state never persist inline binary/base64 payloads (including `ToolResultDetails.resultImages` data); native transcripts keep the bytes.
 - Live output and history replay remain separate. Application metadata changes never edit or delete native history files; explicit native session operations belong to providers.
 - Persisted provider settings require runtime decoding; invalid permission/tool/sandbox modes fail closed. Writers merge provider-owned configuration.
-- BetterAgent does not bind agent-facing session tools. Only the test harness can supply a session-tool port. Codex rejects retired native calls even if an older thread still advertises them.
+- BetterAgent does not implement agent-facing session tools. Codex rejects retired native calls even if an older thread still advertises them. Legacy transcript decoding is read-only.
 - Runtime-discovered commands are read-only. Auxiliary queries own their sessions, cancellation, and interactions independently from chat; a provider may share its own process across consumers.
 - The shared model catalog owns selection policy; providers retain discovery, native metadata, and persistence. Only selected models persist. Startup fills missing selected-model reasoning metadata through provider-native discovery; no hardcoded model effort migrations. Started conversations keep an unavailable selection visible as unavailable rather than silently defaulting; blank drafts and the new-session default move to their provider's first enabled model, staying unavailable only while that provider lists none.
 - Explicit selected-model order is durable user preference, including a full-list order; do not collapse it to legacy null/native-default ordering. Chat options, the toolbar, settings, and default resolution preserve that order.

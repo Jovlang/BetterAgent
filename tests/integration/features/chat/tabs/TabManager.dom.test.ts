@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import '@/providers';
+import '@test/helpers/registeredCodex';
 
 import { axe } from '@test/helpers/accessibility';
 import { codexCatalogFixture } from '@test/helpers/codexModels';
@@ -19,7 +19,6 @@ import { ConversationLifecycle } from '@/features/chat/conversation/Conversation
 import { SessionManagerSurface } from '@/features/chat/session-manager/SessionManagerSurface';
 import { SessionNavigation } from '@/features/chat/session-manager/SessionNavigation';
 import { TabManager } from '@/features/chat/tabs/TabManager';
-import { t } from '@/i18n/i18n';
 import { VaultMentionDataProvider } from '@/shared/mention/VaultMentionDataProvider';
 
 afterEach(() => {
@@ -112,7 +111,6 @@ it('badges the tab and notifies the tab bar while its side chat awaits approval'
   }
 });
 
-
 it('keeps execution alive across tab rebind and close, restoring the owner and unsent composer draft', async () => {
   const { backend, manager, pool } = await setup();
   const first = (await manager.createTab('conversation'))!;
@@ -194,66 +192,6 @@ it('restores cold identities with only the active runtime and hydrates another o
   }
 });
 
-it('parks each narrow tab draft while wide and restores its identity and text when narrowing', async () => {
-  const { backend, manager } = await setup();
-  const first = (await manager.createTab('conversation'))!;
-  const second = (await manager.createTab('second', undefined, { activate: false }))!;
-  first.controllers.drafts.restore('main', { content: 'first note' });
-  second.controllers.drafts.restore('main', { content: 'second note' });
-  const shownText = () => manager.getActiveTab()!.controllers.drafts.capture('main').content;
-  try {
-    await manager.viewerSlot.enter();
-    const preview = manager.getActiveTab()!;
-    expect(manager.getAllTabs()).toEqual([preview]);
-    expect([preview.conversationId, preview.lifecycleState]).toEqual(['conversation', 'provisional']);
-    expect(shownText()).toBe('first note');
-    expect(first.dom.contentEl.isConnected).toBe(false);
-    expect(second.dom.contentEl.isConnected).toBe(false);
-    expect(manager.getTabIdentities().map(tab => tab.id)).toEqual([first.id, second.id, preview.id]);
-    await manager.viewerSlot.show('second');
-    expect(manager.getTab(second.id)).toBeNull();
-    expect(manager.getActiveTab()?.lifecycleState).toBe('provisional');
-    expect(shownText()).toBe('second note');
-    await manager.viewerSlot.release();
-    expect(manager.getTabIdentities().map(tab => tab.id)).toEqual([first.id, second.id]);
-    expect(manager.getActiveTabId()).toBe(second.id);
-    expect(shownText()).toBe('second note');
-    await manager.switchToTab(first.id);
-    expect(shownText()).toBe('first note');
-    expect(backend.sessions).toHaveLength(0);
-  } finally {
-    await manager.destroy();
-  }
-});
-
-it('keeps a held blank draft, linked content and unsent text through wide and narrow presentation', async () => {
-  const { backend, manager } = await setup();
-  const blank = (await manager.createTab())!;
-  const session = blank.session.runtime;
-  blank.linkedContent.selectExplicit('chosen.md');
-  blank.controllers.drafts.restore('main', { content: 'new idea' });
-  try {
-    await manager.viewerSlot.enter();
-    const preview = manager.getActiveTab()!;
-    expect(manager.getAllTabs()).toEqual([preview]);
-    expect(manager.getTab(blank.id)).toBeNull();
-    expect(preview.lifecycleState).toBe('provisional');
-    expect(preview.session.runtime).toBe(session);
-    expect([preview.controllers.drafts.capture('main').content, preview.session.runtime.model.linkedContentController.getSnapshot().path])
-      .toEqual(['new idea', 'chosen.md']);
-    expect(session.isDisposed).toBe(false);
-    await manager.viewerSlot.release();
-    const restored = manager.getActiveTab()!;
-    expect(restored.id).toBe(blank.id);
-    expect(restored.session.runtime).toBe(session);
-    expect([restored.controllers.drafts.capture('main').content, restored.session.runtime.model.linkedContentController.getSnapshot().path])
-      .toEqual(['new idea', 'chosen.md']);
-    expect(backend.sessions).toHaveLength(0);
-  } finally {
-    await manager.destroy();
-  }
-});
-
 it('reuses a provisional preview while parking typed text by conversation', async () => {
   const { backend, manager } = await setup();
   const text = () => manager.getActiveTab()!.controllers.drafts.capture('main').content;
@@ -284,7 +222,6 @@ it('reuses a provisional preview while parking typed text by conversation', asyn
     await manager.destroy();
   }
 });
-
 
 it('keeps an unread result during background work and acknowledges it only when its tab becomes active', async () => {
   const { backend, manager } = await setup();
@@ -322,7 +259,6 @@ it('keeps an unread result during background work and acknowledges it only when 
   }
 });
 
-
 it.each(['running', 'idle'] as const)('uses the target session runtime to guard %s deletion from history', async target => {
   const { backend, manager, plugin, pool, conversations, view } = await setup();
   const deleteConversation = vi.fn(async () => undefined);
@@ -342,7 +278,6 @@ it.each(['running', 'idle'] as const)('uses the target session runtime to guard 
   });
   Object.defineProperty(plugin, 'conversationLifecycle', { value: lifecycle, configurable: true });
   const navigation = new SessionNavigation({ plugin, view: view as unknown as ChatViewHost, getTabManager: () => manager });
-  let wide = true;
   const surface = new SessionManagerSurface({
     plugin,
     navigation: {
@@ -352,7 +287,7 @@ it.each(['running', 'idle'] as const)('uses the target session runtime to guard 
       openSessionConversation: id => manager.openConversation(id),
       startLinkedContentConversation: path => manager.viewerSlot.startDraft({ linkedContentPath: path }),
     },
-    getActiveTab: () => manager.getActiveTab(), isSidebarVisible: () => wide,
+    getActiveTab: () => manager.getActiveTab(), isSidebarVisible: () => true,
     canCreateTab: () => manager.canCreateTab(), requestNew: () => { void manager.createTab(); },
     notifyOtherViews: () => undefined,
   });
@@ -363,27 +298,21 @@ it.each(['running', 'idle'] as const)('uses the target session runtime to guard 
   const sending = first.controllers.inputController.sendMessage();
   await request;
   const native = backend.latest;
-  const host = document.body.createDiv();
-  surface.mountHistoryControl(host);
-  const ui = within(host);
   try {
     // The active-mode archive action consumes real session status, not a supplied running flag.
-    // Archive controls belong to the persistent sidebar; history's default action is Delete.
     const sidebar = document.body.createDiv();
     surface.mountSidebar(sidebar);
     surface.renderSidebar();
     const archive = within(sidebar).getByRole('button', { name: 'Cannot archive a running session' }) as HTMLButtonElement;
     expect(archive.disabled).toBe(true);
     expect(await axe(archive)).toHaveNoViolations();
-    wide = false;
-    surface.leaveWide();
-    fireEvent.click(ui.getByRole('button', { name: 'Chat history' }));
+    const ui = within(sidebar);
 
     if (target === 'running') await manager.createTab('second');
     conversations.get('conversation')!.isArchived = true;
     conversations.get('third')!.isArchived = true;
     surface.invalidate();
-    fireEvent.click(ui.getByRole('button', { name: t('chat.sessions.showArchive') }));
+    fireEvent.click(ui.getByText('Archive', { exact: true }));
     const rowTitle = target === 'running' ? 'Conversation' : 'third';
     const row = ui.getByText(rowTitle, { exact: true }).closest<HTMLElement>('.claudian-history-item')!;
     const deleting = vi.spyOn(lifecycle, 'delete');

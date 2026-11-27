@@ -25,7 +25,6 @@ import type {
   ProviderId,
   ProviderSessionArchive,
 } from '@/core/providers/types';
-import type { SessionToolEndpoint } from '@/core/session-tools/SessionToolEndpoint';
 import type { ClaudianSettings } from '@/core/types';
 import type { EnvironmentScope } from '@/core/types/settings';
 import { getVaultPath } from '@/utils/path';
@@ -35,7 +34,6 @@ export interface ClaudianProviderHostDeps {
   readonly manifest?: { version?: string };
   readonly executionLifecycleRegistry: ProviderExecutionLifecycleRegistry;
   readonly storage: ProviderHostStorage;
-  readonly sessionToolEndpoint?: SessionToolEndpoint;
   readonly settings: Pick<
     SettingsCoordinator<ClaudianSettings>,
     'getCommittedSettings' | 'mutate' | 'mutateConditionally'
@@ -60,7 +58,6 @@ export class ClaudianProviderHost implements ProviderHost {
   readonly manifest?: { version?: string };
   readonly executionLifecycleRegistry: ProviderExecutionLifecycleRegistry;
   readonly storage: ProviderHostStorage;
-  readonly sessionToolEndpoint?: SessionToolEndpoint;
   readonly #runtimeHosts = new Map<ProviderId, ProviderRuntimeHost>();
 
   constructor(private readonly deps: ClaudianProviderHostDeps) {
@@ -68,7 +65,6 @@ export class ClaudianProviderHost implements ProviderHost {
     this.manifest = deps.manifest;
     this.executionLifecycleRegistry = deps.executionLifecycleRegistry;
     this.storage = deps.storage;
-    this.sessionToolEndpoint = deps.sessionToolEndpoint;
   }
 
   get workingDirectory(): string | null {
@@ -179,7 +175,7 @@ interface RuntimeSettingsSource {
 export function createProviderRuntimeHost(
   host: Pick<
     ProviderHost,
-    | 'manifest' | 'workingDirectory' | 'storage' | 'sessionToolEndpoint'
+    | 'manifest' | 'workingDirectory' | 'storage'
     | 'getResolvedProviderCliPath' | 'notifyProviderChatOptionsChanged'
   >,
   settings: RuntimeSettingsSource,
@@ -198,7 +194,6 @@ export function createProviderRuntimeHost(
     get clientVersion() { return host.manifest?.version; },
     get workingDirectory() { return host.workingDirectory; },
     storage: host.storage,
-    sessionToolEndpoint: host.sessionToolEndpoint,
     resolveCliPath: context => host.getResolvedProviderCliPath(providerId, context),
     notifyChatOptionsChanged: () => host.notifyProviderChatOptionsChanged(providerId),
     async updateConfig(mutation) {

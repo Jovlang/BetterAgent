@@ -1,5 +1,5 @@
 // @test-ci {"native":true}
-import '@/providers';
+import '@test/helpers/registeredCodex';
 
 import { DEFAULT_CLAUDIAN_SETTINGS } from '@test/helpers/defaultSettings';
 import { createWSLDistroFixture } from '@test/helpers/WSLProcessFixture';

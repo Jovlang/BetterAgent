@@ -157,35 +157,11 @@ const compositionRoot = path.join(sourceRoot, 'composition');
 const featuresRoot = path.join(sourceRoot, 'features');
 const providersRoot = path.join(sourceRoot, 'providers');
 
-function listConcreteProviderNames() {
-  return fs.readdirSync(providersRoot, { withFileTypes: true })
-    .filter(entry => (
-      entry.isDirectory()
-      && fs.existsSync(path.join(providersRoot, entry.name, 'registration.ts'))
-    ))
-    .map(entry => entry.name)
-    .sort();
-}
-
-function escapeRegExp(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-const concreteProviderNames = listConcreteProviderNames();
-const concreteProviderPathPattern = new RegExp(
-  `providers/(?:${concreteProviderNames.map(escapeRegExp).join('|')})(?:/|['"])`,
-);
+const concreteProviderPathPattern = /providers\/codex(?:\/|['"])/;
 
 test('repository paths use POSIX separators for stable cross-platform comparison', () => {
   assert.equal(normalizeRepositoryPath('src\\main.ts'), 'src/main.ts');
   assert.equal(normalizeRepositoryPath('src/main.ts'), 'src/main.ts');
-});
-
-test('concrete provider pattern covers every registered provider directory', () => {
-  assert.notEqual(concreteProviderNames.length, 0);
-  for (const providerName of concreteProviderNames) {
-    assert.match(`providers/${providerName}/registration`, concreteProviderPathPattern);
-  }
 });
 
 test('source import resolution distinguishes provider-local app from root app', () => {
@@ -578,14 +554,18 @@ test('composition modules do not import main or concrete providers', () => {
 });
 
 
-test('features and shared UI are independent from concrete providers', () => {
+test('features and shared UI access Codex runtime only through host contracts', () => {
   const pattern = new RegExp(
     `from\\s+['"][^'"]*${concreteProviderPathPattern.source}`,
   );
   assert.deepEqual(findMatches([
     path.join(sourceRoot, 'features'),
     path.join(sourceRoot, 'shared'),
-  ], pattern), []);
+  ], pattern).filter(file => {
+    const imports = listSourceImports(path.join(process.cwd(), file));
+    return imports.some(({ specifier }) => /providers\/codex\//.test(specifier)
+      && specifier !== '@/providers/codex/normalization/CodexFileCitation');
+  }), []);
 });
 
 test('the shared FeatureHost contract does not depend on chat', () => {
@@ -615,10 +595,7 @@ test('runtime command discovery cannot import Vault skill management', () => {
   const roots = [
     path.join(sourceRoot, 'features', 'chat'),
     path.join(sourceRoot, 'shared', 'components'),
-    ...concreteProviderNames.flatMap(provider => [
-      path.join(sourceRoot, 'providers', provider, 'app'),
-      path.join(sourceRoot, 'providers', provider, 'commands'),
-    ]).filter(fs.existsSync),
+    path.join(providersRoot, 'codex', 'app'),
   ];
   const skillManagement = [path.join(featuresRoot, 'agent-skills')];
   assert.deepEqual(findResolvedImportViolations(

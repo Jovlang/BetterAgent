@@ -1,4 +1,4 @@
-import '@/providers';
+import '@test/helpers/registeredCodex';
 
 import { codexCatalogFixture } from '@test/helpers/codexModels';
 import { DEFAULT_CLAUDIAN_SETTINGS } from '@test/helpers/defaultSettings';

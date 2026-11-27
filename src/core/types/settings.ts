@@ -54,11 +54,6 @@ export const CHAT_VIEW_PLACEMENTS = [
 /** Workspace location used when opening the Claudian chat view. */
 export type ChatViewPlacement = typeof CHAT_VIEW_PLACEMENTS[number];
 
-export const DUAL_PANE_SIDES = ['left', 'right'] as const;
-
-/** Side of the chat occupied by the session manager in dual-pane mode. */
-export type DualPaneSide = typeof DUAL_PANE_SIDES[number];
-
 export type SessionManagerOrganization = 'list' | 'linked-content';
 export type SessionManagerSort = 'last-updated' | 'created';
 export type SessionAutoArchiveAfter = 'off' | '7d' | '14d' | '30d';
@@ -144,8 +139,6 @@ export interface ClaudianSettings {
   pluginRenderedFenceLanguages: string[];
   expandFileEditsByDefault: boolean;
   chatViewPlacement: ChatViewPlacement;
-  enableDualPane: boolean;
-  dualPaneSide: DualPaneSide;
   restoreTabsOnStartup: boolean;
   /**
    * Vault-wide record that Sync unified Claude skills into `.agents/skills`. The
@@ -154,11 +147,6 @@ export interface ClaudianSettings {
   skillsSynced: boolean;
   sessionManagerOrganization?: SessionManagerOrganization;
   sessionManagerSort?: SessionManagerSort;
-  /**
-   * Project ids in the user's dragged order; pinned projects still come first. Projects missing from it lead,
-   * newest first.
-   */
-  projectOrder?: string[];
   pinnedLinkedContentPaths?: string[];
   sessionAutoArchiveAfter?: SessionAutoArchiveAfter;
 

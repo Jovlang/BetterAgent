@@ -96,11 +96,11 @@ it('renders the declarative settings surface and loads real skills only on first
 });
 
 it('does not offer alternate chat layouts or tab-title controls', async () => {
-  const h = await createSettings({ enableDualPane: true });
+  const h = await createSettings();
   const settings = within(h.container);
   expect(settings.getByRole('switch', { name: t('settings.restoreTabsOnStartup.name') })).toBeDefined();
-  expect(settings.queryByRole('switch', { name: t('settings.enableDualPane.name') })).toBeNull();
-  expect(settings.queryByText(t('settings.dualPaneSide.name'))).toBeNull();
+  expect(settings.queryByRole('switch', { name: /dual-pane mode/i })).toBeNull();
+  expect(settings.queryByText(/dual-pane side/i)).toBeNull();
   expect(settings.queryByRole('switch', { name: 'Show tab titles by default' })).toBeNull();
 });
 

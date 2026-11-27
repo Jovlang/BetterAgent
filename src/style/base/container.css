@@ -26,10 +26,6 @@
   flex-direction: row;
 }
 
-.claudian-container.claudian-wide-session-layout.claudian-session-sidebar-left {
-  flex-direction: row-reverse;
-}
-
 .claudian-provider-icon-variant--dark {
   display: none;
 }

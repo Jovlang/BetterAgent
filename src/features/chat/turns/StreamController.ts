@@ -27,6 +27,7 @@ import { StreamingRenderCoordinator } from '@/features/chat/turns/StreamingRende
 import { SubagentStreamRouter } from '@/features/chat/turns/SubagentStreamRouter';
 import { ThinkingIndicator } from '@/features/chat/turns/ThinkingIndicator';
 import { mergeToolProviderPayload, ToolCallStream } from '@/features/chat/turns/ToolCallStream';
+import { stripCodexFileCitations } from '@/providers/codex/normalization/CodexFileCitation';
 import { hasStreamingMathDelimiters } from '@/utils/markdownMath';
 
 export interface StreamControllerDeps {
@@ -95,7 +96,9 @@ export class StreamController {
     });
     this.textRenderCoordinator = this.#createRenderCoordinator(
       () => this.#getStreamingRenderWindow(),
-      content => ProviderRegistry.prepareAssistantMarkdown(this.deps.getProviderId?.() ?? ProviderRegistry.getDefaultProviderId(), content),
+      content => (this.deps.getProviderId?.() ?? ProviderRegistry.getDefaultProviderId()) === 'codex'
+        ? stripCodexFileCitations(content)
+        : content,
     );
     this.thinkingRenderCoordinator = this.#createRenderCoordinator(
       () => this.#getThinkingRenderWindow()

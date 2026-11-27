@@ -1,4 +1,4 @@
-import '@/providers';
+import '@test/helpers/registeredCodex';
 
 import { FakeAuxiliaryBackend, waitFor } from '@test/helpers/core/auxiliary/AuxiliaryExecutionTestHarness';
 import { assertCatalogModelAvailable, modelCatalogCases } from '@test/helpers/providerModelCatalogs';

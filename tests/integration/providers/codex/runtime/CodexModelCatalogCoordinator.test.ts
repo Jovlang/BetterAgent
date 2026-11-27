@@ -1,15 +1,14 @@
 import { CodexRuntimeHarness } from '@test/helpers/providers/codex/CodexRuntimeHarness';
 import { createCodexWorkspaceHarness } from '@test/helpers/providers/codex/CodexWorkspaceHarness';
+import { registerCodexForTests } from '@test/helpers/registerCodexForTests';
 
-import { registerProviderModules } from '@/core/providers/registerProviderModules';
 import { createCodexModelCatalogCommit } from '@/providers/codex/app/CodexWorkspaceServices';
-import { codexProviderRegistration } from '@/providers/codex/registration';
 import { CodexModelCatalogCoordinator } from '@/providers/codex/runtime/CodexModelCatalogCoordinator';
 import type { CodexModelDiscoveryResult } from '@/providers/codex/runtime/CodexModelDiscoveryService';
 import { CodexModelDiscoveryService } from '@/providers/codex/runtime/CodexModelDiscoveryService';
 import { getCodexProviderSettings } from '@/providers/codex/settings';
 
-registerProviderModules([codexProviderRegistration]);
+registerCodexForTests();
 
 const native = new CodexRuntimeHarness();
 vi.mock('cross-spawn', () => ({ default: vi.fn(() => native.createProcess()) }));

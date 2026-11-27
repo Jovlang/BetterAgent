@@ -1,15 +1,14 @@
 import { DesktopVault } from '@test/helpers/core/DesktopVault';
+import { registerCodexForTests } from '@test/helpers/registerCodexForTests';
 import { testDate } from '@test/helpers/testClock';
 
 import { ConversationRepository } from '@/app/conversations/ConversationRepository';
 import { ConversationPersistenceStore } from '@/app/storage/ConversationPersistenceStore';
 import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
 import { ProviderSettingsCoordinator } from '@/core/providers/ProviderSettingsCoordinator';
-import { registerProviderModules } from '@/core/providers/registerProviderModules';
 import type { Conversation, SessionMetadata, UsageInfo } from '@/core/types';
-import { codexProviderRegistration } from '@/providers/codex/registration';
 
-registerProviderModules([codexProviderRegistration]);
+registerCodexForTests();
 
 const DEVICE_KEY = `device-${'a'.repeat(64)}`;
 let vault: DesktopVault;

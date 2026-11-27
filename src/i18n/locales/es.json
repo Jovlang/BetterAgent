@@ -786,10 +786,6 @@
       "name": "Habilitar extensión de Chrome",
       "desc": "Permite que Claude Code interactúe con Chrome a través de la extensión claude-in-chrome. Requiere que la extensión esté instalada y reiniciar la sesión."
     },
-    "enableDualPane": {
-      "name": "Activar modo de panel doble",
-      "desc": "Mostrar automáticamente el gestor de sesiones junto al chat cuando la vista tenga al menos 600 px de ancho."
-    },
     "restoreTabsOnStartup": {
       "name": "Restaurar la última conversación al iniciar",
       "desc": "Vuelve a abrir la última conversación activa al iniciar BetterAgent."
@@ -802,12 +798,6 @@
       "days7": "Después de 7 días",
       "days14": "Después de 14 días",
       "days30": "Después de 30 días"
-    },
-    "dualPaneSide": {
-      "name": "Lado del panel doble",
-      "desc": "Elegir en qué lado del chat aparece el gestor de sesiones.",
-      "left": "Izquierda",
-      "right": "Derecha"
     },
     "enableAutoScroll": {
       "name": "Desplazamiento automático durante la transmisión",

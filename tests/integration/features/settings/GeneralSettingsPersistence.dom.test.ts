@@ -5,14 +5,13 @@ import { TEST_CODEX_CATALOG } from '@test/helpers/codexModels';
 import { createFeatureHostFixture } from '@test/helpers/FeatureHostFixture';
 import { controlChangeSettled } from '@test/helpers/ObsidianHost';
 import { createObsidianPlugin, mountSettingTab } from '@test/helpers/ObsidianSettingsHost';
+import { registerCodexForTests } from '@test/helpers/registerCodexForTests';
 import { fireEvent, within } from '@testing-library/dom';
 
-import { registerProviderModules } from '@/core/providers/registerProviderModules';
 import { ClaudianSettingTab } from '@/features/settings/ClaudianSettings';
 import { t } from '@/i18n/i18n';
-import { codexProviderRegistration } from '@/providers/codex/registration';
 
-registerProviderModules([codexProviderRegistration]);
+registerCodexForTests();
 afterEach(() => document.body.replaceChildren());
 
 const cases = [

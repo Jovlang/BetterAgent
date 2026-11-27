@@ -21,7 +21,6 @@ beforeEach(() => {
   provider = registerChatTestProvider('claude', { models: [{ value: 'claude-default', label: 'Claude' }, { value: 'claude-alternate', label: 'Alternate' }] });
 });
 
-
   it('leaves the first tab inactive when activation is explicitly disabled', async () => {
     const { manager } = await createManager();
 
@@ -272,17 +271,6 @@ beforeEach(() => {
     expect(manager.getActiveTab()).toEqual(expect.objectContaining({ conversationId: null, lifecycleState: 'provisional' }));
   });
 
-  it('binds an unloaded blank tab to the conversation its new session creates', async () => {
-    const { manager } = await createManager();
-    const blank = await manager.createTab(null);
-    await manager.viewerSlot.enter();
-
-    manager.getActiveTab()!.session.runtime.setConversationId('created');
-    manager.reconcileUnloadedSessions();
-
-    expect(manager.getPersistedState().openTabs[0]).toEqual({ tabId: blank!.id, conversationId: 'created' });
-  });
-
   it('persists the active blank draft as a preview that survives reload', async () => {
     const { manager } = await createManager();
     const retained = await manager.createTab(null);
@@ -303,7 +291,7 @@ beforeEach(() => {
     await wide.restoreState(persisted);
     expect(wide.getActiveTabId()).toBe(draft.id);
     expect(wide.getActiveTab()?.lifecycleState).toBe('provisional');
-    expect(wide.getPersistedState()).toEqual(persisted);
+    expect(wide.getPersistedState()).toEqual({ ...persisted, openTabs: [persisted.openTabs[1]] });
 
     const compact = (await createManager()).manager;
     await compact.restoreState(persisted);
@@ -472,7 +460,6 @@ beforeEach(() => {
     expect(manager.getActiveTab()).toBe(background);
     expect(onActiveTabCommitted).toHaveBeenCalledWith(initial!.id, background!.id);
   });
-
 
 it('validates cached workspace ownership during admission', async () => {
   const { manager } = await createManager();
@@ -865,21 +852,6 @@ it('moves blank drafts off a disabled model to their provider\'s first enabled m
   ]);
 });
 
-it('moves a draft parked while wide off a disabled model before it reattaches', async () => {
-  const { manager } = await createManager();
-  const blank = (await manager.createTab())!;
-  blank.session.selectDraft('claude', 'claude-alternate');
-  await manager.viewerSlot.enter();
-  await manager.viewerSlot.show('conversation-1');
-  expect(manager.getTab(blank.id)).toBeNull();
-
-  registerChatTestProvider('claude', { models: [{ value: 'claude-top', label: 'Top' }, { value: 'claude-default', label: 'Claude' }] });
-  manager.reconcileProviderAvailability();
-  await manager.viewerSlot.release();
-  await manager.switchToTab(blank.id);
-  expect([manager.getActiveTab()!.providerId, manager.getActiveTab()!.draftModel]).toEqual(['claude', 'claude-top']);
-});
-
 it('drains in-flight conversation navigation before sealing shutdown state', async () => {
   const { manager, plugin, root } = await createManager();
   const tab = (await manager.createTab())!;
@@ -943,71 +915,6 @@ it('disposes every tab and releases manager state when one DOM teardown fails', 
   expect(first.providerCatalogResolver()).toBeNull();
   expect(second.providerCatalogResolver()).toBeNull();
   first.dom.contentEl.remove();
-});
-
-it('finishes mandatory teardown when concurrent preview cleanup fails', async () => {
-  const { manager, pool } = await createManager();
-  const retained = (await manager.createTab('retained'))!;
-  await manager.viewerSlot.show('preview');
-  const preview = manager.getActiveTab()!;
-  await manager.switchToTab(retained.id);
-  const detaching = deferred<void>();
-  vi.spyOn(preview.dom.contentEl, 'remove').mockImplementationOnce(() => { detaching.resolve(); throw new Error('Preview detach failed'); });
-  const cleanup = manager.viewerSlot.release().catch(error => error);
-  await detaching.promise;
-  const destruction = manager.destroy().catch(error => error);
-  const [cleanupError, destructionError] = await Promise.all([cleanup, destruction]);
-  expect(cleanupError).toMatchObject({ message: expect.stringContaining('tab DOM root') });
-  expect(destructionError).toBe(cleanupError);
-  expect(manager.getAllTabs()).toEqual([]);
-  expect(retained.dom.contentEl.isConnected).toBe(false);
-  expect(pool.getAttachment('retained')).toBeNull();
-  expect(pool.getAttachment('preview')).toBeNull();
-  preview.dom.contentEl.remove();
-});
-
-it('joins an unloaded draft session creating its conversation before the shutdown snapshot', async () => {
-  const { manager, plugin } = await createManager();
-  const blank = (await manager.createTab())!;
-  const model = blank.session.runtime.model;
-  const reply = deferred<Conversation>();
-  vi.spyOn(plugin, 'createConversation').mockReturnValueOnce(reply.promise);
-  const creating = model.conversationController.createConversation(model.linkedContentController.beginSubmission(), { providerId: 'claude' });
-  await manager.viewerSlot.enter();
-  await manager.viewerSlot.show('conversation-1');
-  expect(manager.getTab(blank.id)).toBeNull();
-  let drained = false;
-  const drain = manager.drainForShutdownSnapshot().then(() => { drained = true; });
-  expect(drained).toBe(false);
-  reply.resolve(conversationRecord('created'));
-  await Promise.all([creating, drain]);
-  expect(manager.getPersistedState().openTabs[0]).toEqual({ tabId: blank.id, conversationId: 'created' });
-});
-
-it('reports an unloaded narrow tab from its running session and review attention', async () => {
-  const { manager } = await createManager();
-  const narrow = (await manager.createTab('conversation-1'))!;
-  narrow.controllers.inputController.queue.enqueue(createQueuedMessage('queued', { text: 'queued' }));
-  await manager.viewerSlot.enter();
-  await manager.viewerSlot.show('conversation-2');
-  narrow.state.markReviewRequired('completed');
-  expect(manager.getTab(narrow.id)).toBeNull();
-  expect(manager.isTabWorking(narrow.id)).toBe(true);
-  expect(narrow.session.runtime.statusAttention).toMatchObject({ kind: 'review', outcome: 'completed' });
-  narrow.controllers.inputController.queue.clear();
-  expect(manager.isTabWorking(narrow.id)).toBe(false);
-});
-
-it('reports an unloaded blank tab from its held draft before it creates a conversation', async () => {
-  const { manager } = await createManager();
-  const blank = (await manager.createTab())!;
-  blank.controllers.inputController.queue.enqueue(createQueuedMessage('queued', { text: 'queued' }));
-  await manager.viewerSlot.enter();
-  await manager.viewerSlot.show('conversation-1');
-  expect(manager.getTab(blank.id)).toBeNull();
-  expect(manager.isTabWorking(blank.id)).toBe(true);
-  blank.controllers.inputController.queue.clear();
-  expect(manager.isTabWorking(blank.id)).toBe(false);
 });
 
 it('publishes persisted blank-tab model changes', async () => {

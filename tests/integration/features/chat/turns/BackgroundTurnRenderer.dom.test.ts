@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import '@/providers';
+import '@test/helpers/registeredCodex';
 
 import { axe } from '@test/helpers/accessibility';
 import { createFixture, deferred } from '@test/helpers/ChatInputHarness';

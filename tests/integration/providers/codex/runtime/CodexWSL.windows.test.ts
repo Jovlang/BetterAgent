@@ -4,19 +4,18 @@ import * as path from 'node:path';
 
 import { TEST_CODEX_CATALOG, TEST_CODEX_MODEL } from '@test/helpers/codexModels';
 import { createProviderHostFixture } from '@test/helpers/providerRuntimeHost';
+import { registerCodexForTests } from '@test/helpers/registerCodexForTests';
 import { provisionWSLPeer } from '@test/helpers/WSLNativePeer';
 import { hasNativeWSL } from '@test/helpers/WSLNativeTarget';
 
 import { getInstallationKey } from '@/core/device/InstallationKey';
 import type { ProviderExecutionEvent } from '@/core/execution';
 import { parseEnvironmentVariables } from '@/core/process/env';
-import { registerProviderModules } from '@/core/providers/registerProviderModules';
 import { CodexExecutionBackend } from '@/providers/codex/execution/CodexExecutionBackend';
 import { CodexConversationHistoryService } from '@/providers/codex/history/CodexConversationHistoryService';
-import { codexProviderRegistration } from '@/providers/codex/registration';
 import { CodexAppServerRuntime } from '@/providers/codex/runtime/CodexAppServerRuntime';
 
-registerProviderModules([codexProviderRegistration]);
+registerCodexForTests();
 
 // CI uses WSL1. This proves Windows/WSL launch and filesystem mechanics with the native peer.
 describe.skipIf(!hasNativeWSL())('native Codex WSL session and history', () => {

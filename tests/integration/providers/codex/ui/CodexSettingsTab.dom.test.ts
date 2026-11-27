@@ -5,19 +5,18 @@ import { TEST_CODEX_MODEL } from '@test/helpers/codexModels';
 import { controlChangeSettled } from '@test/helpers/ObsidianHost';
 import { CodexRuntimeHarness } from '@test/helpers/providers/codex/CodexRuntimeHarness';
 import { createCodexWorkspaceHarness } from '@test/helpers/providers/codex/CodexWorkspaceHarness';
+import { registerCodexForTests } from '@test/helpers/registerCodexForTests';
 import { WSLProcessFixture } from '@test/helpers/WSLProcessFixture';
 import { fireEvent, waitFor, within } from '@testing-library/dom';
 import * as fs from 'fs';
 
 import { getInstallationKey } from '@/core/device/InstallationKey';
 import { ProviderExecutionTransitionError } from '@/core/execution';
-import { registerProviderModules } from '@/core/providers/registerProviderModules';
 import { CodexExecutionBackend } from '@/providers/codex/execution/CodexExecutionBackend';
-import { codexProviderRegistration } from '@/providers/codex/registration';
 import { getCodexProviderSettings } from '@/providers/codex/settings';
 import { codexChatUIConfig } from '@/providers/codex/ui/CodexChatUIConfig';
 
-registerProviderModules([codexProviderRegistration]);
+registerCodexForTests();
 
 const mockNative = new CodexRuntimeHarness();
 // WSL installation probes reach the shared wsl.exe fake; every other launch is the native Codex peer.

@@ -20,18 +20,18 @@ export interface ProviderHostFixtureOptions {
 /**
  * Complete provider host over the real settings, environment, lifecycle and storage owners.
  * Native CLI lookup defaults to unavailable; inject that external result through overrides.
- * The endpoint binds only when used. dispose is idempotent and also runs at test completion.
+ * Dispose is idempotent and also runs at test completion.
  */
 export async function createProviderHostFixture(options: ProviderHostFixtureOptions = {}) {
   const [
     { DesktopVault }, { DEFAULT_CLAUDIAN_SETTINGS }, { ClaudianSettingsStorage },
-    { ClaudianProviderHost }, { ProviderExecutionLifecycleRegistry }, { LoopbackSessionToolServer },
+    { ClaudianProviderHost }, { ProviderExecutionLifecycleRegistry },
     { getInstallationKey }, { EnvironmentSettingsService }, { RuntimeSettingsCoordinator },
     { ProviderRegistry }, { ProviderSettingsCoordinator },
   ] = await Promise.all([
     import('@test/helpers/core/DesktopVault'), import('@test/helpers/defaultSettings'),
     import('@/app/settings/ClaudianSettingsStorage'), import('@/composition/ClaudianProviderHost'),
-    import('@/core/execution'), import('@test/helpers/LoopbackSessionToolServer'),
+    import('@/core/execution'),
     import('@/core/device/InstallationKey'), import('@/app/settings/EnvironmentSettingsService'),
     import('@/app/settings/RuntimeSettingsCoordinator'), import('@/core/providers/ProviderRegistry'),
     import('@/core/providers/ProviderSettingsCoordinator'),
@@ -44,7 +44,6 @@ export async function createProviderHostFixture(options: ProviderHostFixtureOpti
     await settingsStorage.save(draft);
   }, options.afterPublish);
   const lifecycle = new ProviderExecutionLifecycleRegistry();
-  const endpoint = new LoopbackSessionToolServer();
   const storage = { installationKey: getInstallationKey(), getAdapter: () => vault.files };
   const notifications: ProviderId[] = [];
   let environmentService: InstanceType<typeof EnvironmentSettingsService> | undefined;
@@ -62,7 +61,7 @@ export async function createProviderHostFixture(options: ProviderHostFixtureOpti
   }
   const host: ProviderHost = new ClaudianProviderHost({
     app: options.app ?? vault.app, settings: coordinator, executionLifecycleRegistry: lifecycle,
-    storage, sessionToolEndpoint: endpoint,
+    storage,
     environment: {
       getActiveEnvironmentVariables: id => environment().getActiveEnvironmentVariables(id),
       getEnvironmentVariablesForScope: scope => environment().getEnvironmentVariablesForScope(scope),
@@ -82,8 +81,7 @@ export async function createProviderHostFixture(options: ProviderHostFixtureOpti
       try { await lifecycle.dispose(); }
       finally {
         await coordinator.mutateConditionally(() => false);
-        try { await endpoint.close(); }
-        finally { if (!options.vault) await vault.dispose(); }
+        if (!options.vault) await vault.dispose();
       }
     })();
     return disposal;

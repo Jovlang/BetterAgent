@@ -1,6 +1,6 @@
 const actualModule0 = await vi.importActual<typeof fs>('node:fs/promises');
 const actualModule1 = await vi.importActual<typeof fs>('node:fs/promises');
-import '@/providers';
+import '@test/helpers/registeredCodex';
 
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';

@@ -1,4 +1,5 @@
 import { FakeSession } from '@test/helpers/ChatExecutionHarness';
+import { BUILT_IN_PROVIDER_MODULES } from '@test/helpers/registeredCodex';
 
 import type { ProviderExecutionBackend, ProviderSessionConfig } from '@/core/execution';
 import { RuntimeCommandCatalog } from '@/core/providers/commands/RuntimeCommandCatalog';
@@ -6,7 +7,6 @@ import { getProviderConfig, setProviderConfig } from '@/core/providers/providerC
 import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
 import { ProviderWorkspaceRegistry } from '@/core/providers/ProviderWorkspaceRegistry';
 import type { ProviderCapabilities, ProviderChatUIConfig, ProviderCommandLoader, ProviderConversationHistoryService, ProviderId, ProviderModelPolicy, ProviderModule, ProviderUIOption, ProviderWorkspaceRegistration, ProviderWorkspaceServices } from '@/core/providers/types';
-import { BUILT_IN_PROVIDER_MODULES } from '@/providers';
 
 export interface ChatTestProviderOptions {
   models?: readonly ProviderUIOption[];

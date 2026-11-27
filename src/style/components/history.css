@@ -27,42 +27,8 @@
   overflow: hidden;
 }
 
-.claudian-session-resizer {
-  position: relative;
-  display: none;
-  flex: 0 0 5px;
-  cursor: col-resize;
-  touch-action: none;
-}
-
-.claudian-session-resizer::after {
-  position: absolute;
-  inset-block: 0;
-  inset-inline-start: 2px;
-  width: 1px;
-  background: transparent;
-  content: "";
-  transition: background 0.15s ease;
-}
-
-.claudian-session-resizer:hover::after,
-.claudian-session-resizer:focus-visible::after,
-.claudian-resizing-session-sidebar .claudian-session-resizer::after {
-  background: var(--interactive-accent);
-}
-
-.claudian-resizing-session-sidebar,
-.claudian-resizing-session-sidebar * {
-  cursor: col-resize;
-  user-select: none;
-}
-
 .claudian-wide-session-layout .claudian-session-sidebar:not([hidden]) {
   display: flex;
-}
-
-.claudian-wide-session-layout .claudian-session-resizer:not([hidden]) {
-  display: block;
 }
 
 .claudian-chat-body {

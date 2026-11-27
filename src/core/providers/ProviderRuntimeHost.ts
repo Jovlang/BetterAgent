@@ -1,5 +1,4 @@
 import type { ProviderHostStorage } from '../bootstrap/storage';
-import type { SessionToolEndpoint } from '../session-tools/SessionToolEndpoint';
 import type { ProviderCLIResolutionContext } from './types';
 
 /** Execution preferences a runtime falls back to when a request leaves them unset. */
@@ -50,7 +49,6 @@ export interface ProviderRuntimeHost {
   readonly workingDirectory: string | null;
   readonly storage: ProviderHostStorage;
   /** Loopback endpoint through which shared provider processes reach main-chat session tools. */
-  readonly sessionToolEndpoint?: SessionToolEndpoint;
 
   resolveCliPath(context?: ProviderCLIResolutionContext): Promise<string | null>;
   notifyChatOptionsChanged(): void;

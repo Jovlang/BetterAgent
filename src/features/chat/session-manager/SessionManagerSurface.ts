@@ -2,13 +2,10 @@ import type { Menu } from 'obsidian';
 
 import { StartupProfiler } from '@/core/performance/StartupProfiler';
 import type { ChatFeatureHost } from '@/features/chat/ChatFeatureHost';
-import { HistoryDropdown } from '@/features/chat/session-manager/HistoryDropdown';
 import { SessionBrowser } from '@/features/chat/session-manager/SessionBrowser';
 import { SessionSidebar } from '@/features/chat/session-manager/SessionSidebar';
 import type { SessionSurfaceNavigation } from '@/features/chat/session-manager/SessionSurfaceShared';
 import type { ChatTab } from '@/features/chat/tabs/ChatTab';
-
-export { setControlAvailability } from '@/features/chat/session-manager/SessionSurfaceShared';
 
 export interface SessionManagerSurfaceDeps {
   plugin: ChatFeatureHost;
@@ -23,22 +20,11 @@ export interface SessionManagerSurfaceDeps {
   notifyOtherViews(): void;
 }
 
-/**
- * The view's session manager: the compact history dropdown and the wide
- * session sidebar over one shared session browser. It owns what both share —
- * the browser, the archive view, invalidation, and Escape — and routes the
- * layout's lifecycle to the presentation that is showing.
- */
+/** Owns the view’s conversation history, including search, archive, and invalidation. */
 export class SessionManagerSurface {
   private readonly browser: SessionBrowser;
-  private readonly dropdown: HistoryDropdown;
   private readonly sidebar: SessionSidebar;
 
-  /**
-   * One archive view serves both presentations: archive chosen in the sidebar
-   * is still showing when the dropdown next opens after leaving wide, and vice
-   * versa. Leaving it requires the presentation's own Sessions/New control.
-   */
   private isArchiveView = false;
   private hasRenderedList = false;
 
@@ -56,11 +42,6 @@ export class SessionManagerSurface {
       invalidate: () => this.invalidate(),
       profileListRender: (render: () => void) => this.profileListRender(render),
     };
-    this.dropdown = new HistoryDropdown({
-      plugin: deps.plugin,
-      navigation: deps.navigation,
-      shared,
-    });
     this.sidebar = new SessionSidebar({
       plugin: deps.plugin,
       navigation: deps.navigation,
@@ -75,7 +56,7 @@ export class SessionManagerSurface {
 
   /** True while session search is composing IME input; Escape belongs to the composition. */
   get isComposing(): boolean {
-    return this.sidebar.isComposing || this.dropdown.isComposing;
+    return this.sidebar.isComposing;
   }
 
   /** Builds the dual-pane sidebar surface inside `sidebarEl`. */
@@ -83,31 +64,14 @@ export class SessionManagerSurface {
     this.sidebar.mount(sidebarEl, backEl);
   }
 
-  /** Builds the single-pane history button and its drop-up menu inside `parentEl`. */
-  mountHistoryControl(parentEl: HTMLElement): void {
-    this.dropdown.mount(parentEl);
-  }
-
-  /** Marks both surfaces stale and re-renders whichever is showing. */
+  /** Marks the history stale and re-renders it if visible. */
   invalidate(): void {
-    this.dropdown.markDirty();
     this.sidebar.markDirty();
-    this.dropdown.renderIfVisible();
     if (this.deps.isSidebarVisible()) this.sidebar.render();
   }
 
-  /** Hides the dropdown when a document click lands outside it, keeping its rendered list. */
-  dismissDropdownFor(event: Event): void {
-    this.dropdown.dismissFor(event);
-  }
-
-  /** The wide layout replaces the dropdown with the sidebar. */
-  enterWide(): void {
-    this.dropdown.close();
-  }
-
   /** A hidden sidebar ends search; the toolbar always reopens the active history list. */
-  leaveWide(): void {
+  hideHistory(): void {
     this.sidebar.leave();
     if (this.deps.flatHistory) this.setArchiveView(false);
   }
@@ -124,10 +88,9 @@ export class SessionManagerSurface {
     this.sidebar.render();
   }
 
-  /** Handles Escape for inline rename, search, and the open dropdown; returns whether it was consumed. */
+  /** Handles Escape for inline rename and search; returns whether it was consumed. */
   handleEscape(): boolean {
-    if (this.browser.cancelInlineRename()) return true;
-    return this.sidebar.dismissSearch() || this.dropdown.handleEscape();
+    return this.browser.cancelInlineRename() || this.sidebar.dismissSearch();
   }
 
   /** Shows New only while another tab can be created. */
@@ -138,22 +101,15 @@ export class SessionManagerSurface {
   dispose(): void {
     this.browser.dispose();
     this.sidebar.dispose();
-    this.dropdown.dispose();
   }
 
   /** Switches between active and archived sessions; the switch always ends search. */
   private setArchiveView(isArchiveView: boolean): void {
     if (this.isArchiveView === isArchiveView) return;
     this.sidebar.discardSearch();
-    this.dropdown.discardSearch();
     this.isArchiveView = isArchiveView;
-    this.dropdown.markDirty();
     this.sidebar.markDirty();
-    if (this.deps.isSidebarVisible()) {
-      this.sidebar.render();
-    } else {
-      this.dropdown.renderIfVisible();
-    }
+    if (this.deps.isSidebarVisible()) this.sidebar.render();
   }
 
   private profileListRender(render: () => void): void {

@@ -1,4 +1,4 @@
-import '@/providers';
+import '@test/helpers/registeredCodex';
 
 import { DesktopVault } from '@test/helpers/core/DesktopVault';
 import { clearWriteFaults, failWritesUnder } from '@test/helpers/core/fsWriteFaults';

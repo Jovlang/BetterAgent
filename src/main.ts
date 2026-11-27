@@ -1,9 +1,3 @@
-import './providers';
-
-import { StartupProfiler } from './core/performance/StartupProfiler';
-
-StartupProfiler.finishModuleEvaluation();
-
 import { Notice, Plugin } from 'obsidian';
 
 import type { NativeSessionArchiveSync } from './app/conversations/NativeSessionArchiveSync';
@@ -20,6 +14,7 @@ import { ClaudianChatFeatureHost, ClaudianFeatureHost } from './composition/Clau
 import { ClaudianProviderHost } from './composition/ClaudianProviderHost';
 import { ClaudianViews } from './composition/ClaudianViews';
 import { ProviderExecutionLifecycleRegistry } from './core/execution';
+import { StartupProfiler } from './core/performance/StartupProfiler';
 import { resolveLoginShellPath } from './core/process/loginShellPath';
 import { ProviderRegistry } from './core/providers/ProviderRegistry';
 import { ProviderSettingsCoordinator } from './core/providers/ProviderSettingsCoordinator';
@@ -44,6 +39,11 @@ import { ClaudianSettingTab } from './features/settings/ClaudianSettings';
 import { t } from './i18n/i18n';
 import { DEFAULT_CODEX_PROVIDER_CONFIG } from './providers/codex/config';
 import { CODEX_PERMISSION_MODE_POLICY } from './providers/codex/permissionModes';
+import { codexProviderRegistration } from './providers/codex/registration';
+
+ProviderRegistry.register('codex', codexProviderRegistration);
+ProviderWorkspaceRegistry.register('codex', codexProviderRegistration.workspace);
+StartupProfiler.finishModuleEvaluation();
 
 export default class ClaudianPlugin extends Plugin {
   readonly executionLifecycleRegistry = new ProviderExecutionLifecycleRegistry();
@@ -103,7 +103,7 @@ export default class ClaudianPlugin extends Plugin {
 
       this.registerView(
         VIEW_TYPE_CLAUDIAN,
-        (leaf) => new ClaudianView(leaf, this.chatHost, { singleViewer: true })
+        (leaf) => new ClaudianView(leaf, this.chatHost)
       );
       registerFileMenu({
         app: this.app,

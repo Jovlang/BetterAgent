@@ -287,7 +287,6 @@ export interface ProviderModelPolicy {
 /** UI composition may reuse policy, but application code consumes ProviderModelPolicy. */
 export interface ProviderChatUIConfig extends Omit<ProviderModelPolicy, 'permissionModes' | 'getServiceTierPolicy'> {
   /** Presentation-only formatting of assistant Markdown; native history remains unchanged. */
-  prepareAssistantMarkdown?(markdown: string): string;
   getPermissionModeOptions?(settings?: Record<string, unknown>): readonly ProviderPermissionModeOption[] | null;
   getServiceTierToggle?(settings: Record<string, unknown>): ProviderServiceTierToggleConfig | null;
   getProviderIcon?(): ProviderIconSvg | null;

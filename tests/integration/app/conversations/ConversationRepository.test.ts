@@ -1,4 +1,4 @@
-import '@/providers';
+import '@test/helpers/registeredCodex';
 
 import { DEFAULT_CLAUDIAN_SETTINGS } from '@test/helpers/defaultSettings';
 import { FakeSideBackend, waitFor } from '@test/helpers/features/chat/SideChatSessionHarness';

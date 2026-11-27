@@ -786,10 +786,6 @@
       "name": "启用 Chrome 扩展",
       "desc": "允许 Claude Code 通过 claude-in-chrome 扩展与 Chrome 交互。需预先安装该扩展，且更改后需要重启会话。"
     },
-    "enableDualPane": {
-      "name": "启用双栏模式",
-      "desc": "当视图宽度不小于 600 px 时，自动在聊天面板旁显示会话管理器。"
-    },
     "restoreTabsOnStartup": {
       "name": "启动时恢复上次对话",
       "desc": "启动 BetterAgent 时重新打开上次使用的对话。"
@@ -802,12 +798,6 @@
       "days7": "7 天后",
       "days14": "14 天后",
       "days30": "30 天后"
-    },
-    "dualPaneSide": {
-      "name": "双栏位置",
-      "desc": "选择会话管理器显示在聊天的哪一侧。",
-      "left": "左侧",
-      "right": "右侧"
     },
     "enableAutoScroll": {
       "name": "流式传输时自动滚动",

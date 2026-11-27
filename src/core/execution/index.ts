@@ -106,10 +106,6 @@ export {
   type ProviderSessionStatus,
 } from './ProviderSessionSnapshot';
 export {
-  isSessionToolPolicyAllowed,
-  type ProviderSessionToolPort,
-} from './ProviderSessionToolPort';
-export {
   type RequestedRunCancelSource,
   RequestedRunChannel,
   type RequestedRunChannelOptions,

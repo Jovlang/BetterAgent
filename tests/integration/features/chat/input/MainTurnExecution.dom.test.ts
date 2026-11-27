@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import '@/providers';
+import '@test/helpers/registeredCodex';
 
 import type { UnscopedExecutionEvent } from '@test/helpers/ChatExecutionHarness';
 import { createFixture } from '@test/helpers/ChatInputHarness';

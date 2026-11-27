@@ -4,17 +4,16 @@ import { createFeatureHostFixture } from '@test/helpers/FeatureHostFixture';
 import { controlChangeSettled } from '@test/helpers/ObsidianHost';
 import { createObsidianPlugin, mountSettingTab } from '@test/helpers/ObsidianSettingsHost';
 import { createObsidianWorkspace } from '@test/helpers/ObsidianWorkspace';
+import { registerCodexForTests } from '@test/helpers/registerCodexForTests';
 import { fireEvent, within } from '@testing-library/dom';
 import type { Workspace } from 'obsidian';
 
-import { registerProviderModules } from '@/core/providers/registerProviderModules';
 import { ChatFontScale } from '@/features/chat/view/ChatFontScale';
 import { ChatViewPublisher } from '@/features/chat/workspace/ChatViewPublisher';
 import { ClaudianSettingTab } from '@/features/settings/ClaudianSettings';
 import { t } from '@/i18n/i18n';
-import { codexProviderRegistration } from '@/providers/codex/registration';
 
-registerProviderModules([codexProviderRegistration]);
+registerCodexForTests();
 afterEach(() => {
   document.body.replaceChildren();
   document.body.removeAttribute('style');

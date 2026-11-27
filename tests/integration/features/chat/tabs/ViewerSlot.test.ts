@@ -3,7 +3,7 @@ import { useNextTaskAnimationFrames } from '@test/helpers/dom/animationFrames';
 import { approvalDecisionOptions } from '@test/helpers/features/chat/approvalDecisionOptions';
 import type { ChatFeatureHostOverrides } from '@test/helpers/features/chat/ChatFeatureHostFixture';
 import { registerChatTestProvider } from '@test/helpers/features/chat/ChatProviderFixture';
-import { conversationRecord, createManager, createPlugin, deferred, holdHistory } from '@test/helpers/features/chat/TabManagerIntegrationHarness';
+import { createManager, createPlugin, deferred, holdHistory } from '@test/helpers/features/chat/TabManagerIntegrationHarness';
 import { App, TFile } from 'obsidian';
 
 import { BUILT_IN_COMMANDS } from '@/core/commands/builtInCommands';
@@ -27,49 +27,6 @@ async function linkedContentPlugin(paths: string[], overrides: ChatFeatureHostOv
 async function runNew(tab: AssembledTabRuntime) {
   await tab.controllers.builtInCommandController.execute(BUILT_IN_COMMANDS.find(command => command.action === 'clear')!, ProviderRegistry.getCapabilities(tab.providerId!));
 }
-
-it('discards inactive previews without removing open runtime tabs', async () => {
-    const getCachedConversation = vi.fn((id: string) => (conversationRecord(id, { providerId: 'claude' })));
-    const { manager } = await createManager(await createPlugin({ getCachedConversation }));
-    const first = await manager.createTab('conversation-1');
-    const second = await manager.createTab('conversation-2', undefined, { activate: false });
-    await manager.viewerSlot.show('conversation-3');
-    await manager.switchToTab(first!.id);
-
-    await manager.viewerSlot.release();
-
-    expect(manager.getAllTabs()).toEqual([first, second]);
-    expect(manager.getAllTabs().every(tab => tab.dom.contentEl.isConnected)).toBe(true);
-  });
-
-it('retains the active preview when it is the only tab', async () => {
-    const { manager } = await createManager(await createPlugin({
-      getCachedConversation: (id: string) => (conversationRecord(id, { providerId: 'claude' })),
-    }));
-    await manager.viewerSlot.show('conversation-1');
-    const preview = manager.getActiveTab()!;
-    expect(preview.lifecycleState).toBe('provisional');
-
-    await manager.viewerSlot.release();
-
-    expect(manager.getAllTabs()).toEqual([preview]);
-    expect(preview.lifecycleState).toBe('open');
-    expect(preview.dom.contentEl.isConnected).toBe(true);
-  });
-
-it('keeps the shown preview as a tab when leaving wide', async () => {
-    const { manager } = await createManager(await conversationPlugin());
-    const retained = await manager.createTab('conversation-1');
-    await manager.viewerSlot.show('conversation-2');
-    const preview = manager.getActiveTab()!;
-    expect(preview.lifecycleState).toBe('provisional');
-
-    await manager.viewerSlot.release();
-
-    expect(manager.getAllTabs()).toEqual([retained, preview]);
-    expect(preview.lifecycleState).toBe('open');
-    expect(manager.getActiveTabId()).toBe(preview.id);
-  });
 
 it('returns to the last active retained tab when the active preview closes', async () => {
     const { manager } = await createManager(await conversationPlugin());
@@ -102,32 +59,6 @@ it("returns a new session's unsent text when another draft starts", async () => 
     expect(manager.getActiveTab()!.controllers.drafts.capture('main').content).toBe('conversation idea');
   });
 
-it('replaces a closed active preview with a draft instead of a narrow tab', async () => {
-      const { manager } = await createManager(await conversationPlugin(), {}, {}, { showsPreviews: () => true });
-      const narrow = await manager.createTab('conversation-1');
-      await manager.viewerSlot.enter();
-      await manager.viewerSlot.show('conversation-2');
-
-      await manager.closeTab(manager.getActiveTabId()!);
-
-      expect(manager.getTab(narrow!.id)).toBeNull();
-      expect(manager.getAllTabs()).toEqual([manager.getActiveTab()]);
-      expect(manager.getActiveTab()).toEqual(expect.objectContaining({ conversationId: null, lifecycleState: 'provisional' }));
-    });
-
-it('enters wide again after a release that overlapped the request', async () => {
-      const { manager } = await createManager(await conversationPlugin());
-      const narrow = await manager.createTab('conversation-1');
-      await manager.viewerSlot.enter();
-
-      await Promise.all([manager.viewerSlot.release(), manager.viewerSlot.enter()]);
-
-      expect(manager.getTab(narrow!.id)).toBeNull();
-      expect(manager.getActiveTab()).toEqual(expect.objectContaining({
-        conversationId: 'conversation-1', lifecycleState: 'provisional',
-      }));
-    });
-
 it("seeds a cold wide restore's new session from the saved blank tab selection", async () => {
       const { manager } = await createManager(await conversationPlugin(), {}, {}, { showsPreviews: () => true });
 
@@ -138,23 +69,6 @@ it("seeds a cold wide restore's new session from the saved blank tab selection",
 
       const preview = manager.getActiveTab()!;
       expect([preview.lifecycleState, preview.draftModel, preview.providerId]).toEqual(['provisional', 'codex:gpt-5', 'codex']);
-    });
-
-it('keeps unsent text with a draft session that creates its conversation while unloaded', async () => {
-      const { manager } = await createManager(await conversationPlugin());
-      const blank = await manager.createTab(null);
-      await manager.viewerSlot.enter();
-      const session = manager.getActiveTab()!.session.runtime;
-      manager.getActiveTab()!.controllers.drafts.restore('main', { content: 'follow-up' });
-      await manager.viewerSlot.show('conversation-1');
-
-      session.setConversationId('created');
-      manager.reconcileUnloadedSessions();
-      await manager.viewerSlot.release();
-      await manager.switchToTab(blank!.id);
-
-      expect(manager.getActiveTab()!.session.runtime).toBe(session);
-      expect(shownDraft(manager)).toBe('follow-up');
     });
 
 it('returns to the same new session when New follows browsing another session', async () => {
@@ -219,20 +133,7 @@ it('starts a fresh new session when the remembered one created its conversation 
       expect(manager.getActiveTab()!.conversationId).toBeNull();
     });
 
-it("returns a blank tab's text after wide browsed another session", async () => {
-      const { manager } = await createManager(await conversationPlugin());
-      const blank = await manager.createTab(null);
-      blank!.controllers.drafts.restore('main', { content: 'new idea' });
-
-      await manager.viewerSlot.enter();
-      await manager.viewerSlot.show('conversation-1');
-      await manager.viewerSlot.release();
-      await manager.switchToTab(blank!.id);
-
-      expect(shownDraft(manager)).toBe('new idea');
-    });
-
-it('restores a narrow workspace in wide without assembling its tabs', async () => {
+it('restores only the selected conversation from a legacy workspace with multiple tabs', async () => {
       const { manager } = await createManager(await conversationPlugin(), {}, {}, { showsPreviews: () => true });
 
       await manager.restoreState({
@@ -245,9 +146,7 @@ it('restores a narrow workspace in wide without assembling its tabs', async () =
       expect(preview).toEqual(expect.objectContaining({ conversationId: 'conversation-2', lifecycleState: 'provisional' }));
       expect(manager.getPersistedState()).toEqual({
         openTabs: [
-          { tabId: 'one', conversationId: 'conversation-1' },
-          { tabId: 'two', conversationId: 'conversation-2' },
-          { tabId: preview.id, conversationId: 'conversation-2', preview: true },
+          { tabId: 'two', conversationId: 'conversation-2', preview: true },
         ],
         activeTabId: preview.id,
       });
@@ -375,20 +274,6 @@ it('lets an immediate retained-tab selection supersede an in-flight preview', as
   expect(manager.getActiveTab()).toBe(retained);
 });
 
-it('drains and invalidates preview navigation before provisional cleanup', async () => {
-  const { manager, plugin } = await createManager();
-  await manager.viewerSlot.show('conversation-1');
-  const hydration = holdHistory(plugin, 'conversation-2');
-  const previewSelection = manager.viewerSlot.show('conversation-2');
-  await hydration.started;
-  const cleanup = manager.viewerSlot.release();
-  const late = manager.viewerSlot.show('conversation-3');
-  hydration.release();
-  await Promise.all([previewSelection, late, cleanup]);
-  expect(manager.getAllTabs().every(tab => tab.lifecycleState !== 'provisional')).toBe(true);
-  expect(hydration.read.mock.calls.map(([id]) => id)).toEqual(['conversation-2']);
-});
-
 it('prevents queued preview navigation from creating tabs after destroy', async () => {
   const { manager, plugin, root } = await createManager();
   await manager.viewerSlot.show('conversation-1');
@@ -447,20 +332,6 @@ it('seeds the draft its request created even when another tab becomes active bef
   expect(draft.conversationId).toBeNull();
 });
 
-it('leaves a usable presentation when narrowing supersedes an unloading wide entry', async () => {
-  const { manager } = await createManager();
-  const narrow = (await manager.createTab('conversation-1'))!;
-  const unloading = deferred<void>();
-  const remove = narrow.dom.contentEl.remove.bind(narrow.dom.contentEl);
-  vi.spyOn(narrow.dom.contentEl, 'remove').mockImplementationOnce(() => { unloading.resolve(); remove(); });
-  const entering = manager.viewerSlot.enter();
-  await unloading.promise;
-  const releasing = manager.viewerSlot.release();
-  await Promise.all([entering, releasing]);
-  expect(manager.getActiveTab()).toMatchObject({ id: narrow.id, conversationId: 'conversation-1', lifecycleState: 'open' });
-  expect(manager.getActiveTab()?.dom.contentEl.isConnected).toBe(true);
-});
-
 it('closes a draft whose Linked content disappears while it is created', async () => {
   const { files, plugin } = await linkedContentPlugin(['Projects/Plan.md']);
   const { manager, root } = await createManager(plugin);
@@ -509,7 +380,6 @@ it('clears the source tab in place for /new in the compact layout', async () => 
       expect(source.conversationId).toBe('conversation-1');
     });
 
-
 async function makeBusy(tab: AssembledTabRuntime, kind: 'turn' | 'background' | 'interaction'): Promise<() => Promise<void>> {
   if (kind === 'turn') {
     const release = deferred<void>();
@@ -546,21 +416,6 @@ it.each(['turn', 'background', 'interaction'] as const)('rebinds a preview holdi
     expect(preview.dom.contentEl.isConnected).toBe(false);
     expect(manager.getAllTabs()).toEqual([expect.objectContaining({ id: preview.id, conversationId: 'conversation-2', lifecycleState: 'provisional' })]);
     expect(manager.getActiveTabId()).toBe(preview.id);
-    expect(preview.session.runtime.isDisposed).toBe(false);
-  } finally { await release(); }
-});
-
-it.each(['turn', 'background', 'interaction'] as const)('detaches a preview holding %s when leaving wide', async kind => {
-  const { manager } = await createManager();
-  const retained = (await manager.createTab('conversation-1'))!;
-  await manager.viewerSlot.show('conversation-2');
-  const preview = manager.getActiveTab()!;
-  const release = await makeBusy(preview, kind);
-  try {
-    await manager.viewerSlot.show('conversation-1');
-    await manager.viewerSlot.release();
-    expect(manager.getAllTabs()).toEqual([retained]);
-    expect(preview.dom.contentEl.isConnected).toBe(false);
     expect(preview.session.runtime.isDisposed).toBe(false);
   } finally { await release(); }
 });

@@ -1,4 +1,4 @@
-import '@/providers';
+import '@test/helpers/registeredCodex';
 
 // @vitest-environment jsdom
 import { createFixture, deferred, waitForCall } from '@test/helpers/ChatInputHarness';

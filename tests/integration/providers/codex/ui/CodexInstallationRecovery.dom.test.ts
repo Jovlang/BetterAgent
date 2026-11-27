@@ -5,14 +5,13 @@
 import { axe } from '@test/helpers/accessibility';
 import { controlChangeSettled } from '@test/helpers/ObsidianHost';
 import { createCodexWorkspaceHarness } from '@test/helpers/providers/codex/CodexWorkspaceHarness';
+import { registerCodexForTests } from '@test/helpers/registerCodexForTests';
 import { fireEvent, waitFor, within } from '@testing-library/dom';
 
 import { getInstallationKey } from '@/core/device/InstallationKey';
-import { registerProviderModules } from '@/core/providers/registerProviderModules';
-import { codexProviderRegistration } from '@/providers/codex/registration';
 import { getCodexProviderSettings } from '@/providers/codex/settings';
 
-registerProviderModules([codexProviderRegistration]);
+registerCodexForTests();
 
 const originalPlatform = Object.getOwnPropertyDescriptor(process, 'platform')!;
 const fixtures: Awaited<ReturnType<typeof createCodexWorkspaceHarness>>[] = [];

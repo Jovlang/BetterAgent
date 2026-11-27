@@ -1,4 +1,4 @@
-import '@/providers';
+import '@test/helpers/registeredCodex';
 
 import { deferred } from '@test/helpers/ChatInputHarness';
 import { approvalDecisionOptions } from '@test/helpers/features/chat/approvalDecisionOptions';

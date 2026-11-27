@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import '@/providers';
+import '@test/helpers/registeredCodex';
 
 import { createChatFeatureHost } from '@test/helpers/features/chat/ChatFeatureHostFixture';
 import { testDate } from '@test/helpers/testClock';

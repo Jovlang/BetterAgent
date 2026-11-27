@@ -3,7 +3,7 @@ const mockedTools = vi.mocked(await import('@/features/chat/rendering/tools/Tool
 const mockedEdits = vi.mocked(await import('@/features/chat/rendering/tools/WriteEditRenderer'));
 const mockedThinking = vi.mocked(await import('@/features/chat/rendering/ThinkingBlockRenderer'));
 const mockedSubagents = vi.mocked(await import('@/features/chat/rendering/subagents/SubagentRenderer'));
-import '@/providers';
+import '@test/helpers/registeredCodex';
 
 import { TEST_CODEX_MODEL } from '@test/helpers/codexModels';
 import { createChatFeatureHost } from '@test/helpers/features/chat/ChatFeatureHostFixture';

@@ -7,7 +7,7 @@ import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
 import type { ProviderId } from '@/core/providers/types';
 import { VIEW_TYPE_CLAUDIAN } from '@/core/types';
 import type { ChatFeatureHost } from '@/features/chat/ChatFeatureHost';
-import { SessionManagerSurface, setControlAvailability } from '@/features/chat/session-manager/SessionManagerSurface';
+import { SessionManagerSurface } from '@/features/chat/session-manager/SessionManagerSurface';
 import { SessionNavigation } from '@/features/chat/session-manager/SessionNavigation';
 import { bindMenuToggle, showMenuAt } from '@/features/chat/session-manager/SessionSurfaceShared';
 import { getSessionProviderId } from '@/features/chat/sessions/sessionProvider';
@@ -19,7 +19,7 @@ import {
   sendTabInputMessageFromExplicitEnterShortcut,
 } from '@/features/chat/tabs/TabInputEvents';
 import { TabManager } from '@/features/chat/tabs/TabManager';
-import type { AssembledTabRuntime, TabLayoutPolicy } from '@/features/chat/tabs/types';
+import type { TabLayoutPolicy } from '@/features/chat/tabs/types';
 import { ChatPresentationPlacement } from '@/features/chat/view/ChatPresentationPlacement';
 import { DualPaneLayout, type DualPaneLayoutElements } from '@/features/chat/view/DualPaneLayout';
 import { t } from '@/i18n/i18n';
@@ -38,10 +38,10 @@ export class ClaudianView extends ItemView {
   // Tab management
   private tabManager: TabManager | null = null;
   private tabContentEl: HTMLElement | null = null;
-  private newTabButtonEl: HTMLElement | null = null;
   private viewContainerEl: HTMLElement | null = null;
   private readonly mentionDataProvider: VaultMentionDataProvider;
   private releaseMentionCacheEvents: (() => void) | null = null;
+  private closing: Promise<void> | null = null;
 
 
   // Debouncing for tab bar updates
@@ -54,7 +54,6 @@ export class ClaudianView extends ItemView {
   constructor(
     leaf: WorkspaceLeaf,
     plugin: ChatFeatureHost,
-    private readonly options?: { singleViewer?: boolean },
   ) {
     super(leaf);
     this.plugin = plugin;
@@ -83,33 +82,20 @@ export class ClaudianView extends ItemView {
         contentExists: contentPath => this.sessionNavigation.contentExists(contentPath),
       },
       getActiveTab: () => this.getActiveTab(),
-      isSidebarVisible: () => this.layout.isWide && (!options?.singleViewer || this.layout.historyVisible),
-      flatHistory: options?.singleViewer,
+      isSidebarVisible: () => this.layout.historyVisible,
+      flatHistory: true,
       canCreateTab: () => this.tabManager?.canCreateTab() ?? null,
       requestNew: () => this.requestDualNew(),
       notifyOtherViews: () => this.notifyOtherViews(),
     });
     this.layout = new DualPaneLayout({
-      getSettings: () => this.plugin.settings,
-      onWideChanged: () => {
-        this.presentation.updateChip();
-        this.refreshNavigationControls();
-      },
-      onEnterWide: () => {
-        this.sessions.enterWide();
-        // Restore enters wide itself; afterwards entering wide unloads the narrow tabs.
-        if (!this.tabWorkspace.isReady) return;
-        void this.tabManager?.viewerSlot.enter()
-          .catch(() => new Notice(t('chat.tabNavigation.showWideFailed')));
-      },
       renderSidebar: () => this.sessions.renderSidebar(),
       focusHistorySearch: () => this.sessions.focusSearch(),
-      onHideSidebar: () => this.sessions.leaveWide(),
-      releaseViewerSlot: () => this.tabManager?.viewerSlot.release(),
-    }, options);
+      onHideSidebar: () => this.sessions.hideHistory(),
+    });
     this.presentation = new ChatPresentationPlacement({
       getActiveTab: () => this.getActiveTab(),
-      isWide: () => this.layout.isWide,
+      isWide: () => true,
       getTabCount: () => this.tabManager?.getTabCount() ?? null,
     });
 
@@ -213,6 +199,11 @@ export class ClaudianView extends ItemView {
   private async onOpenImpl() {
     const opening = this.tabWorkspace.beginOpen();
     const lifecycleRevision = opening.revision;
+    if (this.closing) {
+      // The snapshot is ready before teardown releases the old session attachment.
+      await this.closing.catch(() => undefined);
+      if (!this.tabWorkspace.isCurrent(lifecycleRevision)) return;
+    }
 
     // Guard: Hover Editor and similar plugins may call onOpen before DOM is ready.
     // containerEl must exist before we can access contentEl or create elements.
@@ -239,7 +230,6 @@ export class ClaudianView extends ItemView {
     if (!this.tabContentEl) return;
     // Measure before restoration so restored tabs and the nav row see the final layout.
     this.layout.initialize(layoutElements);
-    if (!this.options?.singleViewer) this.attachNavRowContentToInputFooter(this.buildNavRowContent());
 
     const tabStatePersistence = await this.tabWorkspace.preparePersistence(opening);
     if (!tabStatePersistence) return;
@@ -258,7 +248,6 @@ export class ClaudianView extends ItemView {
       this,
       {
         onTabCreated: () => {
-          this.refreshNavigationControls();
           refreshActiveTabPresentationIfInitialized();
           persist();
         },
@@ -270,7 +259,6 @@ export class ClaudianView extends ItemView {
         },
         onTabSwitched: refreshActiveTabPresentationIfInitialized,
         onTabClosed: () => {
-          this.refreshNavigationControls();
           if (isTabWorkspaceInitialized()) {
             this.notifyConversationNavigationChanged();
             this.presentation.update();
@@ -333,13 +321,16 @@ export class ClaudianView extends ItemView {
     await this.tabWorkspace.completeOpen(opening);
   }
 
-  async onClose() {
+  onClose(): Promise<void> {
+    return this.closing ??= this.closeView().finally(() => { this.closing = null; });
+  }
+
+  private async closeView(): Promise<void> {
     const lifecycleRevision = this.tabWorkspace.beginClose();
     const tabManager = this.tabManager;
     const scope = this.scope;
     const tabStatePersistence = this.tabWorkspace.currentPersistence;
     tabManager?.beginShutdown();
-    // Supersedes any pending compact transition before shutdown awaits.
     this.layout.dispose();
     this.sessions.dispose();
     this.releaseMentionCacheEvents?.();
@@ -374,24 +365,15 @@ export class ClaudianView extends ItemView {
   // ============================================
 
   private buildViewLayout(containerEl: HTMLElement): DualPaneLayoutElements {
-    const singleViewer = this.options?.singleViewer === true;
-    containerEl.toggleClass('claudian-chat-body', singleViewer);
+    containerEl.addClass('claudian-chat-body');
     const chatPanelEl = containerEl.createDiv({ cls: 'claudian-chat-panel' });
     this.tabContentEl = chatPanelEl.createDiv({ cls: 'claudian-tab-content-container' });
-    const controls = singleViewer ? this.buildComposerActions() : undefined;
-    this.presentation.mount(chatPanelEl, controls?.actions);
+    const controls = this.buildComposerActions();
+    this.presentation.mount(chatPanelEl, controls.actions);
 
-    const resizerEl = singleViewer ? undefined : containerEl.createDiv({ cls: 'claudian-session-resizer' });
     const sidebarEl = containerEl.createDiv({ cls: 'claudian-session-sidebar' });
-    this.sessions.mountSidebar(sidebarEl, controls?.backEl);
-    const history = controls
-      ? {
-          chatPanelEl,
-          toggleEl: controls.toggleEl,
-          backEl: controls.backEl,
-        }
-      : undefined;
-    return { containerEl, resizerEl, sidebarEl, history };
+    this.sessions.mountSidebar(sidebarEl, controls.backEl);
+    return { containerEl, sidebarEl, history: { chatPanelEl, toggleEl: controls.toggleEl, backEl: controls.backEl } };
   }
 
   private buildComposerActions(): {
@@ -430,120 +412,29 @@ export class ClaudianView extends ItemView {
     return { actions, backEl, toggleEl };
   }
 
-  /**
-   * Builds the active tab nav row content.
-   * The wrapper is moved to the active tab's nav row on tab switches.
-   */
-  private buildNavRowContent(): HTMLElement {
-    const wrapper = this.containerEl.createDiv({ cls: 'claudian-input-nav-content' });
-
-    const navActionsEl = wrapper.createDiv({ cls: 'claudian-input-nav-actions' });
-
-    this.newTabButtonEl = navActionsEl.createEl('button', {
-      cls: 'claudian-input-nav-btn claudian-new-tab-btn',
-      attr: { type: 'button' },
-    });
-    setIcon(this.newTabButtonEl, 'square-plus');
-    this.newTabButtonEl.setAttribute('aria-label', t('chat.tabNavigation.newTab'));
-    this.newTabButtonEl.addEventListener('click', () => this.requestNewTab());
-
-    const newBtn = navActionsEl.createEl('button', {
-      cls: 'claudian-input-nav-btn claudian-new-conversation-btn',
-      attr: { type: 'button' },
-    });
-    setIcon(newBtn, 'square-pen');
-    newBtn.setAttribute('aria-label', t('chat.tabNavigation.newConversation'));
-    newBtn.addEventListener('click', () => this.requestNewConversation());
-
-    this.sessions.mountHistoryControl(navActionsEl);
-
-    return wrapper;
-  }
-
-  private attachNavRowContentToInputFooter(navRowContent: HTMLElement): void {
-    this.presentation.attachNavRow(navRowContent);
-  }
-
-  private requestNewTab(): void {
-    void this.createNewTab().catch(() => new Notice(t('chat.tabNavigation.createTabFailed')));
-  }
-
-  private requestNewConversation(): void {
-    void (async () => {
-      await this.tabManager?.createNewConversation();
-      this.sessions.invalidate();
-    })().catch(() => new Notice(t('chat.tabNavigation.createConversationFailed')));
-  }
-
   private requestDualNew(): void {
     void this.startNewConversation()
       .catch(() => new Notice(t('chat.tabNavigation.startConversationFailed')));
   }
 
-  /** Wide: tab commands open sessions and start drafts in the viewer slot; compact: in the tab. */
+  /** Navigation always uses the one conversation viewer, independent of pane width. */
   private createLayoutPolicy(getTabManager: () => TabManager): TabLayoutPolicy {
     return {
-      forkTarget: () => (this.layout.isWide ? 'viewer' : 'ask'),
+      forkTarget: () => 'viewer',
       openPicked: async (conversationId, sourceTab) => {
-        if (!this.layout.isWide) return false;
         await getTabManager().viewerSlot.show(conversationId, { sourceTab });
         return true;
       },
       startNew: async (sourceTab, seed) => {
-        if (!this.layout.isWide) return false;
         await getTabManager().viewerSlot.startDraft({ sourceTab, ...seed });
         return true;
       },
-      showsPreviews: () => this.layout.isWide,
+      showsPreviews: () => true,
     };
   }
 
   async startNewConversation(): Promise<void> {
-    if (this.layout.isWide) {
-      await this.tabManager?.viewerSlot.startDraft();
-      return;
-    }
-    await this.createNewTab();
-  }
-
-  getCompactTabManager(): TabManager | null {
-    return this.layout.isWide ? null : this.tabManager;
-  }
-
-  refreshDualPaneLayout(): void {
-    if (!this.viewContainerEl) return;
-    this.presentation.updateChip();
-    this.layout.refresh();
-  }
-
-  /** Refreshes tab controls after settings that affect tab availability change. */
-  refreshTabControls(): void {
-    this.refreshNavigationControls();
-  }
-
-  // ============================================
-  // Tab Management
-  // ============================================
-
-  async createNewTab(): Promise<AssembledTabRuntime | null> {
-    const tab = await this.tabManager?.createTab(null);
-    if (!tab) return null;
-    this.refreshNavigationControls();
-    tab.composer.focus();
-    return tab;
-  }
-
-  private refreshNavigationControls(): void {
-
-    this.presentation.updateChip();
-    this.updateNewTabButtonVisibility();
-  }
-
-  private updateNewTabButtonVisibility(): void {
-    if (!this.tabManager) return;
-
-    setControlAvailability(this.newTabButtonEl, this.tabManager.canCreateTab());
-    this.sessions.refreshNewAvailability();
+    await this.tabManager?.viewerSlot.startDraft();
   }
 
   /** Sets `data-provider` on the root container so CSS brand color follows the active provider. */
@@ -579,7 +470,7 @@ export class ClaudianView extends ItemView {
     const activeDocument = this.containerEl.ownerDocument;
     const viewWindow = activeDocument.defaultView;
 
-    if (this.options?.singleViewer && viewWindow) {
+    if (viewWindow) {
       const handleMouseBack = (event: PointerEvent): void => {
         const container = this.viewContainerEl;
         if (event.button !== MOUSE_BACK_BUTTON || !container || !event.composedPath().includes(container)) return;
@@ -594,11 +485,6 @@ export class ClaudianView extends ItemView {
       this.registerDomEvent(viewWindow, 'pointerdown', handleMouseBack, true);
       this.registerDomEvent(viewWindow, 'pointerup', handleMouseBack, true);
     }
-
-    // Document-level click to close dropdowns
-    this.registerDomEvent(activeDocument, 'click', (event) => {
-      this.sessions.dismissDropdownFor(event);
-    });
 
     // View scopes are the Obsidian-owned boundary for main-area tab hotkeys.
     // Returning false consumes Escape before Obsidian uses it for pane navigation.
@@ -675,7 +561,6 @@ export class ClaudianView extends ItemView {
 
   notifyConversationListChanged(): void {
     // A held draft session may have created its conversation while its blank tab was unloaded.
-    this.tabManager?.reconcileUnloadedSessions();
     this.sessions.invalidate();
     // Unloaded tabs read their running and attention state from session status changes.
   }

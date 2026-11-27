@@ -8,7 +8,6 @@ import suites from './testSuites.cjs';
 const docsTest = 'tests/unit/docs/Documentation.test.ts';
 export const wslTests = [
   'tests/integration/core/process/execution-target/WSLExecution.windows.test.ts',
-  'tests/integration/core/process/execution-target/WSLSessionToolRelay.windows.test.ts',
   'tests/integration/providers/codex/runtime/CodexWSL.windows.test.ts',
 ];
 const fullSelection = {
@@ -34,7 +33,7 @@ const architectureTest = 'scripts/check-architecture-boundaries.test.mjs';
 // and anything that chooses or reads the installation method. Other source is platform-neutral for WSL.
 const wslSourceReference = /core\/process\/execution-target|core\/providers\/settings\/InstallationSettings|ExecutionTarget|['"]wsl['"]|WSL|wslDistro|installationMethod|[Rr]elay/;
 const isWSLSource = file => {
-  if (/^src\/core\/(?:process|session-tools)\//.test(file) || /wsl|path/i.test(path.posix.basename(file))) return true;
+  if (/^src\/core\/process\//.test(file) || /wsl|path/i.test(path.posix.basename(file))) return true;
   try {
     return wslSourceReference.test(readFileSync(file, 'utf8'));
   } catch {

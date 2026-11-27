@@ -19,8 +19,6 @@ import {
   CHAT_VIEW_PLACEMENTS,
   type ChatViewPlacement,
   type ClaudianSettings,
-  DUAL_PANE_SIDES,
-  type DualPaneSide,
   type EnvironmentScope,
   type EnvSnippet,
   type ProviderConfigMap,
@@ -42,6 +40,8 @@ const RETIRED_SHARED_SETTING_FIELDS = [
   'showTabTitlesByDefault',
   'pinnedLinkedNotePaths',
   'enableFilePane',
+  'enableDualPane',
+  'dualPaneSide',
   'persistentExternalContextPaths',
   'hiddenProviderCommands',
   'maxWarmAgentProcesses',
@@ -71,19 +71,6 @@ function stripRetiredSharedFields(settings: Record<string, unknown>): Record<str
 function isChatViewPlacement(value: unknown): value is ChatViewPlacement {
   return typeof value === 'string'
     && (CHAT_VIEW_PLACEMENTS as readonly string[]).includes(value);
-}
-
-function normalizeEnableDualPane(value: unknown): boolean {
-  return typeof value === 'boolean'
-    ? value
-    : DEFAULT_CLAUDIAN_SETTINGS.enableDualPane;
-}
-
-function normalizeDualPaneSide(value: unknown): DualPaneSide {
-  return typeof value === 'string'
-    && (DUAL_PANE_SIDES as readonly string[]).includes(value)
-    ? value as DualPaneSide
-    : DEFAULT_CLAUDIAN_SETTINGS.dualPaneSide;
 }
 
 function normalizeRestoreTabsOnStartup(value: unknown): boolean {
@@ -117,18 +104,10 @@ function normalizePinnedLinkedContentPaths(value: unknown): string[] {
 
 function shouldPersistChatViewNormalization(
   stored: Record<string, unknown>,
-  enableDualPane: boolean,
-  dualPaneSide: DualPaneSide,
   restoreTabsOnStartup: boolean,
 ): boolean {
   return 'enableFilePane' in stored ||
-    'enableZenMode' in stored || 'zenModePosition' in stored || 'showTabTitlesByDefault' in stored || (
-    'enableDualPane' in stored
-    && stored.enableDualPane !== enableDualPane
-  ) || (
-    'dualPaneSide' in stored
-    && stored.dualPaneSide !== dualPaneSide
-  ) || (
+    'enableZenMode' in stored || 'zenModePosition' in stored || 'showTabTitlesByDefault' in stored || 'enableDualPane' in stored || 'dualPaneSide' in stored || (
     'restoreTabsOnStartup' in stored
     && stored.restoreTabsOnStartup !== restoreTabsOnStartup
   );
@@ -403,8 +382,6 @@ export class ClaudianSettingsStorage {
     const chatViewPlacement = isChatViewPlacement(stored.chatViewPlacement)
       ? stored.chatViewPlacement
       : DEFAULT_CLAUDIAN_SETTINGS.chatViewPlacement;
-    const enableDualPane = normalizeEnableDualPane(stored.enableDualPane);
-    const dualPaneSide = normalizeDualPaneSide(stored.dualPaneSide);
     const skillsSynced = stored.skillsSynced === true;
     const restoreTabsOnStartup = normalizeRestoreTabsOnStartup(
       stored.restoreTabsOnStartup,
@@ -437,8 +414,6 @@ export class ClaudianSettingsStorage {
       hiddenCommands,
       providerConfigs: normalizedProviderSettings.providerConfigs,
       chatViewPlacement,
-      enableDualPane,
-      dualPaneSide,
       restoreTabsOnStartup,
       skillsSynced,
       sessionManagerOrganization,
@@ -472,8 +447,6 @@ export class ClaudianSettingsStorage {
       || ('chatViewPlacement' in stored && stored.chatViewPlacement !== chatViewPlacement)
       || shouldPersistChatViewNormalization(
         stored,
-        enableDualPane,
-        dualPaneSide,
         restoreTabsOnStartup,
       )
 

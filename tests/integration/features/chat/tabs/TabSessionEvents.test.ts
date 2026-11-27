@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import '@/providers';
+import '@test/helpers/registeredCodex';
 
 import { createTabSession } from '@test/helpers/ConversationPorts';
 import { createChatFeatureHost } from '@test/helpers/features/chat/ChatFeatureHostFixture';

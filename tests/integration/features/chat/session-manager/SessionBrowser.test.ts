@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import '@/providers';
+import '@test/helpers/registeredCodex';
 
 import { codexCatalogFixture } from '@test/helpers/codexModels';
 import { createSessionBrowserHost } from '@test/helpers/features/chat/SessionBrowserTestHarness';

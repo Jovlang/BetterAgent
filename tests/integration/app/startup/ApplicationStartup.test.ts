@@ -15,7 +15,7 @@ import { getCodexProviderSettings } from '@/providers/codex/settings';
 // Provider history readers touch the filesystem through Node's fs.
 vi.mock('fs');
 
-import '@/providers';
+import '@test/helpers/registeredCodex';
 
 
 describe('startApplication', () => {

@@ -74,13 +74,12 @@ export async function createManager(
   const root = document.body.createDiv();
   const view: ChatViewHost = Object.assign(new Component(), {
     leaf: Object.assign(new WorkspaceLeaf(), plugin.app.workspace.getLeaf()),
-    getTabManager: () => manager, getCompactTabManager: () => manager,
+    getTabManager: () => manager,
     getActiveTab: () => manager.getActiveTab(),
     startNewConversation: async () => { await manager.createTab(); },
     focusActiveInput: () => manager.getActiveTab()?.composer.focus(),
     isTabBarVisible: () => manager.getTabCount() > 1, renameActiveTab: () => false,
     notifyConversationListChanged: () => undefined, refreshModelSelector: () => undefined,
-    refreshTabControls: () => undefined, refreshDualPaneLayout: () => undefined,
     updateHiddenCommands: () => undefined,
     invalidateProviderCommandCaches: () => undefined, invalidateProviderResources: () => undefined,
   }, viewOverrides);

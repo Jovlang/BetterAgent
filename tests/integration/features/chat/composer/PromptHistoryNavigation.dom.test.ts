@@ -1,6 +1,6 @@
 // @test-ci {"inputs":["src/style/base/visibility.css"]}
 /** @vitest-environment jsdom */
-import '@/providers';
+import '@test/helpers/registeredCodex';
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';

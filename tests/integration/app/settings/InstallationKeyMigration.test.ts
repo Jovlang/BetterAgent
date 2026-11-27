@@ -20,7 +20,7 @@ afterEach(async () => {
 });
 
 async function migrationFixture() {
-  await import('@/providers');
+  await import('@test/helpers/registeredCodex');
   const identity = await import('@/core/device/InstallationKey');
   const { ClaudianSettingsStorage } = await import('@/app/settings/ClaudianSettingsStorage');
   const { DEFAULT_CLAUDIAN_SETTINGS } = await import('@test/helpers/defaultSettings');

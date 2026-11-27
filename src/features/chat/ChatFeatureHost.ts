@@ -29,8 +29,6 @@ export interface ChatModelSelectionPort {
 export interface ChatViewRefreshHost {
   notifyConversationListChanged(): void;
   refreshModelSelector(providerId?: ProviderId): void;
-  refreshTabControls(): void;
-  refreshDualPaneLayout(): void;
   updateHiddenCommands(): void;
   invalidateProviderCommandCaches(providerIds?: ProviderId[]): void;
   invalidateProviderResources(providerIds: ProviderId[], generation: number): void;
@@ -59,9 +57,6 @@ export interface ChatTabManagerHost {
 export interface ChatViewHost extends ChatViewRefreshHost, TabManagerViewHost {
   getActiveTab(): ChatTab | null;
   getTabManager(): ChatTabManagerHost | null;
-  /** The tabs that replace and close commands target; null while the wide layout owns navigation. */
-  getCompactTabManager(): ChatTabManagerHost | null;
-  /** Starts a new conversation the active layout's way: a slot draft when wide, else a new tab. */
   startNewConversation(): Promise<void>;
   focusActiveInput(): void;
 }

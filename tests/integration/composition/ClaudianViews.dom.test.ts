@@ -3,13 +3,12 @@ import {
   createChatWorkspaceFixture,
   installChatWorkspaceHooks,
 } from '@test/helpers/features/chat/ChatWorkspaceFixture';
+import { registerCodexForTests } from '@test/helpers/registerCodexForTests';
 import { testDate } from '@test/helpers/testClock';
 import { within } from '@testing-library/dom';
 
-import { registerProviderModules } from '@/core/providers/registerProviderModules';
-import { codexProviderRegistration } from '@/providers/codex/registration';
 
-registerProviderModules([codexProviderRegistration]);
+registerCodexForTests();
 installChatWorkspaceHooks();
 
 describe('toggle chat view hotkey', () => {

@@ -1,5 +1,6 @@
 import { TEST_CODEX_CATALOG, TEST_CODEX_MODEL } from '@test/helpers/codexModels';
 import { createProviderHostFixture } from '@test/helpers/providerRuntimeHost';
+import { registerCodexForTests } from '@test/helpers/registerCodexForTests';
 import { testDate } from '@test/helpers/testClock';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -12,13 +13,11 @@ import type { ProviderSessionEvent } from '@/core/execution';
 import { SessionSnapshotState } from '@/core/execution/SessionSnapshotState';
 import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
 import { ProviderSettingsCoordinator } from '@/core/providers/ProviderSettingsCoordinator';
-import { registerProviderModules } from '@/core/providers/registerProviderModules';
 import type { Conversation } from '@/core/types';
 import { ExecutionSessionSupervisor } from '@/features/chat/execution/ExecutionSessionSupervisor';
 import { createCodexWorkspaceServices } from '@/providers/codex/app/CodexWorkspaceServices';
-import { codexProviderRegistration } from '@/providers/codex/registration';
 
-registerProviderModules([codexProviderRegistration]);
+registerCodexForTests();
 
 let codexHome: string;
 

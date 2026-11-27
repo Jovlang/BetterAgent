@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import '@/providers';
+import '@test/helpers/registeredCodex';
 
 import { createHarness as createExecutionHarness, FakeBranchSession } from '@test/helpers/ChatExecutionHarness';
 import { deferred } from '@test/helpers/ChatInputHarness';

@@ -1,4 +1,4 @@
-import '@/providers';
+import '@test/helpers/registeredCodex';
 
 // @vitest-environment jsdom
 import { createFixture } from '@test/helpers/ChatInputHarness';

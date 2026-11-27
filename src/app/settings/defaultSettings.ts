@@ -55,8 +55,6 @@ export const DEFAULT_CLAUDIAN_SETTINGS: ClaudianSettings = {
   pluginRenderedFenceLanguages: [],
   expandFileEditsByDefault: false,
   chatViewPlacement: 'right-sidebar',
-  enableDualPane: true,
-  dualPaneSide: 'right',
   restoreTabsOnStartup: true,
   skillsSynced: false,
   sessionManagerOrganization: 'list',

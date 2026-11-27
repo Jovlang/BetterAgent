@@ -39,19 +39,22 @@ it('reuses an inactive conversation locally and closes another restored tab with
   expect(manager.getAllTabs()).toHaveLength(2);
 });
 
-it.each([false, true])('reuses a cold cross-view owner using its layout (wide: %s)', async wide => {
+it.each([false, true])('reuses a cross-view owner without creating a duplicate (single viewer: %s)', async singleViewer => {
   const plugin = await createPlugin();
-  const other = await createManager(plugin, {}, {}, { showsPreviews: () => wide });
-  await other.manager.restoreState({ openTabs: ['one', 'two'].map(id => ({ tabId: id, conversationId: id })), activeTabId: 'one' });
+  const other = await createManager(plugin, {}, {}, { showsPreviews: () => singleViewer });
+  await other.manager.restoreState({
+    openTabs: ['one', 'two'].map(id => ({ tabId: id, conversationId: id })),
+    activeTabId: singleViewer ? 'two' : 'one',
+  });
   const local = await createManager(plugin);
   vi.spyOn(plugin, 'findConversationAcrossViews').mockImplementation(id => id === 'two' ? { tabId: 'two', view: other.view } : null);
   await local.manager.createTab(null, 'local');
   await local.manager.openConversation('two');
   expect(local.manager.getTabCount()).toBe(1);
   expect(local.manager.getTab('local')?.conversationId).toBeNull();
-  expect(other.manager.getTab('two') === null).toBe(wide);
-  expect(other.manager.getActiveTab()).toMatchObject({ conversationId: 'two', lifecycleState: wide ? 'provisional' : 'open' });
-  expect(other.manager.getTabCount()).toBe(wide ? 3 : 2);
+  expect(other.manager.getActiveTab()).toBe(other.manager.getTab('two'));
+  expect(other.manager.getActiveTab()).toMatchObject({ conversationId: 'two', lifecycleState: singleViewer ? 'provisional' : 'open' });
+  expect(other.manager.getTabCount()).toBe(singleViewer ? 1 : 2);
 });
 
 it('keeps a queued open-conversation intent bound to its source runtime', async () => {

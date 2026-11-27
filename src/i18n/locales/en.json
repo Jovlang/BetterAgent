@@ -786,10 +786,6 @@
       "name": "Enable Chrome extension",
       "desc": "Allow Claude Code to interact with Chrome via the claude-in-chrome extension. Requires the extension to be installed. Requires session restart."
     },
-    "enableDualPane": {
-      "name": "Enable dual-pane mode",
-      "desc": "Automatically show the session manager beside the chat when the view is at least 600 px wide."
-    },
     "restoreTabsOnStartup": {
       "name": "Restore last conversation on startup",
       "desc": "Reopen the last active conversation when BetterAgent starts."
@@ -802,12 +798,6 @@
       "days7": "After 7 days",
       "days14": "After 14 days",
       "days30": "After 30 days"
-    },
-    "dualPaneSide": {
-      "name": "Dual-pane side",
-      "desc": "Choose which side of the chat the session manager appears on.",
-      "left": "Left",
-      "right": "Right"
     },
     "enableAutoScroll": {
       "name": "Auto-scroll during streaming",

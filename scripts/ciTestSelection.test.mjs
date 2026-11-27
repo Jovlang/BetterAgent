@@ -378,13 +378,11 @@ test('local selection includes committed, staged, unstaged and untracked edits w
 
 test('WSL suites run only for changes to WSL-related code or WSL test infrastructure', () => {
   const wsl = 'tests/integration/core/process/execution-target/WSLExecution.windows.test.ts';
-  const relay = 'tests/integration/core/process/execution-target/WSLSessionToolRelay.windows.test.ts';
   const codex = 'tests/integration/providers/codex/runtime/CodexWSL.windows.test.ts';
   // Source that launches, targets, maps paths or chooses the installation method for WSL keeps its declared suites.
   for (const [file, suite] of [
     ['src/core/process/execution-target/TargetLaunchSpec.ts', wsl],
     ['src/core/process/execution-target/types.ts', wsl],
-    ['src/core/session-tools/SessionToolEndpoint.ts', relay],
     ['src/core/providers/settings/InstallationSettings.ts', wsl],
     ['src/core/providers/cli/TargetCLIInstallationProbe.ts', wsl],
     ['src/shared/settings/ExecutionTargetSettings.ts', wsl],
@@ -396,7 +394,7 @@ test('WSL suites run only for changes to WSL-related code or WSL test infrastruc
     assert.ok(selection.wslSuites.includes(suite), `${file} must select ${suite}`);
   }
   assert.deepEqual(selectRelatedCiTests({ changes: [{ status: 'M', path: 'src/core/process/execution-target/WSLEnvironment.ts' }] }).wslSuites.includes(wsl), true);
-  // Relay launchers and path owners reach WSL suites through the real dependency graph without naming WSL.
+  // Launchers and path owners reach WSL suites through the real dependency graph without naming WSL.
   for (const [file, suite] of [
     ['src/core/storage/pathContainment.ts', null],
     ['src/utils/path.ts', null],
@@ -406,7 +404,7 @@ test('WSL suites run only for changes to WSL-related code or WSL test infrastruc
   }
   // WSL suites, helpers and fixtures change what the native job runs.
   for (const [file, suite] of [
-    [wsl, wsl], [relay, relay], [codex, codex],
+    [wsl, wsl], [codex, codex],
     ['tests/helpers/providers/codex/CodexWSLPeer.ts', codex],
   ]) assert.ok(select([file]).wslSuites.includes(suite), `${file} must select ${suite}`);
   // Platform-neutral source and test-only edits leave the native WSL job out, even when declarations select the suite on Linux.

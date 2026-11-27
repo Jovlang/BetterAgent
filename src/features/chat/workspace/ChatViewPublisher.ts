@@ -22,14 +22,12 @@ export class ChatViewPublisher {
     const publish = (refresh: () => void): void => {
       try { refresh(); } catch (error) { errors.push(error); }
     };
-    const layoutChanged = settings.enableDualPane !== previous.enableDualPane || settings.dualPaneSide !== previous.dualPaneSide;
     const commandsChanged = JSON.stringify(settings.hiddenCommands) !== JSON.stringify(previous.hiddenCommands);
     const sessionsChanged = settings.enableAutoTitleGeneration !== previous.enableAutoTitleGeneration
       || settings.sessionManagerOrganization !== previous.sessionManagerOrganization
       || settings.sessionManagerSort !== previous.sessionManagerSort;
-    if (layoutChanged || commandsChanged || sessionsChanged) {
+    if (commandsChanged || sessionsChanged) {
       for (const view of this.deps.views.getAllViews()) {
-        if (layoutChanged) publish(() => view.refreshDualPaneLayout());
         if (commandsChanged) publish(() => view.updateHiddenCommands());
         if (sessionsChanged) publish(() => view.notifyConversationListChanged());
       }

@@ -19,7 +19,6 @@ export interface ClaudianViewHarnessOptions {
   /** Installs a tab manager without running `onOpen`, for tests of a single view operation. */
   tabManager?: Partial<TabManager>;
   leaf?: unknown;
-  singleViewer?: boolean;
 }
 
 /**
@@ -40,7 +39,6 @@ export async function createClaudianView(options: ClaudianViewHarnessOptions = {
   const view = new ClaudianView(
     (options.leaf ?? {}) as never,
     plugin,
-    { singleViewer: options.singleViewer },
   );
   Object.assign(view, {
     app: Object.assign(plugin.app, { scope: new Scope() }, options.app),

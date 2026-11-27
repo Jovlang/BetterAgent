@@ -5,6 +5,7 @@ import * as fsPromises from 'node:fs/promises';
 import { TEST_CODEX_CATALOG, TEST_CODEX_MODEL } from '@test/helpers/codexModels';
 import { createProviderHostFixture } from '@test/helpers/providerRuntimeHost';
 import { CodexRuntimeHarness } from '@test/helpers/providers/codex/CodexRuntimeHarness';
+import { registerCodexForTests } from '@test/helpers/registerCodexForTests';
 import { testTime } from '@test/helpers/testClock';
 import { createWindowsHostFS } from '@test/helpers/WindowsHostFS';
 import { WSLProcessFixture } from '@test/helpers/WSLProcessFixture';
@@ -12,13 +13,11 @@ import spawn from 'cross-spawn';
 
 import { getInstallationKey } from '@/core/device/InstallationKey';
 import type { ProviderExecutionEvent } from '@/core/execution';
-import { registerProviderModules } from '@/core/providers/registerProviderModules';
 import { CodexExecutionBackend } from '@/providers/codex/execution/CodexExecutionBackend';
 import { CodexConversationHistoryService } from '@/providers/codex/history/CodexConversationHistoryService';
-import { codexProviderRegistration } from '@/providers/codex/registration';
 import { CodexAppServerRuntime } from '@/providers/codex/runtime/CodexAppServerRuntime';
 
-registerProviderModules([codexProviderRegistration]);
+registerCodexForTests();
 
 vi.mock('node:fs', async importOriginal => ({ ...await importOriginal<typeof fs>() }));
 vi.mock('node:fs/promises', async importOriginal => ({ ...await importOriginal<typeof fsPromises>() }));

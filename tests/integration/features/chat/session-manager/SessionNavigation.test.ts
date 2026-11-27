@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import '@/providers';
+import '@test/helpers/registeredCodex';
 
 import { createHarness as createExecutionHarness } from '@test/helpers/ChatExecutionHarness';
 import { holdResponse } from '@test/helpers/ConversationPorts';

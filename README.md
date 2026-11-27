@@ -1,14 +1,30 @@
 # BetterAgent
 
-BetterAgent is a fork of Claudian, focused on unrestricted file context and a cleaner user experience.
+BetterAgent brings Codex into Obsidian for chat, file context, and inline editing. Codex uses your vault as its working directory for reading, editing, and searching files and running commands.
 
-BetterAgent is maintained by Jovlang. The original [Claudian](https://github.com/YishenTu/claudian) plugin was created by Yishen Tu. BetterAgent disables spellcheck in the chat composer and lets new chats automatically link active non-Markdown files, such as PDFs and Canvas files. Existing tag exclusions still apply.
+BetterAgent is maintained by Jovlang and forked from [Claudian](https://github.com/YishenTu/claudian), created by Yishen Tu.
 
-Some screenshots still show the upstream Claudian interface.
+## Changes from upstream Claudian
 
-![Preview](assets/Preview.png)
+### Codex and file context
 
-An Obsidian plugin that brings Codex into your vault. Your vault becomes its working directory for reading, editing, and searching files and running commands.
+- **Codex is the only provider.** Its settings are shown directly, without an integration picker. The Claude Code, OpenCode, Pi, Grok, Antigravity, and DeepSeek integrations and the shared ACP layer were removed. Existing Codex conversations still appear in History; other providers’ conversation files and metadata are left in place but are not shown.
+- **Linked content is no longer Markdown-only.** New chats can automatically link the active PDF, Canvas, Base, or other vault file as well as notes. Tag exclusions still apply. Linking a file supplies its path as context; it doesn’t guarantee Codex can interpret the format.
+- **The composer has one Send/Stop button and spellcheck is off.** With an empty composer, an editor or browser selection can be sent as the prompt. When there’s a typed prompt, the selection is included as context instead. Escape can cancel a running turn without also closing History.
+
+### Chat and history
+
+- **One adaptive chat viewer replaces the tab row and floating Zen Mode.** The standard command to focus the chat composer remains. **New chat**, **History**, and **More** sit next to Linked content below the composer.
+- **History is searchable and adapts to pane width.** It opens beside the chat above 600 px and replaces it when opened in narrower panes. It supports sorting, conversation actions, and a switch between a flat list and grouping by linked content without clearing the current search. **Archive** is under **More**. The mouse Back button toggles History inside chat; returning to chat preserves the conversation, scroll position, and unsent draft.
+- **Projects and automatic project instructions and memory are gone.** Former project conversations supported by Codex appear in ordinary History. [Legacy project records and memory notes](docs/projects.md) are not moved or deleted.
+- **Cross-session messaging and the experimental plugin API are gone.** Agents can no longer discover, read, start, message, or control other conversations through plugin tools. The local messaging endpoint and public API were removed, and old session mentions are treated as plain text. Manual History, file and folder mentions, Inline Edit, and Side Chat are still available. See [cross-session messaging](docs/cross-session-messaging.md).
+
+### Plugin identity and maintenance
+
+- **Separate plugin ID and branding.** BetterAgent uses `betteragent` instead of `realclaudian`, with its own UI labels, agent prompts, and issue tracker. It still uses Claudian’s vault storage and chat view for compatibility; don’t enable both plugins in the same vault.
+- **A smaller codebase and release process.** Provider-specific dependencies, unused UI and locale strings, and obsolete tests were removed. Remaining tests and build checks focus on Codex, including permission-setting restoration and preservation of legacy session metadata. Inherited GitHub Actions workflows were removed; [releases are published manually from tags](CONTRIBUTING.md).
+
+See the [BetterAgent commit history](https://github.com/Jovlang/BetterAgent/commits/betteragent/) for the implementation details.
 
 ## Features & Usage
 
@@ -24,9 +40,7 @@ Open BetterAgent from the ribbon icon or command palette. Configure Codex under 
 
 **MCP Servers** — Connect external tools through the Codex CLI’s MCP configuration.
 
-**Conversation History** — Open **History** next to Linked content below the composer to search for a conversation. History opens automatically beside the chat when the pane is wider than 600 px. In narrow panes it replaces the chat when opened manually; **Back** returns to the same conversation and draft. Find **Archive** under **More** in the same row.
-
-**Migrating from older versions** — The floating Zen panel, chat tab row, project management, and agent-facing session tools are no longer available. Existing Codex conversations remain in History, and BetterAgent does not move or delete [old project files and memory notes](docs/projects.md).
+**Conversation History** — Click **History** below the composer or press the mouse Back button inside chat. Use **More → Archive** to find archived conversations.
 
 **Collaboration** — Collab is now a standalone plugin. See [Claudian Collab](https://github.com/YishenTu/claudian-collab).
 

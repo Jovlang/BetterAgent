@@ -370,16 +370,6 @@ export class ClaudianView extends ItemView {
     this.tabContentEl = chatPanelEl.createDiv({ cls: 'claudian-tab-content-container' });
     const controls = this.buildComposerActions();
     this.presentation.mount(chatPanelEl, controls.actions);
-    // Capture here so the composer's editor keymap cannot claim Ctrl+N first.
-    chatPanelEl.addEventListener('keydown', event => {
-      if (event.defaultPrevented || event.isComposing || event.key.toLowerCase() !== 'n'
-        || !event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) return;
-      const composer = this.tabManager?.getActiveTab()?.dom.inputComposerEl;
-      if (!composer?.contains(event.target as Node)) return;
-      event.preventDefault();
-      event.stopPropagation();
-      if (!event.repeat) this.requestNewConversation();
-    }, true);
 
     const sidebarEl = containerEl.createDiv({ cls: 'claudian-session-sidebar' });
     this.sessions.mountSidebar(sidebarEl, controls.backEl);
@@ -516,6 +506,16 @@ export class ClaudianView extends ItemView {
       if (sendTabInputMessageFromExplicitEnterShortcut(activeTab, e, { requireInputFocus: true })) {
         return false;
       }
+    });
+    // Obsidian dispatches this scope before its global New note hotkey. A wildcard
+    // registration lets unhandled keys fall through to the parent scope.
+    this.scope.register(null, null, (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.isComposing || e.key.toLowerCase() !== 'n'
+        || !e.ctrlKey || e.altKey || e.metaKey || e.shiftKey) return;
+      const composer = this.tabManager?.getActiveTab()?.dom.inputComposerEl;
+      if (!composer?.contains(composer.ownerDocument.activeElement)) return;
+      if (!e.repeat) this.requestNewConversation();
+      return false;
     });
 
     // File open event

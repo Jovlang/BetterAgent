@@ -346,28 +346,30 @@ describe('ClaudianView provider and presentation wiring', () => {
 });
 
 describe('ClaudianView composer and scoped keys', () => {
-  function scoped(view: Awaited<ReturnType<typeof createClaudianView>>, key: string, event: Partial<KeyboardEvent> = {}) {
+  function scoped(view: Awaited<ReturnType<typeof createClaudianView>>, key: string | null, event: Partial<KeyboardEvent> = {}) {
     assert(view.scope instanceof HostScope);
     const handler = view.scope.handlers.find(handler => handler.key === key);
     assert(handler);
-    const keyEvent = new KeyboardEvent('keydown', { key, cancelable: true, ...event });
+    const keyEvent = new KeyboardEvent('keydown', { key: key ?? '', cancelable: true, ...event });
     if (event.defaultPrevented) keyEvent.preventDefault();
     if (event.preventDefault) keyEvent.preventDefault = event.preventDefault;
-    return handler.func(keyEvent, { key, vkey: key, modifiers: '' });
+    return handler.func(keyEvent, { key: keyEvent.key, vkey: keyEvent.code, modifiers: '' });
   }
 
   it('starts a new chat with Ctrl+N only in the composer', async () => {
-    const { manager, contentEl } = await openView();
+    const { view, manager } = await openView();
     await manager.viewerSlot.show('one');
     const composerInput = () => within(manager.getActiveTab()!.dom.inputComposerEl)
       .getByRole('textbox', { name: 'Message' });
     const input = composerInput();
-    const shortcut = { key: 'n', ctrlKey: true };
-    expect(fireEvent.keyDown(contentEl, shortcut)).toBe(true);
+    const shortcut = { key: 'n', code: 'KeyN', ctrlKey: true };
+    input.blur();
+    // Obsidian runs its keymap during window capture, before the event reaches the composer.
+    expect(scoped(view, null, shortcut)).toBeUndefined();
     input.focus();
-    expect(fireEvent.keyDown(input, { ...shortcut, isComposing: true })).toBe(true);
-    expect(fireEvent.keyDown(input, { ...shortcut, shiftKey: true })).toBe(true);
-    expect(fireEvent.keyDown(input, shortcut)).toBe(false);
+    expect(scoped(view, null, { ...shortcut, isComposing: true })).toBeUndefined();
+    expect(scoped(view, null, { ...shortcut, shiftKey: true })).toBeUndefined();
+    expect(scoped(view, null, shortcut)).toBe(false);
     await waitFor(() => {
       expect(manager.getActiveTab()?.conversationId).toBeNull();
       expect(document.activeElement === composerInput()).toBe(true);

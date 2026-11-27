@@ -451,7 +451,7 @@ describe('ClaudianView provider and presentation wiring', () => {
     expect(search.value).toBe('review');
   });
 
-  it.each([400, 800])('closes history from the mouse Back button at %i px without navigating away', async width => {
+  it.each([400, 800])('toggles history from the mouse Back button at %i px without navigating away', async width => {
     const { view, manager, contentEl } = await openView({ width, singleViewer: true });
     await manager.viewerSlot.show('one');
     const tab = manager.getActiveTab()!;
@@ -485,8 +485,14 @@ describe('ClaudianView provider and presentation wiring', () => {
     expect(view.getActiveTab()).toBe(tab);
     expect(tab.dom.inputEl.value).toBe('Keep this draft');
 
-    expect(dispatchButton(toggle, 'pointerup', 3).defaultPrevented).toBe(false);
-    expect(hostPointerUp).toHaveBeenCalledTimes(3);
+    expect(dispatchButton(tab.dom.inputEl, 'pointerdown', 3).defaultPrevented).toBe(true);
+    expect(history.hidden).toBe(true);
+    expect(dispatchButton(tab.dom.inputEl, 'pointerup', 3).defaultPrevented).toBe(true);
+    expect(hostPointerUp).toHaveBeenCalledTimes(2);
+    expect(history.hidden).toBe(false);
+    expect(document.activeElement).toBe(search);
+    expect(view.getActiveTab()).toBe(tab);
+    expect(tab.dom.inputEl.value).toBe('Keep this draft');
   });
 
   it('automatically shows history alongside chat above 600 px without taking composer focus', async () => {

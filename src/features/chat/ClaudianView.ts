@@ -582,13 +582,14 @@ export class ClaudianView extends ItemView {
     if (this.options?.singleViewer && viewWindow) {
       const handleMouseBack = (event: PointerEvent): void => {
         const container = this.viewContainerEl;
-        if (event.button !== MOUSE_BACK_BUTTON || !this.layout.historyVisible
-          || !container || !event.composedPath().includes(container)) return;
+        if (event.button !== MOUSE_BACK_BUTTON || !container || !event.composedPath().includes(container)) return;
 
         // Consume both phases before Obsidian can handle the button as workspace Back.
         event.preventDefault();
         event.stopImmediatePropagation();
-        if (event.type === 'pointerup') this.layout.closeHistory();
+        if (event.type === 'pointerup' && !this.layout.closeHistory()) {
+          this.layout.setHistoryVisible(true);
+        }
       };
       this.registerDomEvent(viewWindow, 'pointerdown', handleMouseBack, true);
       this.registerDomEvent(viewWindow, 'pointerup', handleMouseBack, true);

@@ -1,4 +1,3 @@
-// @test-ci {"inputs":["src/style/components/composer-dropdown.css"]}
 /** @vitest-environment jsdom */
 
 import { readFileSync } from 'node:fs';

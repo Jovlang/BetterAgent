@@ -1,4 +1,3 @@
-// @test-ci {"native":true}
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 

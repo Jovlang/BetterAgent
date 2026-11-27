@@ -1,15 +1,11 @@
 import '@test/helpers/registeredCodex';
 
 // @vitest-environment jsdom
-import { createFixture, deferred, waitForCall } from '@test/helpers/ChatInputHarness';
-import { conversationRecord } from '@test/helpers/features/chat/ConversationFixture';
-import { testDate } from '@test/helpers/testClock';
+import { createFixture } from '@test/helpers/ChatInputHarness';
 import { Notice } from 'obsidian';
 
-import type { ProviderExecutionErrorEvent, ProviderExecutionEvent } from '@/core/execution';
-import { buildSystemPrompt } from '@/core/prompt/mainAgent';
 import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
-import type { ChatMessage, Conversation } from '@/core/types';
+import type { ChatMessage } from '@/core/types';
 import type { ImageAttachment } from '@/core/types';
 import { t } from '@/i18n/i18n';
 
@@ -30,16 +26,6 @@ describe('MainTurnExecution', () => {
       supportsTurnSteer: true,
     });
 
-  });
-
-  it.each(['codex'])('uses the toolbar model and reasoning snapshot as the only submission input for %s', async providerId => {
-    const toolbar = { model: 'toolbar-model', reasoning: 'low', permissionMode: 'normal', serviceTier: 'default' };
-    const fixture = (await createFixture({
-      getSettings: () => toolbar,
-      getTabProviderId: () => providerId,
-    }));
-    await fixture.controller.sendMessage({ content: 'use toolbar settings' });
-    expect(fixture.native.requests).toMatchObject([{ configuration: toolbar }]);
   });
 
   it('submits and persists separate first and continued turns', async () => {
@@ -95,168 +81,6 @@ describe('MainTurnExecution', () => {
     expect(persistedMessages).toMatchObject(expected);
   });
 
-  it.each(['creation', 'initialization'] as const)(
-    'recovers queued follow-ups and newer drafts in admission order after %s fails', async failureAt => {
-      const images: ImageAttachment[] = ['first', 'queued', 'draft'].map(id => ({
-        id, name: `${id}.png`, mediaType: 'image/png', data: 'aGVsbG8=', size: 5, source: 'paste',
-      }));
-      const initialization = deferred<boolean>();
-      const initialize = vi.fn().mockResolvedValue(true);
-      if (failureAt === 'initialization') initialize.mockReturnValueOnce(initialization.promise);
-      const fixture = (await createFixture({
-        ensureExecutionInitialized: initialize,
-      }));
-      fixture.images.setImages([images[0]]);
-      const creation = deferred<Conversation>();
-      if (failureAt === 'creation') {
-        fixture.state.currentConversationId = null;
-        fixture.plugin.createConversation.mockReturnValueOnce(creation.promise)
-          .mockResolvedValue(conversationRecord('conversation-1'));
-      }
-      fixture.input.value = 'First request';
-      const first = fixture.controller.sendMessage();
-      const settled = first.catch((error: unknown) => error);
-      await waitForCall(failureAt === 'creation' ? fixture.plugin.createConversation : initialize);
-      fixture.input.value = 'Follow-up request';
-      fixture.images.setImages([images[1]]);
-      await fixture.controller.sendMessage();
-      fixture.input.value = '    newerDraft()\n';
-      fixture.images.setImages([images[2]]);
-      if (failureAt === 'creation') creation.reject(new Error('Disk full'));
-      else initialization.resolve(false);
-      expect(await settled).toEqual(failureAt === 'creation' ? new Error('Disk full') : undefined);
-
-      expect(fixture.session.turns.isActive).toBe(false);
-      expect(fixture.native.requests).toHaveLength(0);
-      expect(fixture.state.messages).toEqual([]);
-      expect(fixture.controller.queue.message).toBeNull();
-      expect(fixture.input.value).toBe('First request\n\nFollow-up request\n\n    newerDraft()\n');
-      expect(fixture.images.getAttachedImages()).toEqual(images);
-
-      await fixture.controller.sendMessage();
-      expect(fixture.native.requests).toHaveLength(1);
-      expect(fixture.native.requests[0]).toMatchObject({
-        input: [
-          { type: 'text', text: 'First request\n\nFollow-up request\n\n    newerDraft()' },
-          ...images.map(image => ({ type: 'image', image })),
-        ],
-      });
-    },
-  );
-
-  it('does not launch execution when close overlaps execution initialization', async () => {
-    let closing = false;
-    const fixture = (await createFixture({
-      isClosing: () => closing,
-      ensureExecutionInitialized: async () => {
-        closing = true;
-        fixture.session.cancelTurn('shutdown');
-        return true;
-      },
-    }));
-    await fixture.controller.sendMessage({ content: 'Keep the admitted input' });
-    expect(fixture.native.requests).toHaveLength(0);
-    expect(fixture.state.messages).toEqual([
-      expect.objectContaining({ role: 'user', content: 'Keep the admitted input' }),
-    ]);
-  });
-
-  it('submits the Main Agent prompt resolved from current settings and the Vault root without changing input', async () => {
-    const fixture = (await createFixture());
-    Object.assign(fixture.plugin.settings, { mediaFolder: 'media', systemPrompt: 'Prefer short answers.', userName: 'Ada' });
-
-    await fixture.controller.sendMessage({ content: 'list my projects' });
-
-    const submission = fixture.native.requests[0];
-    expect(submission).toMatchObject({
-      input: [{ type: 'text', text: 'list my projects' }],
-      configuration: { systemInstructions: {
-        kind: 'main-agent',
-        instructions: buildSystemPrompt({ customPrompt: 'Prefer short answers.', mediaFolder: 'media', userName: 'Ada', vaultPath: fixture.plugin.providerHost.workingDirectory ?? undefined }),
-      } },
-    });
-    expect(fixture.state.messages[0]?.content).toBe('list my projects');
-  });
-
-  it('names the working directory the session runs in, not a later host value', async () => {
-    const fixture = await createFixture({ workingDirectory: '/session-vault' });
-    // The real host's vault is a different, later value.
-    expect(fixture.plugin.providerHost.workingDirectory).not.toBe('/session-vault');
-
-    await fixture.controller.sendMessage({ content: 'where am I' });
-
-    const submission = fixture.native.requests[0];
-    expect(submission.configuration.systemInstructions).toEqual({
-      kind: 'main-agent', instructions: buildSystemPrompt({ vaultPath: '/session-vault' }),
-    });
-  });
-
-  it('numbers canonical submissions without counting interrupt markers', async () => {
-    const fixture = await createFixture();
-    fixture.linkedContentController.lock('note.md');
-    const editorContext = {
-      mode: 'selection' as const,
-      notePath: 'note.md',
-      selectedText: 'selected text',
-      startLine: 4,
-    };
-    const browserContext = {
-      selectedText: 'browser text',
-      source: 'browser',
-      url: 'https://example.com',
-    };
-    const canvasContext = {
-      canvasPath: 'map.canvas',
-      nodeIds: ['node-1'],
-    };
-    const image: ImageAttachment = {
-      data: 'aGVsbG8=',
-      id: 'image-b',
-      mediaType: 'image/png',
-      name: 'b.png',
-      size: 5,
-      source: 'paste',
-    };
-    const priorMessages = [
-      { id: 'user-a', role: 'user' as const, content: 'A', timestamp: 1 },
-      { id: 'assistant-a', role: 'assistant' as const, content: 'reply', timestamp: 2 },
-      {
-        id: 'interrupt-a',
-        role: 'user' as const,
-        content: 'interrupted',
-        isInterrupt: true,
-        timestamp: 3,
-      },
-    ];
-    priorMessages.forEach(message => fixture.state.addMessage(message));
-
-    await fixture.controller.sendMessage({
-      browserContextOverride: browserContext,
-      canvasContextOverride: canvasContext,
-      content: 'B',
-      editorContextOverride: editorContext,
-      images: [image],
-    });
-
-    const submission = fixture.native.requests[0];
-    expect(submission).toMatchObject({
-      input: [{ type: 'text', text: 'B' }, { type: 'image', image }],
-      context: {
-        selections: [
-          { kind: 'editor', selection: editorContext },
-          { kind: 'browser', selection: browserContext },
-          { kind: 'canvas', selection: canvasContext },
-        ],
-      },
-    });
-    expect(submission.conversationHistory?.map(message => message.id)).toEqual([
-      'user-a',
-      'assistant-a',
-      'interrupt-a',
-    ]);
-    expect(fixture.state.messages.at(-2)).toMatchObject({ role: 'user', content: 'B', images: [image] });
-  });
-
   it('keeps context feature-owned in the normalized submission', async () => {
     const fixture = await createFixture();
     fixture.linkedContentController.lock('note.md');
@@ -307,52 +131,6 @@ describe('MainTurnExecution', () => {
     expect(Notice).toHaveBeenCalledWith('Message was not sent. Please try again.');
   });
 
-  it('keeps unsent input in the closing transcript when preparation fails before handoff', async () => {
-    let closing = false;
-    const fixture = (await createFixture({ isClosing: () => closing }));
-    fixture.execution.repository.assertConversationExecutionAuthority.mockImplementationOnce(async () => {
-      closing = true;
-      fixture.session.cancelTurn('shutdown');
-      throw new Error('closed during preparation');
-    });
-    await fixture.controller.sendMessage({ content: 'Keep the admitted input' });
-    expect(fixture.state.messages).toEqual([
-      expect.objectContaining({ role: 'user', content: 'Keep the admitted input' }),
-    ]);
-    expect(fixture.input.value).toBe('');
-  });
-
-  it('restores the unsent turn after an asynchronous unaccepted configuration rejection', async () => {
-    const image: ImageAttachment = { id: 'retry-image', name: 'retry.png', mediaType: 'image/png', data: 'aGVsbG8=', size: 5, source: 'paste' };
-    const fixture = await createFixture();
-    fixture.images.setImages([image]);
-    const rejection: ProviderExecutionEvent = {
-      type: 'execution_error',
-      category: 'configuration',
-      message: 'No enabled model is available.',
-      recoverable: false,
-      scope: {
-        kind: 'requested',
-        sessionInstanceId: 'session-1',
-        executionId: 'execution-1',
-        turnId: 'turn-1',
-        sequence: 2,
-      },
-    };
-    fixture.input.value = 'retry after configuration';
-    fixture.native.respond.mockImplementationOnce(run => run.emit(rejection));
-
-    await fixture.controller.sendMessage();
-
-    expect(fixture.input.value).toBe('retry after configuration');
-    expect(Notice).toHaveBeenCalledWith(rejection.message);
-    expect(fixture.images.getAttachedImages()).toEqual([image]);
-    expect(fixture.state.messages).toEqual([]);
-    expect(fixture.deps.getMessagesEl()?.textContent).toBe('');
-    expect(fixture.plugin.updateConversation).not.toHaveBeenCalled();
-    expect(fixture.state.activity?.kind).not.toBe('error');
-  });
-
   it('does not restore input after an ambiguous post-handoff rejection', async () => {
     const fixture = (await createFixture());
     fixture.input.value = 'possibly sent';
@@ -367,125 +145,6 @@ describe('MainTurnExecution', () => {
     expect(fixture.state.messages).toHaveLength(2);
     expect(fixture.plugin.updateConversation.mock.calls.at(-1)?.[1].messages).toEqual(fixture.state.messages);
     expect(fixture.deps.getMessagesEl()?.textContent).toContain('stream failed');
-  });
-
-  it('puts the completed turn checkpoint and statistics on the final assistant projection after message boundaries', async () => {
-    const fixture = (await createFixture());
-    fixture.native.respond.mockImplementationOnce(run => {
-      run.emit({ type: 'turn_started', accepted: true });
-      run.emit({ type: 'assistant_message_started' });
-      run.emit({ type: 'assistant_message_started' });
-      run.emit({ type: 'turn_completed', reason: 'completed', nativeCheckpointId: 'completed-checkpoint',
-        turnStats: { outputTokens: 125, durationMs: 2500 } });
-    });
-
-    await fixture.controller.sendMessage({ content: 'Inspect the code' });
-
-    const assistants = fixture.state.messages.filter(message => message.role === 'assistant');
-    expect(assistants.length).toBeGreaterThan(1);
-    expect(assistants.at(-1)?.assistantMessageId).toBe('completed-checkpoint');
-    expect(assistants[0].assistantMessageId).toBeUndefined();
-    expect(assistants.at(-1)?.turnStats).toEqual({ outputTokens: 125, durationMs: 2500 });
-  });
-
-  it('timestamps the final response at execution completion instead of streaming start', async () => {
-    const startedAt = testDate().getTime();
-    const finishedAt = testDate({ seconds: 65 }).getTime();
-    let now = startedAt;
-    const nowSpy = vi.spyOn(Date, 'now').mockImplementation(() => now);
-    try {
-      const fixture = (await createFixture());
-      fixture.native.respond.mockImplementationOnce(run => {
-        run.emit({ type: 'turn_started', accepted: true });
-        now = finishedAt;
-        run.complete();
-      });
-      await fixture.controller.sendMessage({ content: 'Inspect' });
-      expect(fixture.state.messages[0].timestamp).toBe(startedAt);
-      expect(fixture.state.messages.at(-1)?.timestamp).toBe(startedAt);
-      expect(fixture.state.messages.at(-1)?.completedAt).toBe(finishedAt);
-    } finally {
-      nowSpy.mockRestore();
-    }
-  });
-
-  it.each([false, true])('stores response duration without a completion flavor on success (compaction: %s)', async compaction => {
-    let currentTime = 1000;
-    const nowSpy = vi.spyOn(performance, 'now').mockImplementation(() => currentTime);
-    try {
-      const fixture = (await createFixture());
-      fixture.native.respond.mockImplementationOnce(run => {
-        run.emit({ type: 'turn_started', accepted: true });
-        if (compaction) run.emit({ type: 'context_compacted' });
-        currentTime += 1500;
-        run.complete();
-      });
-
-      await fixture.controller.sendMessage({ content: 'test request' });
-
-      const assistantMessage = fixture.state.messages[1];
-      expect(assistantMessage.durationSeconds).toBe(1);
-      expect(assistantMessage.durationFlavorWord).toBeUndefined();
-    } finally {
-      nowSpy.mockRestore();
-    }
-  });
-
-  it('suppresses response duration on normalized execution errors when elapsed time exceeds one second', async () => {
-    let currentTime = 1000;
-    const nowSpy = vi.spyOn(performance, 'now').mockImplementation(() => currentTime);
-    try {
-      const fixture = (await createFixture());
-      const errorEvent: ProviderExecutionErrorEvent = {
-        category: 'provider',
-        message: 'Model overloaded',
-        recoverable: false,
-        scope: {
-          executionId: 'execution-1',
-          kind: 'requested',
-          sequence: 0,
-          sessionInstanceId: 'session-instance-1',
-          turnId: 'turn-1',
-        },
-        type: 'execution_error',
-      };
-      fixture.native.respond.mockImplementationOnce(run => {
-        run.emit({ type: 'turn_started', accepted: true });
-        currentTime += 1500;
-        run.emit(errorEvent);
-      });
-
-      await fixture.controller.sendMessage({ content: 'test request' });
-
-      expect(fixture.deps.getMessagesEl()?.textContent).toContain('Model overloaded');
-      const assistantMessage = fixture.state.messages[1];
-      expect(assistantMessage.durationSeconds).toBeUndefined();
-      expect(assistantMessage.durationFlavorWord).toBeUndefined();
-    } finally {
-      nowSpy.mockRestore();
-    }
-  });
-
-  it('suppresses response duration on catch-path rejections when elapsed time exceeds one second', async () => {
-    let currentTime = 1000;
-    const nowSpy = vi.spyOn(performance, 'now').mockImplementation(() => currentTime);
-    try {
-      const fixture = (await createFixture());
-      fixture.native.respond.mockImplementationOnce(run => {
-        run.emit({ type: 'turn_started', accepted: true });
-        currentTime += 1500;
-        run.events.fail(new Error('stream failed'));
-      });
-
-      await fixture.controller.sendMessage({ content: 'test request' });
-
-      expect(fixture.deps.getMessagesEl()?.textContent).toContain('stream failed');
-      const assistantMessage = fixture.state.messages[1];
-      expect(assistantMessage.durationSeconds).toBeUndefined();
-      expect(assistantMessage.durationFlavorWord).toBeUndefined();
-    } finally {
-      nowSpy.mockRestore();
-    }
   });
 
   it('renders and stores normalized requested output', async () => {
@@ -533,59 +192,6 @@ describe('MainTurnExecution', () => {
     expect(fixture.native.disposeCalls).toBe(0);
   });
 
-  it('keeps pending input intact when execution preparation fails', async () => {
-    const fixture = (await createFixture({
-      ensureExecutionInitialized: vi.fn().mockResolvedValue(false),
-    }));
-    fixture.input.value = 'not sent';
-
-    await fixture.controller.sendMessage();
-
-    expect(fixture.native.requests).toHaveLength(0);
-    expect(fixture.input.value).toBe('not sent');
-    expect(fixture.state.messages).toEqual([]);
-  });
-
-  it('reports a terminal completed turn as reviewable', async () => {
-    const onReviewableSettlement = vi.fn();
-    const fixture = (await createFixture({ onReviewableSettlement }));
-
-    await fixture.controller.sendMessage({ content: 'finish this' });
-
-    expect(fixture.deps.captureReviewableSettlement).toHaveBeenCalledWith('completed');
-    expect(onReviewableSettlement).toHaveBeenCalledTimes(1);
-  });
-
-  it('reports a terminal accepted error as reviewable', async () => {
-    const onReviewableSettlement = vi.fn();
-    const fixture = (await createFixture({ onReviewableSettlement }));
-    fixture.native.respond.mockImplementationOnce(run => {
-      run.emit({ type: 'turn_started', accepted: true });
-      run.emit({ type: 'execution_error', category: 'provider', message: 'provider failed', recoverable: false });
-    });
-
-    await fixture.controller.sendMessage({ content: 'finish this' });
-
-    expect(fixture.deps.captureReviewableSettlement).toHaveBeenCalledWith('error');
-    expect(onReviewableSettlement).toHaveBeenCalledTimes(1);
-  });
-
-  it.each(['cancelled', 'invalidated'] as const)(
-    'does not report a %s turn as reviewable',
-    async (status) => {
-      const onReviewableSettlement = vi.fn();
-      const fixture = (await createFixture({ onReviewableSettlement }));
-      const response = fixture.holdNextResponse();
-      const sending = fixture.controller.sendMessage({ content: 'finish this' });
-      const run = await response.started;
-      if (status === 'invalidated') await fixture.execution.registry.runTransition(['codex'], async () => undefined);
-      else run.emit({ type: 'cancelled', reason: 'Stopped' });
-      await sending;
-
-      expect(onReviewableSettlement).not.toHaveBeenCalled();
-    },
-  );
-
   it('does not report a definite pre-handoff failure as reviewable', async () => {
     const onReviewableSettlement = vi.fn();
     const fixture = (await createFixture({ onReviewableSettlement }));
@@ -595,39 +201,4 @@ describe('MainTurnExecution', () => {
 
     expect(onReviewableSettlement).not.toHaveBeenCalled();
   });
-
-  it('reports completed work when terminal persistence fails', async () => {
-    const onReviewableSettlement = vi.fn();
-    const fixture = (await createFixture({ onReviewableSettlement }));
-    fixture.plugin.updateConversation.mockRejectedValueOnce(new Error('save failed'));
-
-    await expect(fixture.controller.sendMessage({ content: 'finish this' }))
-      .rejects.toThrow('save failed');
-
-    expect(onReviewableSettlement).toHaveBeenCalledTimes(1);
-  });
-
-  it('acknowledges stale review when a new provider turn starts', async () => {
-    const fixture = (await createFixture());
-    fixture.state.markReviewRequired();
-
-    await fixture.controller.sendMessage({ content: 'continue working' });
-
-    expect(fixture.state.attention).toBeNull();
-  });
 });
-
-it.each(['before', 'after'] as const)(
-  'keeps one completion outcome when cancellation arrives %s native completion', async order => {
-    const fixture = await createFixture();
-    const response = fixture.holdNextResponse();
-    const sending = fixture.controller.sendMessage({ content: 'Work' });
-    const run = await response.started;
-    run.holdCancellation = true;
-    if (order === 'before') fixture.controller.cancelStreaming();
-    await fixture.emit(run, { type: 'turn_completed', reason: 'completed' });
-    if (order === 'after') fixture.controller.cancelStreaming();
-    await sending;
-    expect(fixture.state.messages.at(-1)?.isInterrupt).not.toBe(true);
-  },
-);

@@ -13,8 +13,7 @@
 npm run typecheck && npm run lint && npm run test && npm run build && npm run check:performance
 ```
 
-- `npm run test` runs the Vitest unit/integration suite and the Node script checks.
-- For focused changes, `npm run test:affected -- --base origin/main` selects related tests; it does not replace typecheck, lint, build, or performance checks. Documentation-only changes need `git diff --check` and their affected documentation tests, not a production build; run them locally, because CI skips changes limited to the `documentationPaths` in `scripts/ciTestSelection.mjs`.
+- Run the full suite with `npm test`. For iteration, use `npm test -- <path>`. Documentation-only changes need `git diff --check`, not a production build.
 - Dev and production builds load `.env.local` and may copy artifacts into the configured `OBSIDIAN_VAULT`. Check that destination before building; clearing the shell variable does not prevent reloading it from the file.
 
 ## Architectural constraints

@@ -1,4 +1,3 @@
-// @test-ci {"inputs":["src/{core/process/execution-target,providers/codex}/**","src/{core/providers/cli/TargetCLIInstallationProbe,core/providers/settings/InstallationSettings,shared/settings/ExecutionTargetSettings}*","tests/{unit,integration}/{core/process/execution-target,providers/codex}/**","tests/{unit,integration}/{core/providers/cli/TargetCLIInstallationProbe,core/providers/settings/InstallationSettings,shared/settings/ExecutionTargetSettings}*"]}
 import { execFileSync, spawn } from 'node:child_process';
 import * as fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';

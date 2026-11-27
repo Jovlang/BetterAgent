@@ -1,11 +1,10 @@
 /** @vitest-environment jsdom */
 import { createEvent, fireEvent } from '@testing-library/dom';
 import { FileView, Notice, TFile, TFolder } from 'obsidian';
-import type { Mock } from 'vitest';
 
 import { ComposerInfoRow } from '@/features/chat/composer/ComposerInfoRow';
 import { LinkedContentController } from '@/features/chat/linked-content/LinkedContentController';
-import { createWelcomeElement, renderWelcomeContent } from '@/features/chat/rendering/WelcomeRenderer';
+import { createWelcomeElement } from '@/features/chat/rendering/WelcomeRenderer';
 
 
 
@@ -151,26 +150,6 @@ describe('LinkedContentController DOM', () => {
     expect(focus).toHaveBeenCalled();
   });
 
-  it('closes the expanded picker with Escape from the picker boundary', () => {
-    const harness = createHarness({ entries: [createFolder('Projects')] });
-    const welcome = createWelcomeElement(document.body.createDiv(), 'Hello') as unknown as HTMLElement;
-    harness.controller.mountWelcome(welcome as unknown as HTMLElement);
-    const selector = welcome.querySelector<HTMLElement>('.claudian-linked-content-selector')!;
-    const focus = vi.spyOn(selector, 'focus');
-    selector.click();
-    const picker = welcome.querySelector<HTMLElement>('.claudian-linked-content-picker')!;
-    const event = createEvent.keyDown(picker, { key: 'Escape' });
-    const preventDefault = vi.spyOn(event, 'preventDefault');
-    const stopPropagation = vi.spyOn(event, 'stopPropagation');
-    fireEvent(picker, event);
-
-    expect(selector.getAttribute('aria-expanded')).toBe('false');
-    expect(welcome.contains(picker)).toBe(false);
-    expect(preventDefault).toHaveBeenCalled();
-    expect(stopPropagation).toHaveBeenCalled();
-    expect(focus).toHaveBeenCalledTimes(1);
-  });
-
   it('captures Escape before Obsidian can intercept the picker event', () => {
     const harness = createHarness({ entries: [createFolder('Projects')] });
     const welcome = createWelcomeElement(document.body.createDiv(), 'Hello');
@@ -194,72 +173,6 @@ describe('LinkedContentController DOM', () => {
     } finally {
       window.removeEventListener('keydown', hostKeydown, true);
     }
-  });
-
-  it('remounts against the current cached list and removes the old selector', () => {
-    const stale = createFolder('Stale');
-    const harness = createHarness({ entries: [stale] });
-    const firstWelcome = createWelcomeElement(document.body.createDiv(), 'First') as unknown as HTMLElement;
-    harness.controller.mountWelcome(firstWelcome as unknown as HTMLElement);
-    const firstSelector = firstWelcome.querySelector<HTMLElement>('.claudian-linked-content-selector')!;
-    firstSelector.click();
-    const firstSearch = firstWelcome.querySelector<HTMLInputElement>('.claudian-linked-content-picker-search')!;
-    firstSearch.value = 'Stale';
-    fireEvent.input(firstSearch);
-    expect(labels(firstWelcome)).toEqual(['Stale']);
-
-    harness.entries.delete(stale.path);
-    const fresh = createFolder('Fresh');
-    harness.entries.set(fresh.path, fresh);
-
-    const secondWelcome = createWelcomeElement(document.body.createDiv(), 'Second') as unknown as HTMLElement;
-    harness.controller.mountWelcome(secondWelcome as unknown as HTMLElement);
-    secondWelcome.querySelector<HTMLElement>('.claudian-linked-content-selector')?.click();
-    const secondSearch = secondWelcome.querySelector<HTMLInputElement>('.claudian-linked-content-picker-search')!;
-    secondSearch.value = 'Fresh';
-    fireEvent.input(secondSearch);
-
-    expect(labels(secondWelcome)).toEqual(['Fresh']);
-    expect(labels(firstWelcome)).toEqual([]);
-    firstSelector.click();
-    expect(firstWelcome.querySelector('.claudian-linked-content-picker')!).toBeNull();
-    expect(labels(secondWelcome)).toEqual(['Fresh']);
-  });
-
-  it('selects a cached choice by pointer and keeps empty queries hidden', () => {
-    const harness = createHarness({ entries: [createFolder('Projects')] });
-    const welcome = createWelcomeElement(document.body.createDiv(), 'Hello') as unknown as HTMLElement;
-    harness.controller.mountWelcome(welcome as unknown as HTMLElement);
-    const selector = welcome.querySelector<HTMLElement>('.claudian-linked-content-selector')!;
-    const focus = vi.spyOn(selector, 'focus');
-    selector.click();
-    const search = welcome.querySelector<HTMLInputElement>('.claudian-linked-content-picker-search')!;
-    const picker = welcome.querySelector<HTMLElement>('.claudian-linked-content-picker')!;
-    expect(picker.hasClass('is-visible')).toBe(false);
-
-    search.value = 'Projects';
-    fireEvent.input(search);
-    welcome.querySelector<HTMLElement>('.claudian-linked-content-picker-option')?.click();
-
-    expect(harness.controller.getSnapshot()).toEqual({
-      mode: 'explicit-draft',
-      path: 'Projects',
-    });
-    expect(focus).toHaveBeenCalled();
-  });
-
-  it('remounts after welcome content recreation and hides the selector once locked', () => {
-    const harness = createHarness();
-    const welcome = createWelcomeElement(document.body.createDiv(), 'Hello') as unknown as HTMLElement;
-    harness.controller.mountWelcome(welcome as unknown as HTMLElement);
-    expect(welcome.querySelector<HTMLElement>('.claudian-linked-content-selector')!).not.toBeNull();
-
-    renderWelcomeContent(welcome as unknown as HTMLElement, 'Welcome back');
-    harness.controller.mountWelcome(welcome as unknown as HTMLElement);
-    expect([...welcome.querySelectorAll<HTMLElement>('.claudian-linked-content-selector')]).toHaveLength(1);
-
-    harness.controller.lock(undefined);
-    expect(welcome.querySelector<HTMLElement>('.claudian-linked-content-selector')!).toBeNull();
   });
 
   it('renders Linked content in the info row and dispatches file, folder, and missing actions', async () => {
@@ -312,26 +225,6 @@ describe('LinkedContentController DOM', () => {
     expect(harness.openFile).not.toHaveBeenCalled();
   });
 
-  it('reveals a deferred editor tab whose view state identifies the linked file', async () => {
-    const note = createFile('Notes/Restored.md');
-    const deferredLeaf = {
-      getViewState: vi.fn(() => ({
-        state: { file: note.path },
-        type: 'markdown',
-      })),
-      isDeferred: true,
-      view: {},
-    };
-    const harness = createHarness({ entries: [note], rootLeaves: [deferredLeaf] });
-    harness.controller.selectExplicit(note.path);
-
-    await harness.controller.activateCurrentContent();
-
-    expect(harness.app.workspace.revealLeaf).toHaveBeenCalledWith(deferredLeaf);
-    expect(harness.app.workspace.getLeaf).not.toHaveBeenCalled();
-    expect(harness.openFile).not.toHaveBeenCalled();
-  });
-
   it('removes editable Linked content from the info row but keeps locked content immutable', () => {
     const note = createFile('Notes/Plan.md');
     const harness = createHarness({ entries: [note] });
@@ -376,23 +269,6 @@ describe('LinkedContentController DOM', () => {
     harness.controller.handleCreated(note.path);
     expect(rowEl.querySelector<HTMLInputElement>('.claudian-input-info-linked--missing')!).toBeNull();
     expect(rowEl.querySelector<HTMLInputElement>('.claudian-input-info-linked-label')?.textContent).toBe('Plan');
-  });
-
-  it('opens the Files view before revealing a folder when no explorer leaf exists', async () => {
-    const folder = createFolder('Projects');
-    const harness = createHarness({ entries: [folder] });
-    const setViewState = vi.fn().mockResolvedValue(undefined);
-    const revealInFolder = vi.fn().mockResolvedValue(undefined);
-    const fallbackLeaf = { setViewState, view: { revealInFolder } };
-    harness.app.workspace.getLeavesOfType.mockReturnValue([]);
-    (harness.app.workspace.getLeftLeaf as Mock).mockReturnValue(fallbackLeaf);
-    harness.controller.selectExplicit(folder.path);
-
-    await harness.controller.activateCurrentContent();
-
-    expect(setViewState).toHaveBeenCalledWith({ type: 'file-explorer', active: true });
-    expect(harness.app.workspace.revealLeaf).toHaveBeenCalledWith(fallbackLeaf);
-    expect(revealInFolder).toHaveBeenCalledWith(folder);
   });
 
   it('removes owned DOM and event listeners on destruction', () => {

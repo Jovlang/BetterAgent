@@ -1,5 +1,3 @@
-// @test-ci {"inputs":["src/providers/codex/**","tests/{unit,integration}/providers/codex/**","tests/helpers/providers/codex/**","tests/helpers/testClock.ts"]}
-
 import * as path from 'node:path';
 
 import { TEST_CODEX_CATALOG, TEST_CODEX_MODEL } from '@test/helpers/codexModels';
@@ -17,7 +15,7 @@ import { CodexAppServerRuntime } from '@/providers/codex/runtime/CodexAppServerR
 
 registerCodexForTests();
 
-// CI uses WSL1. This proves Windows/WSL launch and filesystem mechanics with the native peer.
+// Exercises Windows/WSL launch and filesystem mechanics with a local protocol peer.
 describe.skipIf(!hasNativeWSL())('native Codex WSL session and history', () => {
   it.each(['drive', 'distro'] as const)('launches, exchanges a turn and reads the Linux rollout from a %s vault', { timeout: 90_000 }, async location => {
     const peer = await provisionWSLPeer('codex', location, 'tests/helpers/providers/codex/CodexWSLPeer.ts');

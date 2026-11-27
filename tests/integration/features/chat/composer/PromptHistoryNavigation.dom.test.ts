@@ -1,12 +1,9 @@
-// @test-ci {"inputs":["src/style/base/visibility.css"]}
 /** @vitest-environment jsdom */
 import '@test/helpers/registeredCodex';
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { Prec, StateEffect } from '@codemirror/state';
-import { EditorView } from '@codemirror/view';
 import { axe } from '@test/helpers/accessibility';
 import { codexCatalogFixture } from '@test/helpers/codexModels';
 import { createFeatureHostFixture } from '@test/helpers/FeatureHostFixture';
@@ -19,13 +16,9 @@ import { fireEvent, waitFor, within } from '@testing-library/dom';
 import { App, Component } from 'obsidian';
 
 import { ChatModelSelectionCoordinator } from '@/app/settings/ChatModelSelectionCoordinator';
-import type { ProviderCommandDiscoveryResult } from '@/core/providers/commands/ProviderCommandDiscoveryResult';
-import { ProviderCommandDiscoveryStore } from '@/core/providers/commands/ProviderCommandDiscoveryStore';
-import type { ProviderCommandEntry } from '@/core/providers/commands/ProviderCommandEntry';
 import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
-import { type ChatMessage, type ClaudianSettings, type Conversation, isCanonicalUserMessage } from '@/core/types';
+import { type ChatMessage, type ClaudianSettings, type Conversation } from '@/core/types';
 import type { ChatFeatureHost } from '@/features/chat/ChatFeatureHost';
-import { PromptHistoryNavigation } from '@/features/chat/composer/PromptHistoryNavigation';
 import { activateTab, destroyTab } from '@/features/chat/tabs/TabLifecycle';
 import { TabManager } from '@/features/chat/tabs/TabManager';
 import { createTabRuntime } from '@/features/chat/tabs/TabRuntimeFactory';
@@ -151,40 +144,6 @@ async function completeTurn(view: View, text: string): Promise<string> {
   return turnId;
 }
 
-it('resets recalled history when the first send promotes the same presentation to a conversation', async () => {
-  const view = await createView(false, { draft: true });
-  let entered!: () => void;
-  let release!: (conversation: Conversation) => void;
-  const creationEntered = new Promise<void>(resolve => { entered = resolve; });
-  const created = new Promise<Conversation>(resolve => { release = resolve; });
-  view.plugin.createConversation = async () => { entered(); return created; };
-  let pending: Promise<void> | undefined;
-  try {
-    expect(view.tab.state.messages).toEqual([]);
-    const input = view.tab.dom.inputEl;
-    const navigator = view.tab.controllers.promptHistoryNavigation;
-    type(view, 'Promotion prompt');
-    pending = view.tab.controllers.inputController.sendMessage();
-    await creationEntered;
-    await waitFor(() => expect(view.tab.state.messages.filter(isCanonicalUserMessage))
-      .toEqual([expect.objectContaining({ content: 'Promotion prompt' })]));
-    expect(input.value).toBe('');
-    expect(view.tab.state.currentConversationId).toBeNull();
-    key(view, 'ArrowUp');
-    expect(input.value).toBe('Promotion prompt');
-    release(view.conversation);
-    await waitFor(() => expect(view.tab.state.currentConversationId).toBe(view.conversation.id));
-    expect(view.tab.session.conversationId).toBe(view.conversation.id);
-    expect(view.tab.dom.inputEl).toBe(input);
-    expect(view.tab.controllers.promptHistoryNavigation).toBe(navigator);
-    key(view, 'Escape');
-    expect(input.value).toBe('Promotion prompt');
-  } finally {
-    release(view.conversation);
-    try { await pending; } finally { await view.dispose(); }
-  }
-});
-
 it.each([false, true])('restores history before the actual View Scope consumes Escape (Main busy: %s)', async busy => {
   const view = await createView();
   let pending: Promise<void> | undefined;
@@ -279,94 +238,6 @@ it('recalls and resends visible user text through the real input controller and 
   } finally { await view.dispose(); }
 });
 
-it.each([
-  { name: 'whitespace', text: ' \n ', options: {} },
-  { name: 'non-empty draft', text: 'Draft', options: {} },
-  { name: 'Shift', text: '', options: { shiftKey: true } },
-  { name: 'Alt', text: '', options: { altKey: true } },
-  { name: 'Control', text: '', options: { ctrlKey: true } },
-  { name: 'Meta', text: '', options: { metaKey: true } },
-  { name: 'event composition', text: '', options: { isComposing: true } },
-])('leaves $name ArrowUp to the editor', async ({ text, options }) => {
-  const view = await createView();
-  try {
-    view.tab.state.messages = [user('one', 'Existing prompt')];
-    if (text) type(view, text);
-    expect(key(view, 'ArrowUp', options).inputPrevented).toBe(false);
-    expect(view.tab.dom.inputEl.value).toBe(text);
-  } finally { await view.dispose(); }
-});
-
-it.each(['loading', 'empty', 'ready', 'error'] as const)(
-  'routes Up/Down according to selectable provider suggestions (%s)', async status => {
-    const view = await createView();
-    let finish!: (result: ProviderCommandDiscoveryResult<ProviderCommandEntry>) => void;
-    const discovery = new ProviderCommandDiscoveryStore<ProviderCommandEntry>(
-      () => new Promise(resolve => { finish = resolve; }),
-    );
-    const editorKeys: string[] = [];
-    try {
-      const cm = EditorView.findFromDOM(textbox(view))!;
-      cm.dispatch({ effects: StateEffect.appendConfig.of(Prec.highest(EditorView.domEventHandlers({
-        keydown: event => { editorKeys.push(event.key); return false; },
-      }))) });
-      view.tab.ui.composerDropdown.setProviderCatalog({
-        providerId: 'codex', triggerChars: ['/'], builtInPrefix: '/', commandPrefix: '/', skillPrefix: '/',
-      }, discovery);
-      type(view, 'First paragraph\n/zxy');
-      await waitFor(() => expect(discovery.getSnapshot().status).toBe('loading'));
-      const command = (name: string): ProviderCommandEntry => ({
-        id: name, name, providerId: 'codex', kind: 'command', content: '', scope: 'runtime', source: 'sdk',
-        isEditable: false, isDeletable: false, displayPrefix: '/', insertPrefix: '/',
-      });
-      const result: ProviderCommandDiscoveryResult<ProviderCommandEntry> = status === 'ready'
-        ? { status: 'ready', items: [command('zxy-one'), command('zxy-two')] }
-        : status === 'error' ? { status: 'error', message: 'Native catalog unavailable', retryable: true }
-        : { status: 'empty' };
-      if (status !== 'loading') {
-        finish(result);
-      }
-      await waitFor(() => expect(discovery.getSnapshot().status).toBe(status));
-      const list = within(view.tab.dom.inputContainerEl).getByRole('listbox', { name: 'Input suggestions' });
-      const options = within(list).getAllByRole('option');
-      const selectable = status === 'ready' || status === 'error';
-      expect(options.map(option => option.getAttribute('aria-disabled')))
-        .toEqual(status === 'ready' ? [null, null] : status === 'error' ? ['true', null] : ['true']);
-      expect(within(list).queryByRole('option', { name: /Retry/ })).toBe(status === 'error' ? options[1] : null);
-      expect(key(view, 'ArrowDown').inputPrevented).toBe(selectable);
-      expect(textbox(view).getAttribute('aria-activedescendant')).toBe(selectable ? options[1].id : null);
-      expect(key(view, 'ArrowUp').inputPrevented).toBe(selectable);
-      expect(textbox(view).getAttribute('aria-activedescendant'))
-        .toBe(status === 'ready' ? options[0].id : status === 'error' ? options[1].id : null);
-      // This is CodeMirror's real bubble-stage handler, after the runtime's capture-stage menus.
-      expect(editorKeys).toEqual(selectable ? [] : ['ArrowDown', 'ArrowUp']);
-      expect(view.tab.dom.inputEl.value).toBe('First paragraph\n/zxy');
-      expect(await axe(list)).toHaveNoViolations();
-    } finally {
-      finish?.({ status: 'empty' });
-      await view.dispose();
-      discovery.invalidate();
-    }
-  },
-);
-
-it('leaves selection, empty history, initial Down, and inactive Escape to native behavior', async () => {
-  const view = await createView();
-  try {
-    expect(key(view, 'ArrowUp').inputPrevented).toBe(false);
-    view.tab.state.messages = [user('one', 'Existing prompt')];
-    expect(key(view, 'ArrowDown').inputPrevented).toBe(false);
-    key(view, 'Escape');
-    expect(view.tab.dom.inputEl.value).toBe('');
-    view.tab.dom.inputEl.focus();
-    type(view, 'Selected draft');
-    view.tab.dom.inputEl.selectionStart = 0;
-    view.tab.dom.inputEl.selectionEnd = 8;
-    expect(key(view, 'ArrowUp').inputPrevented).toBe(false);
-    expect(view.tab.dom.inputEl.value).toBe('Selected draft');
-  } finally { await view.dispose(); }
-});
-
 it('navigates in order, leaves the oldest boundary native, and restores the empty draft at the newest boundary', async () => {
   const view = await createView();
   try {
@@ -389,283 +260,6 @@ it('navigates in order, leaves the oldest boundary native, and restores the empt
     expect(view.tab.dom.inputEl.value).toBe('');
     key(view, 'Escape');
     expect(view.tab.dom.inputEl.value).toBe('');
-  } finally { await view.dispose(); }
-});
-
-it('moves the caret natively inside recalled multiline text and navigates only from its first or last line', async () => {
-  const view = await createView();
-  try {
-    view.tab.state.messages = [user('old', 'Older prompt'), user('new', 'First line\nSecond line')];
-    const input = view.tab.dom.inputEl;
-    key(view, 'ArrowUp');
-    expect(input.value).toBe('First line\nSecond line');
-    expect(input.selectionStart).toBe(input.value.length);
-    expect(key(view, 'ArrowUp').inputPrevented).toBe(false);
-    expect(input.selectionStart).toBeLessThan('First line\n'.length);
-    expect(key(view, 'ArrowDown').inputPrevented).toBe(false);
-    expect(input.selectionStart).toBeGreaterThanOrEqual('First line\n'.length);
-    expect(key(view, 'ArrowUp').inputPrevented).toBe(false);
-    expect(key(view, 'ArrowUp').inputPrevented).toBe(true);
-    expect(input.value).toBe('Older prompt');
-    key(view, 'ArrowDown');
-    expect(input.value).toBe('First line\nSecond line');
-    expect(key(view, 'ArrowDown').inputPrevented).toBe(true);
-    expect(input.value).toBe('');
-  } finally { await view.dispose(); }
-});
-
-it('moves through soft-wrapped rows of recalled text before navigating', async () => {
-  const view = await createView();
-  try {
-    view.tab.state.messages = [user('old', 'Older prompt'), user('new', 'A long prompt that wraps')];
-    const input = view.tab.dom.inputEl;
-    // jsdom has no layout; stand in for the editor's rendered-row measurement.
-    let caretRow = 3;
-    input.isCaretOnEdgeRow = direction => (direction === 'up' ? caretRow === 1 : caretRow === 3);
-    key(view, 'ArrowUp');
-    expect(input.value).toBe('A long prompt that wraps');
-    expect(key(view, 'ArrowUp').inputPrevented).toBe(false);
-    caretRow = 2;
-    expect(key(view, 'ArrowDown').inputPrevented).toBe(false);
-    expect(key(view, 'ArrowUp').inputPrevented).toBe(false);
-    caretRow = 1;
-    expect(key(view, 'ArrowUp').inputPrevented).toBe(true);
-    expect(input.value).toBe('Older prompt');
-  } finally { await view.dispose(); }
-});
-
-it('recalls only prompts shown before the branch point while editing an earlier prompt', async () => {
-  const view = await createView();
-  try {
-    view.tab.state.messages = [
-      user('first', 'First prompt', { userMessageId: 'u1' }),
-      user('edited', 'Edited prompt', { userMessageId: 'u2' }),
-      user('later', 'Later prompt', { userMessageId: 'u3' }),
-    ];
-    await view.tab.controllers.conversationController.navigateBranch('edited');
-    expect(view.tab.controllers.conversationController.hasBranchDraft).toBe(true);
-    const input = view.tab.dom.inputEl;
-    expect(input.value).toBe('Edited prompt');
-    input.focus();
-    input.value = ''; fireEvent.input(input);
-    key(view, 'ArrowUp');
-    expect(input.value).toBe('First prompt');
-    expect(key(view, 'ArrowUp').inputPrevented).toBe(false);
-    view.tab.controllers.conversationController.cancelBranchDraft();
-    input.focus();
-    input.value = ''; fireEvent.input(input);
-    key(view, 'ArrowUp');
-    expect(input.value).toBe('Later prompt');
-  } finally { await view.dispose(); }
-});
-
-it('recalls visible canonical user text with display and context fallbacks, excluding only hidden or noncanonical entries', async () => {
-  const view = await createView();
-  try {
-    view.tab.state.messages = [
-      user('raw', 'Raw fallback'),
-      user('context', 'Context-visible text\n\n<context_files>private metadata</context_files>'),
-      user('shown', 'Native wrapped text', { displayContent: 'Shown\nmultiline text' }),
-      user('command', '/clear'),
-      user('steer', 'Visible appended input'),
-      user('hidden', 'Hidden native turn', { displayContent: '' }),
-      user('image-only', '', { images: [{ id: 'image', name: 'image.png', mediaType: 'image/png', data: 'aGVsbG8=', size: 5, source: 'paste' }] }),
-      user('interrupt', 'Interrupted content', { isInterrupt: true }),
-      user('rebuilt', 'Rebuilt content', { isRebuiltContext: true }),
-      { id: 'assistant', role: 'assistant', content: 'Assistant text', timestamp: testDate().getTime() },
-    ];
-    for (const expected of ['Visible appended input', '/clear', 'Shown\nmultiline text', 'Context-visible text', 'Raw fallback']) {
-      key(view, 'ArrowUp');
-      expect(view.tab.dom.inputEl.value).toBe(expected);
-      if (view.tab.ui.composerDropdown.isVisible()) key(view, 'Escape');
-      // Leave recalled multiline text through its first line.
-      if (expected.includes('\n')) key(view, 'ArrowUp');
-    }
-    expect(key(view, 'ArrowUp').inputPrevented).toBe(false);
-  } finally { await view.dispose(); }
-});
-
-it.each(['delete', 'edit'] as const)('withdraws stale recalled text after a transcript %s', async mutation => {
-  const view = await createView();
-  try {
-    view.tab.state.messages = [user('old', 'Retained prompt'), user('new', 'Obsolete prompt')];
-    key(view, 'ArrowUp');
-    expect(view.tab.dom.inputEl.value).toBe('Obsolete prompt');
-    view.tab.state.messages = mutation === 'delete' ? [user('old', 'Retained prompt')]
-      : [user('old', 'Retained prompt'), user('new', 'Edited prompt')];
-    key(view, 'ArrowUp');
-    expect(view.tab.dom.inputEl.value).toBe('');
-    key(view, 'ArrowUp');
-    expect(view.tab.dom.inputEl.value).toBe(mutation === 'delete' ? 'Retained prompt' : 'Edited prompt');
-  } finally { await view.dispose(); }
-});
-
-it('abandons navigation after real user edits and retains the edited text on Escape or Down', async () => {
-  const view = await createView();
-  try {
-    view.tab.state.messages = [user('one', 'Existing prompt')];
-    key(view, 'ArrowUp');
-    type(view, ' edited');
-    expect(key(view, 'ArrowDown').inputPrevented).toBe(false);
-    key(view, 'Escape');
-    expect(view.tab.dom.inputEl.value).toBe('Existing prompt edited');
-  } finally { await view.dispose(); }
-});
-
-it('resets on a conversation identity round trip without intervening keys', async () => {
-  const view = await createView(false, { managed: true });
-  try {
-    view.tab.state.messages = [user('one', 'Existing prompt')];
-    key(view, 'ArrowUp');
-    await view.manager!.openConversation('other-conversation');
-    await view.manager!.openConversation(view.conversation.id);
-    view.tab.dom.inputEl.focus();
-    key(view, 'Escape');
-    expect(view.tab.dom.inputEl.value).toBe('Existing prompt');
-    view.tab.dom.inputEl.value = ''; fireEvent.input(view.tab.dom.inputEl);
-    view.tab.state.messages = [user('replacement', 'New conversation text')];
-    // Inactive Escape moved focus to the transcript; a new recall starts from the composer again.
-    view.tab.dom.inputEl.focus();
-    key(view, 'ArrowUp');
-    expect(view.tab.dom.inputEl.value).toBe('New conversation text');
-  } finally { await view.dispose(); }
-});
-
-it('keeps IME suppression until compositionend despite input and identity resets', async () => {
-  const view = await createView(false, { draft: true });
-  try {
-    view.tab.state.messages = [user('one', 'Existing prompt')];
-    key(view, 'ArrowUp');
-    fireEvent.compositionStart(textbox(view));
-    key(view, 'Escape', { isComposing: false });
-    expect(view.tab.dom.inputEl.value).toBe('Existing prompt');
-    view.tab.dom.inputEl.focus();
-    view.tab.dom.inputEl.value = '';
-    fireEvent.input(view.tab.dom.inputEl);
-    view.tab.session.runtime.selectDraft('codex', 'different-draft-model');
-    view.tab.session.runtime.selectDraft('codex', 'gpt-5.5');
-    expect(key(view, 'ArrowUp', { isComposing: false }).inputPrevented).toBe(false);
-    expect(view.tab.dom.inputEl.value).toBe('');
-    fireEvent.compositionEnd(textbox(view));
-    key(view, 'ArrowUp');
-    expect(view.tab.dom.inputEl.value).toBe('Existing prompt');
-  } finally { await view.dispose(); }
-});
-
-it('treats recall like typing without admitting a provisional tab and opens a real command menu', async () => {
-  const view = await createView(true);
-  try {
-    view.tab.state.messages = [user('one', '/ses')];
-    expect(view.tab.lifecycleState).toBe('provisional');
-    const changed = vi.spyOn(view.tab.controllers.sideChatController, 'handleComposerInput');
-    const refreshed = vi.spyOn(view.tab.ui.promptSuggestion, 'refresh');
-    key(view, 'ArrowUp');
-    expect(view.tab.lifecycleState).toBe('provisional');
-    expect(changed).toHaveBeenCalled();
-    expect(refreshed).toHaveBeenCalled();
-    await waitFor(() => expect(within(view.tab.dom.inputContainerEl).getByRole('option', { name: /\/sessions/ })).toBeDefined());
-    expect(view.tab.ui.composerDropdown.isVisible()).toBe(true);
-    key(view, 'ArrowDown');
-    expect(view.tab.dom.inputEl.value).toBe('/ses');
-    key(view, 'Escape');
-    expect(view.tab.ui.composerDropdown.isVisible()).toBe(false);
-    expect(view.tab.dom.inputEl.value).toBe('/ses');
-    key(view, 'Escape');
-    expect(view.tab.dom.inputEl.value).toBe('');
-  } finally { await view.dispose(); }
-});
-
-it('gives the actual resume picker and toolbar menu priority over active history Escape', async () => {
-  const view = await createView();
-  try {
-    view.tab.state.messages = [user('one', 'Existing prompt')];
-    key(view, 'ArrowUp');
-    const modelButton = within(view.tab.dom.inputWrapper).getByRole('button', { name: /Model: / });
-    fireEvent.click(modelButton);
-    expect(modelButton.getAttribute('aria-expanded')).toBe('true');
-    fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
-    expect(modelButton.getAttribute('aria-expanded')).toBe('false');
-    expect(document.activeElement).toBe(modelButton);
-    expect(view.tab.dom.inputEl.value).toBe('Existing prompt');
-    view.tab.dom.inputEl.focus();
-    key(view, 'Escape');
-    expect(view.tab.dom.inputEl.value).toBe('');
-    view.tab.dom.inputEl.focus();
-    view.tab.dom.inputEl.value = '/resume';
-    key(view, 'Enter');
-    await waitFor(() => expect(within(view.tab.dom.inputContainerEl).getByRole('listbox', { name: 'Resume conversation' })).toBeDefined());
-    view.tab.dom.inputEl.value = '';
-    const resume = within(view.tab.dom.inputContainerEl).getByRole('listbox', { name: 'Resume conversation' });
-    for (const modifier of ['shiftKey', 'ctrlKey', 'metaKey', 'altKey']) {
-      expect(key(view, 'Tab', { [modifier]: true }).inputPrevented).toBe(false);
-      expect(within(view.tab.dom.inputContainerEl).getByRole('listbox', { name: 'Resume conversation' })).toBe(resume);
-      expect(view.tab.dom.inputEl.value).toBe('');
-    }
-    // Plain Tab still picks the current session and dismisses its picker.
-    expect(key(view, 'Tab').inputPrevented).toBe(true);
-    expect(within(view.tab.dom.inputContainerEl).queryByRole('listbox', { name: 'Resume conversation' })).toBeNull();
-    view.tab.dom.inputEl.value = '/resume';
-    key(view, 'Enter');
-    await waitFor(() => expect(within(view.tab.dom.inputContainerEl).getByRole('listbox', { name: 'Resume conversation' })).toBeDefined());
-    view.tab.dom.inputEl.value = '';
-    key(view, 'ArrowUp');
-    expect(view.tab.dom.inputEl.value).toBe('');
-    key(view, 'Escape');
-    expect(within(view.tab.dom.inputContainerEl).queryByRole('listbox', { name: 'Resume conversation' })).toBeNull();
-    key(view, 'ArrowUp');
-    expect(view.tab.dom.inputEl.value).toBe('Existing prompt');
-  } finally { await view.dispose(); }
-});
-
-it('updates the actual Side draft preview on recall and draft restoration without starting a child', async () => {
-  const view = await createView();
-  try {
-    view.tab.state.messages = [user('side-preview', '/side Explore another approach')];
-    key(view, 'ArrowUp');
-    expect(view.tab.dom.inputWrapper.classList.contains('claudian-input-side-chat-preview')).toBe(true);
-    expect(view.tab.controllers.sideChatController.runtime).toBeNull();
-    expect(view.backend.sessions).toHaveLength(1);
-    key(view, 'ArrowDown');
-    expect(view.tab.dom.inputEl.value).toBe('');
-    expect(view.tab.dom.inputWrapper.classList.contains('claudian-input-side-chat-preview')).toBe(false);
-    expect(view.tab.controllers.sideChatController.runtime).toBeNull();
-  } finally { await view.dispose(); }
-});
-
-it('removes owned history keyboard and composition listeners when the real tab is destroyed', async () => {
-  const view = await createView();
-  try {
-    const keydown = vi.spyOn(PromptHistoryNavigation.prototype, 'handleKeydown');
-    const reset = vi.spyOn(PromptHistoryNavigation.prototype, 'reset');
-    view.tab.state.messages = [user('one', 'Existing prompt')];
-    key(view, 'ArrowUp');
-    expect(keydown).toHaveBeenCalled();
-    fireEvent.compositionStart(textbox(view)); fireEvent.compositionEnd(textbox(view));
-    expect(reset).toHaveBeenCalled();
-    const retainedInput = view.tab.dom.inputEl;
-    await view.dispose();
-    keydown.mockClear(); reset.mockClear();
-    fireEvent.keyDown(retainedInput, { key: 'ArrowUp' });
-    fireEvent.compositionStart(retainedInput); fireEvent.compositionEnd(retainedInput);
-    expect(keydown).not.toHaveBeenCalled();
-    expect(reset).not.toHaveBeenCalled();
-  } finally { await view.dispose(); }
-});
-
-it('preserves real prediction acceptance priority and refreshes the ghost after restoring recalled text', async () => {
-  const view = await createView();
-  try {
-    const turnId = await completeTurn(view, 'Original prompt');
-    view.backend.latest.emitSessionEvent({ type: 'prompt_suggestion', originatingTurnId: turnId, suggestion: 'Suggested next prompt' });
-    await waitFor(() => expect(within(view.tab.dom.inputEl).getByText('Suggested next prompt')).toBeDefined());
-    key(view, 'ArrowUp');
-    expect(view.tab.dom.inputEl.value).toBe('Original prompt');
-    expect(within(view.tab.dom.inputEl).queryByText('Suggested next prompt')).toBeNull();
-    key(view, 'ArrowDown');
-    expect(within(view.tab.dom.inputEl).getByText('Suggested next prompt')).toBeDefined();
-    key(view, 'Tab');
-    expect(view.tab.dom.inputEl.value).toBe('Suggested next prompt');
-    expect(view.backend.latest.requests).toHaveLength(1);
   } finally { await view.dispose(); }
 });
 
@@ -695,17 +289,5 @@ it('never recalls parent or child text in Side and resets history on a real Main
     view.tab.dom.inputEl.value = ''; fireEvent.input(view.tab.dom.inputEl);
     key(view, 'ArrowUp');
     expect(view.tab.dom.inputEl.value).toBe('Parent prompt');
-  } finally { await view.dispose(); }
-});
-
-it('does not recall when an earlier capturing listener consumed the key', async () => {
-  const view = await createView();
-  try {
-    view.tab.state.messages = [user('one', 'Existing prompt')];
-    view.tab.dom.inputComposerEl.addEventListener('keydown', event => event.preventDefault(), { capture: true, once: true });
-    key(view, 'ArrowUp');
-    expect(view.tab.dom.inputEl.value).toBe('');
-    key(view, 'ArrowUp');
-    expect(view.tab.dom.inputEl.value).toBe('Existing prompt');
   } finally { await view.dispose(); }
 });

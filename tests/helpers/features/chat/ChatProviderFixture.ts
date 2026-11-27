@@ -1,104 +1,28 @@
 import { FakeSession } from '@test/helpers/ChatExecutionHarness';
-import { BUILT_IN_PROVIDER_MODULES } from '@test/helpers/registeredCodex';
 
-import type { ProviderExecutionBackend, ProviderSessionConfig } from '@/core/execution';
-import { RuntimeCommandCatalog } from '@/core/providers/commands/RuntimeCommandCatalog';
-import { getProviderConfig, setProviderConfig } from '@/core/providers/providerConfig';
 import { ProviderRegistry } from '@/core/providers/ProviderRegistry';
 import { ProviderWorkspaceRegistry } from '@/core/providers/ProviderWorkspaceRegistry';
-import type { ProviderCapabilities, ProviderChatUIConfig, ProviderCommandLoader, ProviderConversationHistoryService, ProviderId, ProviderModelPolicy, ProviderModule, ProviderUIOption, ProviderWorkspaceRegistration, ProviderWorkspaceServices } from '@/core/providers/types';
+import { codexProviderRegistration } from '@/providers/codex/registration';
 
-export interface ChatTestProviderOptions {
-  models?: readonly ProviderUIOption[];
-  capabilities?: Partial<ProviderCapabilities>;
-  modelPolicy?: Partial<ProviderModelPolicy>;
-  chatUIConfig?: Partial<ProviderChatUIConfig>;
-  historyService?: Partial<ProviderConversationHistoryService>;
-  workspace?: ProviderWorkspaceServices;
-  initialize?: ProviderWorkspaceRegistration['initialize'];
-}
-
-/** Real registries and provider policies; only provider replies/catalog inputs cross a controlled boundary. */
-export function registerChatTestProvider(providerId: ProviderId, options: ChatTestProviderOptions = {}) {
-  const base = BUILT_IN_PROVIDER_MODULES[0];
-  const isBuiltIn = providerId === base.id;
+/** Keep Codex model and UI policies real; replace native execution in the view tests. */
+export function registerChatTestProvider() {
   const sessions: FakeSession[] = [];
-  const createSession = vi.fn((config: ProviderSessionConfig) => {
-    const session = new FakeSession(providerId, `${providerId}-session-${sessions.length + 1}`);
-    sessions.push(session);
-    return session;
-  });
-  const backend: ProviderExecutionBackend = { providerId, createSession };
-  const models = options.models;
-  const modelPolicy: ProviderModelPolicy = {
-    ...base.modelPolicy,
-    ...(models ? {
-      getModelOptions: () => [...models],
-      getDefaultModel: () => models[0]?.value ?? null,
-      ownsModel: (model: string) => models.some(option => option.value === model),
-      normalizeModelVariant: (model: string) => model,
-    } : {}),
-    ...options.modelPolicy,
-  };
-  const history = {
-    ...base.historyService,
-    buildForkProviderState: vi.fn<ProviderConversationHistoryService['buildForkProviderState']>(() => ({ fork: true })),
-    hydrateConversationHistory: vi.fn<ProviderConversationHistoryService['hydrateConversationHistory']>(async () => {
-      throw new Error('Supply native history hydration for this test.');
-    }),
-    resolveSessionIdForConversation: base.historyService.resolveSessionIdForConversation.bind(base.historyService),
-    isPendingForkConversation: base.historyService.isPendingForkConversation.bind(base.historyService),
-    ...options.historyService,
-  } satisfies ProviderConversationHistoryService;
-  const catalog = new RuntimeCommandCatalog({
-    dropdownConfig: { providerId, triggerChars: ['/'], builtInPrefix: '/', skillPrefix: '/', commandPrefix: '/' },
-    projectEntry: command => ({
-      ...command, providerId, kind: 'command', scope: 'runtime', source: 'sdk',
-      isEditable: false, isDeletable: false, displayPrefix: '/', insertPrefix: '/',
+  const workspace = { initialize: async () => ({}) };
+  ProviderRegistry.register('codex', {
+    ...codexProviderRegistration,
+    createExecutionBackend: () => ({
+      providerId: 'codex',
+      createSession: () => {
+        const session = new FakeSession('codex', `codex-session-${sessions.length + 1}`);
+        sessions.push(session);
+        return session;
+      },
     }),
   });
-  const loadCommands = vi.fn<ProviderCommandLoader['loadCommands']>(async () => ({
-    status: 'ready', items: [{ id: 'review', name: 'review', description: 'Review changes', content: '', source: 'sdk' }],
-  }));
-  const commandLoader: ProviderCommandLoader = {
-    getCacheFingerprint: () => 'commands-v1',
-    isAvailable: () => true,
-    loadCommands,
-  };
-  const workspace: ProviderWorkspaceServices = { commandCatalog: catalog, commandLoader, ...options.workspace };
-  const initialize = vi.fn<ProviderWorkspaceRegistration['initialize']>(options.initialize ?? (async () => workspace));
-  const registration = {
-    ...base,
-    id: providerId,
-    workspace: { initialize },
-    displayName: isBuiltIn ? base.displayName : providerId,
-    isEnabled: settings => isBuiltIn ? base.isEnabled(settings) : getProviderConfig(settings, providerId).enabled !== false,
-    setEnabled: (settings, enabled) => {
-      if (isBuiltIn) base.setEnabled?.(settings, enabled);
-      else setProviderConfig(settings, providerId, { ...getProviderConfig(settings, providerId), enabled });
-    },
-    settingsStorage: isBuiltIn ? base.settingsStorage : { normalizeStored: () => false },
-    modelPolicy,
-    chatUIConfig: { ...base.chatUIConfig, ...modelPolicy, ...options.chatUIConfig },
-    capabilities: { ...base.capabilities, providerId, ...options.capabilities },
-    createExecutionBackend: () => backend,
-    createSubagentHistoryService: undefined,
-    historyService: history,
-  } satisfies ProviderModule;
-  ProviderRegistry.register(providerId, registration);
-  ProviderWorkspaceRegistry.register(providerId, { initialize });
-  let disposed = false;
-  const dispose = async () => {
-    if (disposed) return;
-    disposed = true;
-    // Registries have no per-provider removal; restore the built-ins after releasing test workspaces.
+  ProviderWorkspaceRegistry.register('codex', workspace);
+  onTestFinished(async () => {
     await ProviderWorkspaceRegistry.disposeInitialized();
     ProviderWorkspaceRegistry.clear();
-    for (const registration of BUILT_IN_PROVIDER_MODULES) {
-      ProviderRegistry.register(registration.id, registration);
-      ProviderWorkspaceRegistry.register(registration.id, registration.workspace);
-    }
-  };
-  onTestFinished(dispose);
-  return { backend, sessions, createSession, history, catalog, commandLoader, loadCommands, workspace, initialize, dispose };
+  });
+  return { sessions };
 }

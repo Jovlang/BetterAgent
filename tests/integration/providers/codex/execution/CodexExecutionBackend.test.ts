@@ -1,4 +1,3 @@
-// @test-ci {"native":true}
 import { normalize } from 'node:path';
 
 import { capturedSelections } from '@test/helpers/capturedSelections';

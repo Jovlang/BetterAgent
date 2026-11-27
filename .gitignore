@@ -25,7 +25,6 @@ node_modules/
 coverage/
 *.lcov
 test-results/
-/.mutation/
 
 # Logs and temporary files
 *.log

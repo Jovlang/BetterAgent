@@ -1,6 +1,6 @@
 {
   "name": "betteragent",
-  "version": "2.3.52",
+  "version": "2.3.53",
   "description": "BetterAgent - Codex embedded in Obsidian",
   "main": "main.js",
   "engines": {

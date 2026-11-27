@@ -356,6 +356,24 @@ describe('ClaudianView composer and scoped keys', () => {
     return handler.func(keyEvent, { key, vkey: key, modifiers: '' });
   }
 
+  it('starts a new chat with Ctrl+N only in the composer', async () => {
+    const { manager, contentEl } = await openView();
+    await manager.viewerSlot.show('one');
+    const composerInput = () => within(manager.getActiveTab()!.dom.inputComposerEl)
+      .getByRole('textbox', { name: 'Message' });
+    const input = composerInput();
+    const shortcut = { key: 'n', ctrlKey: true };
+    expect(fireEvent.keyDown(contentEl, shortcut)).toBe(true);
+    input.focus();
+    expect(fireEvent.keyDown(input, { ...shortcut, isComposing: true })).toBe(true);
+    expect(fireEvent.keyDown(input, { ...shortcut, shiftKey: true })).toBe(true);
+    expect(fireEvent.keyDown(input, shortcut)).toBe(false);
+    await waitFor(() => {
+      expect(manager.getActiveTab()?.conversationId).toBeNull();
+      expect(document.activeElement === composerInput()).toBe(true);
+    });
+  });
+
   it('uses one button to send a draft and cancel the resulting turn', async () => {
     const { manager } = await openView({ host: { renameConversation: async () => undefined } }, workspaceState());
     await manager.viewerSlot.show('one');

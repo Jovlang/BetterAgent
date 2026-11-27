@@ -85,7 +85,7 @@ export class ClaudianView extends ItemView {
       isSidebarVisible: () => this.layout.historyVisible,
       flatHistory: true,
       canCreateTab: () => this.tabManager?.canCreateTab() ?? null,
-      requestNew: () => this.requestDualNew(),
+      requestNew: () => this.requestNewConversation(),
       notifyOtherViews: () => this.notifyOtherViews(),
     });
     this.layout = new DualPaneLayout({
@@ -370,6 +370,16 @@ export class ClaudianView extends ItemView {
     this.tabContentEl = chatPanelEl.createDiv({ cls: 'claudian-tab-content-container' });
     const controls = this.buildComposerActions();
     this.presentation.mount(chatPanelEl, controls.actions);
+    // Capture here so the composer's editor keymap cannot claim Ctrl+N first.
+    chatPanelEl.addEventListener('keydown', event => {
+      if (event.defaultPrevented || event.isComposing || event.key.toLowerCase() !== 'n'
+        || !event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) return;
+      const composer = this.tabManager?.getActiveTab()?.dom.inputComposerEl;
+      if (!composer?.contains(event.target as Node)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (!event.repeat) this.requestNewConversation();
+    }, true);
 
     const sidebarEl = containerEl.createDiv({ cls: 'claudian-session-sidebar' });
     this.sessions.mountSidebar(sidebarEl, controls.backEl);
@@ -392,10 +402,8 @@ export class ClaudianView extends ItemView {
     };
 
     const newChat = button('square-pen', t('chat.tabNavigation.newChat'));
-    newChat.addEventListener('click', () => {
-      void this.startNewConversation()
-        .catch(() => new Notice(t('chat.tabNavigation.startConversationFailed')));
-    });
+    newChat.setAttribute('aria-keyshortcuts', 'Control+N');
+    newChat.addEventListener('click', () => this.requestNewConversation());
     const toggleEl = button('history', t('chat.tabNavigation.historyToggle'));
     const more = button('ellipsis', t('chat.tabNavigation.moreActions'));
     more.setAttribute('aria-haspopup', 'menu');
@@ -412,7 +420,7 @@ export class ClaudianView extends ItemView {
     return { actions, backEl, toggleEl };
   }
 
-  private requestDualNew(): void {
+  private requestNewConversation(): void {
     void this.startNewConversation()
       .catch(() => new Notice(t('chat.tabNavigation.startConversationFailed')));
   }

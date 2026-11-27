@@ -1,6 +1,7 @@
 import { Notice, type Plugin } from 'obsidian';
 
 import type { SharedAppStorage } from '@/core/bootstrap/storage';
+import { BETTERAGENT_STORAGE_PATH, LEGACY_CLAUDIAN_STORAGE_PATH } from '@/core/bootstrap/storagePaths';
 import { getInstallationKey, type InstallationKey } from '@/core/device/InstallationKey';
 import { VaultFileAdapter } from '@/core/storage/VaultFileAdapter';
 import type { ClaudianSettings } from '@/core/types';
@@ -28,6 +29,13 @@ export class SharedStorageService implements SharedAppStorage {
   }
 
   async initialize(): Promise<{ claudian: Record<string, unknown> }> {
+    // Rename the private, unindexed data directory before any readers or writers run.
+    if (await this.adapter.exists(LEGACY_CLAUDIAN_STORAGE_PATH)) {
+      if (await this.adapter.exists(BETTERAGENT_STORAGE_PATH)) {
+        throw new Error(`Cannot migrate ${LEGACY_CLAUDIAN_STORAGE_PATH}: ${BETTERAGENT_STORAGE_PATH} already exists`);
+      }
+      await this.adapter.rename(LEGACY_CLAUDIAN_STORAGE_PATH, BETTERAGENT_STORAGE_PATH);
+    }
     // Settings and session recovery touch separate files. Join both even if settings fail.
     const [settings] = await Promise.allSettled([
       this.claudianSettings.load(),

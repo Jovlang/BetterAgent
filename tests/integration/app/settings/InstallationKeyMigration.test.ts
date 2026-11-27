@@ -1,6 +1,6 @@
 import { DesktopVault } from '@test/helpers/core/DesktopVault';
 
-const CLAUDIAN_SETTINGS_PATH = '.claudian/claudian-settings.json';
+const CLAUDIAN_SETTINGS_PATH = '.betteragent/claudian-settings.json';
 let vault: DesktopVault;
 const platform = process.platform;
 let originalSeed: string | null;
